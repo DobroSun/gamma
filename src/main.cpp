@@ -4,7 +4,7 @@
 #include <memory>
 
 #include "gamma/window.hpp"
-#include "gamma/globals.hpp"
+#include "gamma/gamma_factory.hpp"
 
 int main(int argc, char **argv) {
   if(SDL_Init(SDL_INIT_EVERYTHING)) {
@@ -12,7 +12,7 @@ int main(int argc, char **argv) {
     return 1;
   }
   
-  std::unique_ptr<Window> window(new GameWindow());
-  window->run();
-  return 0;
+  std::unique_ptr<GammaFactory> fact(new MainFactory);
+  std::unique_ptr<Window> window(new MainWindow(*fact));
+  return !window->run();
 }

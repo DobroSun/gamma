@@ -1,16 +1,7 @@
-#!/bin/bash
+#!/bin/bash -e
 
-cd build
-if [ -n "$TEST_GAMMA" ]; then
-  sudo cmake -DBUILD_TESTING=ON ..
-  sudo make VERBOSE=1 -j4
-  ./tests/global_tests
-
-  read
-else
-  sudo cmake .. > /dev/null
-  sudo make -j4 > /dev/null
-fi
-
-cd ../
+# TODO:
+# Somehow need to fix no cmake rebuilds.
 sudo cp $(pwd)/gamma /usr/local/bin/
+echo "Compiled"
+read
