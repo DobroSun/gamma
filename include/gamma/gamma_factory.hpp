@@ -7,17 +7,17 @@
 class GammaFactory {
 public:
   virtual ~GammaFactory() {}
-  virtual std::unique_ptr<MainSdlImpl> create_sdl_impl() = 0;
-  virtual std::unique_ptr<MainManager> create_manager() = 0;
+  virtual std::unique_ptr<SdlImpl> create_sdl_impl() = 0;
+  virtual std::unique_ptr<Manager> create_manager() = 0;
 };
 
 
 class MainFactory: public GammaFactory {
 public:
-  std::unique_ptr<MainSdlImpl> create_sdl_impl() {
+  std::unique_ptr<SdlImpl> create_sdl_impl() {
     return std::unique_ptr<MainSdlImpl>(new MainSdlImpl);
   }
-  std::unique_ptr<MainManager> create_manager() {
+  std::unique_ptr<Manager> create_manager() {
     return std::unique_ptr<MainManager>(new MainManager);
   }
 };

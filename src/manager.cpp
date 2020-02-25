@@ -14,8 +14,8 @@ MainManager::~MainManager() {
 }
 
 
-void MainManager::set_state(uint32_t e_type) {
-  if(e_type == SDL_QUIT) {
+void MainManager::set_state(SDL_Event event) {
+  if(event.type == SDL_QUIT) {
     delete state;
     state = new ExitState();
   } else {

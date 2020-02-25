@@ -1,0 +1,12 @@
+#ifndef GAMMA_TESTS_UTILS_HPP
+#define GAMMA_TESTS_UTILS_HPP
+
+#include <iostream>
+
+template<class type, class mocked_type>
+mocked_type get_mocked() {
+  //mocked_type v;
+  return *(dynamic_cast<mocked_type*>(std::forward<type>(pp).get()));
+  return v;
+}
+#endif

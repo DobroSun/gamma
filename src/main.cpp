@@ -4,6 +4,7 @@
 #include <memory>
 
 #include "gamma/window.hpp"
+#include "gamma/window_impl.hpp"
 #include "gamma/gamma_factory.hpp"
 
 int main(int argc, char **argv) {
@@ -13,6 +14,6 @@ int main(int argc, char **argv) {
   }
   
   std::unique_ptr<GammaFactory> fact(new MainFactory);
-  std::unique_ptr<Window> window(new MainWindow(*fact));
+  std::unique_ptr<Window> window(new MainWindow(fact.get()));
   return !window->run();
 }

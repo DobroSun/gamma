@@ -39,18 +39,17 @@ bool ExitWindow::run() {
           return false;
       }
     }
-  } 
+  }
 }
 
 
-MainWindow::MainWindow(GammaFactory &fact): 
+MainWindow::MainWindow(GammaFactory *fact):
     gamma_factory(fact),
-    sdl_impl(fact.create_sdl_impl()),
-    manager(fact.create_manager()),
+    sdl_impl(fact->create_sdl_impl()),
+    manager(fact->create_manager()),
     is_running(true) {}
 
-MainWindow::~MainWindow() {
-}
+MainWindow::~MainWindow() {}
 
 bool MainWindow::run() {
   sdl_impl->set_window_resizable(SDL_TRUE);
@@ -58,7 +57,7 @@ bool MainWindow::run() {
   SDL_Event event;
   while(is_running) {
     while(sdl_impl->poll_event(&event)) {
-      manager->set_state(event.type);
+      manager->set_state(event);
 
       is_running = manager->handle_action();
       if(!is_running) break;
