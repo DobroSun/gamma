@@ -1,0 +1,23 @@
+language: cpp
+
+compiler:
+  - gcc
+env:
+  global:
+    - CXX_FLAGS="-Wall -std=c++17"
+
+before_install:
+  - export CXX_FLAGS=${CXX_FLAGS}
+
+install:
+  - sudo apt-get update && sudo apt-get install -y build-essential gcc g++ cmake libsdl2-dev git
+  - git submodule add git@github.com:google/googletest.git
+  - git submodule init
+  - git submodule update
+
+script:
+  - mkdir build
+  - cd build
+  - cmake ${CXX_FLAGS} -DCMAKE_VERBOSE_MAKEFILE:BOOL=ON -DBUILD_TESTING=ON ..
+  - make
+  - CTEST_OUTPUT_ON_FAILURE=1 make test

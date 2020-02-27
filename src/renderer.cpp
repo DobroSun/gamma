@@ -4,8 +4,6 @@
 #include <cassert>
 
 RendererImpl::RendererImpl(SDL_Window *win) {
-  sdl_renderer = SDL_CreateRenderer(win, -1, 0);
-  assert(sdl_renderer && "Couldn't create renderer");
 }
 
 RendererImpl::~RendererImpl() {

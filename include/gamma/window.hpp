@@ -5,13 +5,17 @@
 #include "gamma/manager.hpp"
 #include "gamma/sdl_impl.hpp"
 
-//template<class T>
 class Window {
 public:
   virtual ~Window() {}
   virtual bool run() = 0;
 
-  //virtual T* get_window_impl() = 0;
+  // FIXME:
+  // Really have to do this for creating every mock test?
+  // That means I need getters for every
+  // Dependence in class?
+  virtual Manager *get_manager() = 0;
+  virtual SdlImpl *get_sdl_impl() = 0;
 };
 
 
@@ -22,21 +26,24 @@ class MainWindow: public Window {
   GammaFactory *gamma_factory;
   std::unique_ptr<SdlImpl> sdl_impl;
   std::unique_ptr<Manager> manager;
-  bool is_running;
 public:
   MainWindow(GammaFactory *fact);
   ~MainWindow();
   bool run();
+
+  Manager *get_manager();
+  SdlImpl *get_sdl_impl();
 };
 
-class IRendererImpl;
-struct SDL_Window;
 class ExitWindow: public Window {
-  IRendererImpl *sdl_renderer;
-  SDL_Window *sdl_win;
+  std::unique_ptr<SdlImpl> sdl_impl;
+  std::unique_ptr<Manager> manager;
 public:
-  ExitWindow();
+  ExitWindow(GammaFactory *fact);
   ~ExitWindow();
   bool run();
+
+  Manager *get_manager();
+  SdlImpl *get_sdl_impl();
 };
 #endif

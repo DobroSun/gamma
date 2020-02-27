@@ -4,6 +4,8 @@
 
 
 class SdlImpl {
+  SDL_Window *win;
+  SDL_Renderer *renderer;
 public:
   virtual ~SdlImpl() {}
   virtual bool poll_event(SDL_Event *event) = 0;
@@ -18,6 +20,16 @@ class MainSdlImpl: public SdlImpl {
 public:
   ~MainSdlImpl();
   MainSdlImpl();
+  bool poll_event(SDL_Event *event);
+  void set_window_resizable(SDL_bool resizable);
+};
+
+class ExitSdlImpl: public SdlImpl {
+  SDL_Window *win;
+  SDL_Renderer *renderer;
+public:
+  ~ExitSdlImpl();
+  ExitSdlImpl();
   bool poll_event(SDL_Event *event);
   void set_window_resizable(SDL_bool resizable);
 };

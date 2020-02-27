@@ -5,7 +5,7 @@
 
 class MockSdlImpl: public SdlImpl {
 public:
-  MOCK_METHOD(bool, poll_event, (SDL_Event* event));
-  MOCK_METHOD(void, set_window_resizable, (SDL_bool resizable));
+  MOCK_METHOD(bool, poll_event, (SDL_Event* event), (override));
+  MOCK_METHOD(void, set_window_resizable, (SDL_bool resizable), (override));
 };
 #endif

@@ -4,7 +4,6 @@
 #include <memory>
 
 #include "gamma/window.hpp"
-#include "gamma/window_impl.hpp"
 #include "gamma/gamma_factory.hpp"
 
 int main(int argc, char **argv) {

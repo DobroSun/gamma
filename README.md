@@ -1,6 +1,4 @@
-# Dependencies
+# Text Redactor
+[![Build Status](https://api.travis-ci.com/DobroSun/gamma.svg?branch=master)](https://api.travis-ci.com/DobroSun/gamma)
 -----
-```sh
-sudo apt-get install libgtest-dev
-sudo apt-get install qt5-default
-```
+* C++ text redactor using only SDL2 library

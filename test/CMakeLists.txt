@@ -9,6 +9,7 @@ set(GOOGLE_MOCK_DIR "${PROJECT_SOURCE_DIR}/third_party/googletest/googlemock")
 add_executable(
   global_tests
     global_test.cpp
+    ExitWindow/test.cpp
     ${GOOGLE_TEST_DIR}/src/gtest-all.cc
     ${GOOGLE_MOCK_DIR}/src/gmock-all.cc
 )

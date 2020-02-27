@@ -1,26 +1,33 @@
 #include "gtest/gtest.h"
 #include "gmock/gmock.h"
-#include <iostream>
-#include <type_traits>
 
 #include "gamma/window.hpp"
 #include "tests/mock_fact.hpp"
 #include "tests/utils.hpp"
-#include <SDL2/SDL.h>
 using namespace ::testing;
+using MainMockFactory = MockFactory<MockManager, MockSdlImpl>;
 
-
-TEST(MyCase, test_closing_window) {
+TEST(NoobyCase, test_return_value) {
 	MockManager *manager; MockSdlImpl *sdl_impl;
+  MainMockFactory factory;
+  
+	std::unique_ptr<Window> win(new MainWindow(&factory));
 
-  std::unique_ptr<GammaFactory> factory(new MockFactory());
-	std::unique_ptr<Window> win(new MainWindow(factory.get()));
-/*
-	manager = win->get_manager();
-	sdl_impl = win->get_sdl_impl();
-*/
-  win->run();
-  //.WillByDefault(Invoke(&Add, &MockAdd::add_real));
+	manager = dynamic_cast<MockManager*>(win->get_manager());
+	sdl_impl = dynamic_cast<MockSdlImpl*>(win->get_sdl_impl());
+
+  ON_CALL(*sdl_impl, set_window_resizable)
+    .WillByDefault(Return());
+
+  ON_CALL(*sdl_impl, poll_event)
+    .WillByDefault(Return(true));
+  ON_CALL(*manager, set_state)
+    .WillByDefault(Return());
+  ON_CALL(*manager, handle_action)
+    .WillByDefault(Return(false));
+
+  bool result = win->run();
+  ASSERT_EQ(!result, 0);
 }
 
 

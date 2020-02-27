@@ -18,4 +18,13 @@ public:
   void set_state(SDL_Event event);
   bool handle_action();
 };
+
+class ExitManager: public Manager {
+  ActionState *state;
+public:
+  ~ExitManager();
+  ExitManager();
+  void set_state(SDL_Event event);
+  bool handle_action();
+};
 #endif

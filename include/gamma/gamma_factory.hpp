@@ -14,11 +14,23 @@ public:
 
 class MainFactory: public GammaFactory {
 public:
+  ~MainFactory() {}
   std::unique_ptr<SdlImpl> create_sdl_impl() {
-    return std::unique_ptr<MainSdlImpl>(new MainSdlImpl);
+    return std::unique_ptr<SdlImpl>(new MainSdlImpl);
   }
   std::unique_ptr<Manager> create_manager() {
-    return std::unique_ptr<MainManager>(new MainManager);
+    return std::unique_ptr<Manager>(new MainManager);
+  }
+};
+
+class ExitFactory: public GammaFactory {
+public:
+  ~ExitFactory() {}
+  std::unique_ptr<SdlImpl> create_sdl_impl() {
+    return std::unique_ptr<SdlImpl>(new ExitSdlImpl);
+  }
+  std::unique_ptr<Manager> create_manager() {
+    return std::unique_ptr<Manager>(new ExitManager);
   }
 };
 #endif

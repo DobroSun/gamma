@@ -1,7 +1,3 @@
-//
-#include "gamma/renderer.hpp"
-#include "gamma/globals.hpp"
-//
 #include "gamma/window.hpp"
 #include "gamma/gamma_factory.hpp"
 
@@ -12,46 +8,51 @@
 #include <memory>
 
 
-ExitWindow::ExitWindow() {
-  sdl_win = SDL_CreateWindow("Are you sure want to exit?",
-                  SDL_WINDOWPOS_CENTERED,
-                  SDL_WINDOWPOS_CENTERED,
-                  400, 200, 0);
-  assert(sdl_win && "Couldn't create window");
+ExitWindow::ExitWindow(GammaFactory *fact):
+  sdl_impl(fact->create_sdl_impl()),
+  manager(fact->create_manager()) {}
 
-  // Abstract factory?
-  // Just Why?
-  sdl_renderer = new RendererImpl(sdl_win);
-}
+ExitWindow::~ExitWindow() {}
 
-ExitWindow::~ExitWindow() {
-  SDL_DestroyWindow(sdl_win);
-  delete sdl_renderer;
-}
-
+Manager *ExitWindow::get_manager() {
+  return manager.get();
+};
+SdlImpl *ExitWindow::get_sdl_impl() {
+  return sdl_impl.get();
+};
 
 bool ExitWindow::run() {
+  bool is_running = true;
   SDL_Event event;
-  while(1) {
-    while(SDL_PollEvent(&event)) {
-      if(event.type == SDL_WINDOWEVENT &&
-         event.window.event == SDL_WINDOWEVENT_CLOSE) {
-          return false;
-      }
+  while(is_running) {
+    while(sdl_impl->poll_event(&event)) {
+      manager->set_state(event);
+
+      is_running = manager->handle_action();
+      if(!is_running) break;
     }
   }
+  return is_running;
 }
 
 
 MainWindow::MainWindow(GammaFactory *fact):
     gamma_factory(fact),
     sdl_impl(fact->create_sdl_impl()),
-    manager(fact->create_manager()),
-    is_running(true) {}
+    manager(fact->create_manager()) {}
+
 
 MainWindow::~MainWindow() {}
 
+Manager *MainWindow::get_manager() {
+  return manager.get();
+};
+SdlImpl *MainWindow::get_sdl_impl() {
+  return sdl_impl.get();
+};
+
 bool MainWindow::run() {
+  bool is_running = true;
   sdl_impl->set_window_resizable(SDL_TRUE);
 
   SDL_Event event;

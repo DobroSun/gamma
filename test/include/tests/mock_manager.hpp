@@ -6,8 +6,8 @@
 union SDL_Event;
 class MockManager: public Manager {
 public:
-  MOCK_METHOD(void, set_state, (SDL_Event event));
-  MOCK_METHOD(bool, handle_action, ());
+  MOCK_METHOD(void, set_state, (SDL_Event event), (override));
+  MOCK_METHOD(bool, handle_action, (), (override));
 };
 
 #endif
