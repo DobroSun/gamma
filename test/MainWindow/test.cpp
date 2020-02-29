@@ -21,8 +21,6 @@ TEST(MainWindowCase, test_return_value1) {
   
   ON_CALL(*sdl_impl, poll_event)
     .WillByDefault(Return(true));
-  ON_CALL(*sdl_impl, set_window_resizable)
-    .WillByDefault(Return());
   ON_CALL(*manager, handle_action)
     .WillByDefault(Return(false));
   

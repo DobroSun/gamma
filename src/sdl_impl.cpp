@@ -2,15 +2,17 @@
 #include "gamma/globals.hpp"
 
 #include <cassert>
+#include <stdint.h>
 
 
 // FIXME:
 // Somehow refactor copying methods.
 MainSdlImpl::MainSdlImpl() {
+  uint32_t flags = SDL_WINDOW_RESIZABLE;
   win = SDL_CreateWindow("",
               SDL_WINDOWPOS_CENTERED,
               SDL_WINDOWPOS_CENTERED,
-              WIDTH, HEIGHT, 0);
+              WIDTH, HEIGHT, flags);
   renderer = SDL_CreateRenderer(win, -1, 0);
   
   assert(win && "Couldn't create window");
@@ -28,19 +30,16 @@ bool MainSdlImpl::poll_event(SDL_Event &event) {
   return SDL_PollEvent(&event);
 }
 
-void MainSdlImpl::set_window_resizable(SDL_bool resizable) {
-  SDL_SetWindowResizable(win, resizable);
-}
-
 bool MainSdlImpl::is_current_win(SDL_Event &event) {
   return (SDL_GetWindowID(win) == event.window.windowID);
 };
 
 ExitSdlImpl::ExitSdlImpl() {
+  uint32_t flags = 0;
   win = SDL_CreateWindow("Are you sure want to exit?",
                   SDL_WINDOWPOS_CENTERED,
                   SDL_WINDOWPOS_CENTERED,
-                  400, 200, 0);
+                  400, 200, flags);
   renderer = SDL_CreateRenderer(win, -1, 0);
   
   assert(win && "Couldn't create window");
@@ -56,10 +55,6 @@ ExitSdlImpl::~ExitSdlImpl() {
 
 bool ExitSdlImpl::poll_event(SDL_Event &event) {
   return SDL_PollEvent(&event);
-}
-
-void ExitSdlImpl::set_window_resizable(SDL_bool resizable) {
-  SDL_SetWindowResizable(win, resizable);
 }
 
 bool ExitSdlImpl::is_current_win(SDL_Event &event) {

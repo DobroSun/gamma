@@ -16,8 +16,6 @@ TEST(NoobyCase, test_return_value) {
 	manager = dynamic_cast<MockManager*>(win->get_manager());
 	sdl_impl = dynamic_cast<MockSdlImpl*>(win->get_sdl_impl());
 
-  ON_CALL(*sdl_impl, set_window_resizable)
-    .WillByDefault(Return());
 
   ON_CALL(*sdl_impl, poll_event)
     .WillByDefault(Return(true));

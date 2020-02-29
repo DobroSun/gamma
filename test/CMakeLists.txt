@@ -29,8 +29,10 @@ target_link_libraries(
   global_tests
     pthread
     libbb
-    ${SDL2_LIBRARIES}
-    ${SDL2_IMAGE_LIBRARIES}
+
+    # During travis run it lefts 
+    # trails in macroses and cmake fails.
+    "${SDL2_LIBRARIES} ${SDL2_IMAGE_LIBRARIES}"
 )
 
 add_test(NAME exe_tests

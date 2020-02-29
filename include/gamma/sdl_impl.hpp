@@ -8,7 +8,6 @@ public:
   virtual ~SdlImpl() {}
   virtual bool poll_event(SDL_Event &event) = 0;
   virtual bool is_current_win(SDL_Event &event) = 0;
-  virtual void set_window_resizable(SDL_bool resizable) = 0;
 };
 
 struct SDL_Window;
@@ -21,7 +20,6 @@ public:
   MainSdlImpl();
   bool poll_event(SDL_Event &event);
   bool is_current_win(SDL_Event &event);
-  void set_window_resizable(SDL_bool resizable);
 };
 
 class ExitSdlImpl: public SdlImpl {
@@ -32,6 +30,5 @@ public:
   ExitSdlImpl();
   bool poll_event(SDL_Event &event);
   bool is_current_win(SDL_Event &event);
-  void set_window_resizable(SDL_bool resizable);
 };
 #endif

@@ -58,7 +58,6 @@ SdlImpl *MainWindow::get_sdl_impl() {
 
 bool MainWindow::run() {
   bool is_running = true;
-  sdl_impl->set_window_resizable(SDL_TRUE);
 
   SDL_Event event;
   while(is_running) {

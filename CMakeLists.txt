@@ -10,6 +10,18 @@ find_package(SDL2 REQUIRED)
 find_package(SDL2_image REQUIRED)
 include_directories(${SDL2_INCLUDE_DIRS} ${SDL2_IMAGE_INCLUDE_DIRS})
 
+if(${SDL2_FOUND})
+  message(STATUS "Found SDL2 library: ${SDL2_LIBRARIES}.")
+else()
+  message(STATUS "Not found SDL2.")
+endif()
+if(${SDL2_IMAGE_FOUND})
+  message(STATUS "Found SDL2_image library: ${SDL2_IMAGE_LIBRARIES}.")
+else()
+  message(STATUS "Not found SDL2_image.")
+endif()
+
+
 add_subdirectory(src)
 
 if(BUILD_TESTING)
@@ -22,4 +34,4 @@ add_executable(
     src/main.cpp
 )
 
-target_link_libraries(main libbb ${SDL2_LIBRARIES} ${SDL2_IMAGE_LIBRARIES})
+target_link_libraries(main libbb "${SDL2_LIBRARIES} ${SDL2_IMAGE_LIBRARIES}")
