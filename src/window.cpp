@@ -9,8 +9,11 @@
 
 
 ExitWindow::ExitWindow(GammaFactory *fact):
-  sdl_impl(fact->create_sdl_impl()),
-  manager(fact->create_manager()) {}
+    sdl_impl(fact->create_sdl_impl()),
+    manager(fact->create_manager()) {
+  assert(sdl_impl && "SdlImpl hasn't been initialized!");
+  assert(manager && "Manager hasn't been initialized!");
+}
 
 ExitWindow::~ExitWindow() {}
 
@@ -25,8 +28,8 @@ bool ExitWindow::run() {
   bool is_running = true;
   SDL_Event event;
   while(is_running) {
-    while(sdl_impl->poll_event(&event)) {
-      manager->set_state(event);
+    while(sdl_impl->poll_event(event)) {
+      manager->set_state(*sdl_impl, event);
 
       is_running = manager->handle_action();
       if(!is_running) break;
@@ -39,8 +42,10 @@ bool ExitWindow::run() {
 MainWindow::MainWindow(GammaFactory *fact):
     gamma_factory(fact),
     sdl_impl(fact->create_sdl_impl()),
-    manager(fact->create_manager()) {}
-
+    manager(fact->create_manager()) {
+  assert(sdl_impl && "SdlImpl hasn't been initialized!");
+  assert(manager && "Manager hasn't been initialized!");
+}
 
 MainWindow::~MainWindow() {}
 
@@ -57,8 +62,8 @@ bool MainWindow::run() {
 
   SDL_Event event;
   while(is_running) {
-    while(sdl_impl->poll_event(&event)) {
-      manager->set_state(event);
+    while(sdl_impl->poll_event(event)) {
+      manager->set_state(*sdl_impl, event);
 
       is_running = manager->handle_action();
       if(!is_running) break;

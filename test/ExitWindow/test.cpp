@@ -21,6 +21,8 @@ TEST(ExitWindowCase, test_return_value) {
 
   ON_CALL(*sdl_impl, poll_event).
     WillByDefault(Return(true));
+  ON_CALL(*sdl_impl, is_current_win).
+    WillByDefault(Return(true));
 
   manager->RealSetState();
   manager->RealHandleAction();

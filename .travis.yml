@@ -2,6 +2,7 @@ language: cpp
 
 compiler:
   - gcc
+
 env:
   global:
     - CXX_FLAGS="-Wall -std=c++17"
@@ -10,10 +11,8 @@ before_install:
   - export CXX_FLAGS=${CXX_FLAGS}
 
 install:
-  - sudo apt-get update && sudo apt-get install -y build-essential gcc g++ cmake libsdl2-dev git
-  - git submodule add git@github.com:google/googletest.git
-  - git submodule init
-  - git submodule update
+  - sudo apt-get update && sudo apt-get install -y build-essential gcc g++ cmake libsdl2-dev
+
 
 script:
   - mkdir build

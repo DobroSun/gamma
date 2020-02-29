@@ -3,18 +3,9 @@
 
 #include <cassert>
 
-/*
-bool SdlImpl::poll_event(SDL_Event *event) {
-  std::cout << "LOL" << std::endl;
-  return SDL_PollEvent(event);
-}
 
-void SdlImpl::set_window_resizable(SDL_bool resizable) {
-  SDL_SetWindowResizable(win, resizable);
-}
-*/
-
-
+// FIXME:
+// Somehow refactor copying methods.
 MainSdlImpl::MainSdlImpl() {
   win = SDL_CreateWindow("",
               SDL_WINDOWPOS_CENTERED,
@@ -33,13 +24,17 @@ MainSdlImpl::~MainSdlImpl() {
   SDL_DestroyRenderer(renderer);
 }
 
-bool MainSdlImpl::poll_event(SDL_Event *event) {
-  return SDL_PollEvent(event);
+bool MainSdlImpl::poll_event(SDL_Event &event) {
+  return SDL_PollEvent(&event);
 }
 
 void MainSdlImpl::set_window_resizable(SDL_bool resizable) {
   SDL_SetWindowResizable(win, resizable);
 }
+
+bool MainSdlImpl::is_current_win(SDL_Event &event) {
+  return (SDL_GetWindowID(win) == event.window.windowID);
+};
 
 ExitSdlImpl::ExitSdlImpl() {
   win = SDL_CreateWindow("Are you sure want to exit?",
@@ -59,12 +54,14 @@ ExitSdlImpl::~ExitSdlImpl() {
   SDL_DestroyRenderer(renderer);
 }
 
-
-bool ExitSdlImpl::poll_event(SDL_Event *event) {
-  return SDL_PollEvent(event);
+bool ExitSdlImpl::poll_event(SDL_Event &event) {
+  return SDL_PollEvent(&event);
 }
 
 void ExitSdlImpl::set_window_resizable(SDL_bool resizable) {
   SDL_SetWindowResizable(win, resizable);
 }
 
+bool ExitSdlImpl::is_current_win(SDL_Event &event) {
+  return (SDL_GetWindowID(win) == event.window.windowID);
+};

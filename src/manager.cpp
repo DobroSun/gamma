@@ -17,7 +17,7 @@ MainManager::~MainManager() {
 }
 
 
-void MainManager::set_state(SDL_Event event) {
+void MainManager::set_state(SdlImpl &sdl_impl, SDL_Event &event) {
   assert(state && "Cannot delete not existing state!");
   if(event.type == SDL_QUIT) {
 
@@ -40,10 +40,11 @@ ExitManager::~ExitManager() {
   delete state;
 }
 
-void ExitManager::set_state(SDL_Event event) {
+void ExitManager::set_state(SdlImpl &sdl_impl, SDL_Event &event) {
   assert(state && "Cannot delete not existing state!");
   if(event.type == SDL_WINDOWEVENT &&
-     event.window.event == SDL_WINDOWEVENT_CLOSE) {
+     event.window.event == SDL_WINDOWEVENT_CLOSE &&
+     sdl_impl.is_current_win(event)) {
     
     delete state;
     state = new QuitState();

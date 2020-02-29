@@ -15,11 +15,11 @@ add_subdirectory(src)
 if(BUILD_TESTING)
   enable_testing()
   add_subdirectory(test)
-else()
-  add_executable(
-    main
-      src/main.cpp
-  )
-
-  target_link_libraries(main libbb ${SDL2_LIBRARIES} ${SDL2_IMAGE_LIBRARIES})
 endif()
+
+add_executable(
+  main
+    src/main.cpp
+)
+
+target_link_libraries(main libbb ${SDL2_LIBRARIES} ${SDL2_IMAGE_LIBRARIES})
