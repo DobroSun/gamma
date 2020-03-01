@@ -6,6 +6,8 @@ add_library(
     sdl_impl.cpp
     action_state.cpp
     manager.cpp
+    canvas.cpp
+    widget.cpp
 )
 
 target_include_directories(

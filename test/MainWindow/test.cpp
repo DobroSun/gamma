@@ -1,13 +1,12 @@
 #include "gtest/gtest.h"
 #include "gmock/gmock.h"
 
-#include "main_mock_sdl.hpp"
-#include "main_mock_manager.hpp"
 #include "tests/mock_fact.hpp"
 #include "gamma/window.hpp"
+#include "deps.hpp"
 
 using namespace ::testing;
-using MainMockFactory = MockFactory<MainMockManager, MainMockSdlImpl>;
+using MainMockFactory = MockFactory<MainMockManager, MainMockSdlImpl, MainMockCanvas>;
 
 TEST(MainWindowCase, test_return_value1) {
   MainMockManager *manager; MainMockSdlImpl *sdl_impl;

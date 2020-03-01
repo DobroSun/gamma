@@ -3,9 +3,9 @@
 
 #include "gamma/window.hpp"
 #include "tests/mock_fact.hpp"
-#include "tests/utils.hpp"
+
 using namespace ::testing;
-using MainMockFactory = MockFactory<MockManager, MockSdlImpl>;
+using MainMockFactory = MockFactory<MockManager, MockSdlImpl, MockCanvas>;
 
 TEST(NoobyCase, test_return_value) {
 	MockManager *manager; MockSdlImpl *sdl_impl;

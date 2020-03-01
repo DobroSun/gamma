@@ -1,10 +1,12 @@
-#ifndef GAMMA_TESTS_EXIT_MOCK_MANAGER_HPP
-#define GAMMA_TESTS_EXIT_MOCK_MANAGER_HPP
+#ifndef GAMMA_TESTS_EXITWINDOW_DEPS_HPP
+#define GAMMA_TESTS_EXITWINDOW_DEPS_HPP
 #include "tests/mock_manager.hpp"
+#include "tests/mock_sdl.hpp"
+#include "tests/mock_canvas.hpp"
+
 #include "gamma/manager.hpp"
 #include "gmock/gmock.h"
 #include <SDL2/SDL.h>
-#include <iostream>
 using namespace ::testing;
 
 class SdlImpl;
@@ -27,5 +29,11 @@ public:
         return real.handle_action();
       });
   }
+};
+
+class ExitMockSdlImpl: public MockSdlImpl {
+};
+
+class ExitMockCanvas: public MockCanvas {
 };
 #endif

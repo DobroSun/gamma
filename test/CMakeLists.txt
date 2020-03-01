@@ -10,6 +10,7 @@ add_executable(
     global_test.cpp
     ExitWindow/test.cpp
     MainWindow/test.cpp
+    Manager/test.cpp
     ${GOOGLE_TEST_DIR}/src/gtest-all.cc
     ${GOOGLE_MOCK_DIR}/src/gmock-all.cc
 )
@@ -31,7 +32,7 @@ target_link_libraries(
     libbb
 
     # During travis run it lefts 
-    # trails in macroses and cmake fails.
+    # trailing spaces in macroses, then cmake fails.
     "${SDL2_LIBRARIES} ${SDL2_IMAGE_LIBRARIES}"
 )
 

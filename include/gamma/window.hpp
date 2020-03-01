@@ -2,9 +2,10 @@
 #define GAMMA_WINDOW_HPP
 #include <memory>
 
-#include "gamma/manager.hpp"
-#include "gamma/sdl_impl.hpp"
-
+class SdlImpl;
+class Manager;
+class Canvas;
+class GammaFactory;
 class Window {
 public:
   virtual ~Window() {}
@@ -16,16 +17,15 @@ public:
   // Dependence in class?
   virtual Manager *get_manager() = 0;
   virtual SdlImpl *get_sdl_impl() = 0;
+  virtual Canvas *get_canvas() = 0;
 };
 
 
-class SdlImpl;
-class Manager;
-class GammaFactory;
 class MainWindow: public Window {
   GammaFactory *gamma_factory;
   std::unique_ptr<SdlImpl> sdl_impl;
   std::unique_ptr<Manager> manager;
+  std::unique_ptr<Canvas> canvas;
 public:
   MainWindow(GammaFactory *fact);
   ~MainWindow();
@@ -33,11 +33,13 @@ public:
 
   Manager *get_manager();
   SdlImpl *get_sdl_impl();
+  Canvas *get_canvas();
 };
 
 class ExitWindow: public Window {
   std::unique_ptr<SdlImpl> sdl_impl;
   std::unique_ptr<Manager> manager;
+  std::unique_ptr<Canvas> canvas;
 public:
   ExitWindow(GammaFactory *fact);
   ~ExitWindow();
@@ -45,5 +47,6 @@ public:
 
   Manager *get_manager();
   SdlImpl *get_sdl_impl();
+  Canvas *get_canvas();
 };
 #endif

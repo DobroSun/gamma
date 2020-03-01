@@ -1,12 +1,11 @@
 #include "gtest/gtest.h"
 #include "gmock/gmock.h"
 
-#include "exit_mock_sdl_impl.hpp"
-#include "exit_mock_manager.hpp"
 #include "tests/mock_fact.hpp"
 #include "gamma/window.hpp"
+#include "deps.hpp"
 
-using ExitMockFactory = MockFactory<ExitMockManager, ExitMockSdlImpl>;
+using ExitMockFactory = MockFactory<ExitMockManager, ExitMockSdlImpl, ExitMockCanvas>;
 
 TEST(ExitWindowCase, test_return_value) {
   ExitMockManager *manager; ExitMockSdlImpl *sdl_impl;
