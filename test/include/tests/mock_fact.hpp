@@ -6,19 +6,18 @@
 #include "tests/mock_canvas.hpp"
 
 #include "gmock/gmock.h"
-#include <memory>
 
 template<class MockManagerRealization, class MockSdlImplRealization, class MockCanvasRealization>
 class MockFactory: public GammaFactory {
 public:
-  std::unique_ptr<SdlImpl> create_sdl_impl() {
-    return std::make_unique<MockSdlImplRealization>();
+  SdlImpl *create_sdl_impl() {
+    return new MockSdlImplRealization;
   }
-  std::unique_ptr<Manager> create_manager() {
-    return std::make_unique<MockManagerRealization>();
+  Manager *create_manager() {
+    return new MockManagerRealization;
   }
-  std::unique_ptr<Canvas> create_canvas() {
-    return std::make_unique<MockCanvasRealization>();
+  Canvas *create_canvas() {
+    return new MockCanvasRealization;
   }
 };
 #endif

@@ -1,9 +1,8 @@
+#include "gamma/pch.hpp"
+
 #include "gamma/widget.hpp"
 #include "gamma/globals.hpp"
 #include "gamma/sdl_impl.hpp"
-
-#include <cassert>
-#include <iostream>
 
 void GreyBackGround::update(SdlImpl &sdl_impl) {
   sdl_impl.set_draw_color(GREY);

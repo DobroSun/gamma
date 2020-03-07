@@ -1,8 +1,8 @@
+#include "gamma/pch.hpp"
+
 #include "gamma/action_state.hpp"
 #include "gamma/gamma_factory.hpp"
 #include "gamma/window.hpp"
-
-#include <cassert>
 
 ExitState::ExitState(GammaFactory *fact_): fact(fact_) {}
 ExitState::~ExitState() {

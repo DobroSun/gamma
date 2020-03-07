@@ -1,6 +1,5 @@
 #ifndef GAMMA_WIDGET_HPP
 #define GAMMA_WIDGET_HPP
-#include <type_traits>
 #include <memory>
 #include <vector>
 

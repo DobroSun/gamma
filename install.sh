@@ -1,10 +1,10 @@
 #!/bin/bash -e
 
 
-mkdir -p build
+sudo mkdir -p build
 cd build
-cmake -DBUILD_TESTING=ON -Wall ..
-make VERBOSE=1
+sudo cmake -DBUILD_TESTING=ON -Wall ..
+sudo make VERBOSE=1
 ./test/global_tests
 cd -
 

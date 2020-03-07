@@ -3,42 +3,41 @@
 #include "gamma/sdl_impl.hpp"
 #include "gamma/manager.hpp"
 #include "gamma/canvas.hpp"
-#include <memory>
 
 class GammaFactory {
 public:
   virtual ~GammaFactory() {}
-  virtual std::unique_ptr<SdlImpl> create_sdl_impl() = 0;
-  virtual std::unique_ptr<Manager> create_manager() = 0;
-  virtual std::unique_ptr<Canvas> create_canvas() = 0;
+  virtual SdlImpl *create_sdl_impl() = 0;
+  virtual Manager *create_manager() = 0;
+  virtual Canvas *create_canvas() = 0;
 };
 
 
 class MainFactory: public GammaFactory {
 public:
   ~MainFactory() {}
-  std::unique_ptr<SdlImpl> create_sdl_impl() {
-    return std::unique_ptr<SdlImpl>(new MainSdlImpl);
+  SdlImpl *create_sdl_impl() {
+    return new MainSdlImpl;
   }
-  std::unique_ptr<Manager> create_manager() {
-    return std::unique_ptr<Manager>(new MainManager);
+  Manager *create_manager() {
+    return new MainManager;
   }
-  std::unique_ptr<Canvas> create_canvas() {
-    return std::unique_ptr<Canvas>(new MainCanvas);
+  Canvas *create_canvas() {
+    return new MainCanvas;
   }
 };
 
 class ExitFactory: public GammaFactory {
 public:
   ~ExitFactory() {}
-  std::unique_ptr<SdlImpl> create_sdl_impl() {
-    return std::unique_ptr<SdlImpl>(new ExitSdlImpl);
+  SdlImpl *create_sdl_impl() {
+    return new ExitSdlImpl;
   }
-  std::unique_ptr<Manager> create_manager() {
-    return std::unique_ptr<Manager>(new ExitManager);
+  Manager *create_manager() {
+    return new ExitManager;
   }
-  std::unique_ptr<Canvas> create_canvas() {
-    return std::unique_ptr<Canvas>(new ExitCanvas);
+  Canvas *create_canvas() {
+    return new ExitCanvas;
   }
 };
 #endif

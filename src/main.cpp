@@ -1,7 +1,4 @@
-#include <SDL2/SDL.h>
-#include <SDL2/SDL_image.h>
-#include <iostream>
-#include <memory>
+#include "gamma/pch.hpp"
 
 #include "gamma/window.hpp"
 #include "gamma/gamma_factory.hpp"

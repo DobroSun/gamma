@@ -1,11 +1,9 @@
+#include "gamma/pch.hpp"
+
 #include "gamma/gamma_factory.hpp"
 #include "gamma/action_state.hpp"
 #include "gamma/manager.hpp"
 
-#include <SDL2/SDL.h>
-#include <iostream>
-#include <cassert>
-#include <memory>
 
 MainManager::MainManager(): 
     state(new DefaultState) {

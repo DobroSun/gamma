@@ -1,8 +1,7 @@
+#include "gamma/pch.hpp"
+
 #include "gamma/canvas.hpp"
 #include "gamma/widget.hpp"
-
-#include <cassert>
-#include <iostream>
 
 void MainCanvas::init(SdlImpl &sdl_impl) {
   back_ground = std::move(std::unique_ptr<Widget>(new GreyBackGround));

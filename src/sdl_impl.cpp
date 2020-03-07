@@ -1,10 +1,7 @@
+#include "gamma/pch.hpp"
+
 #include "gamma/sdl_impl.hpp"
 #include "gamma/globals.hpp"
-
-#include <cassert>
-#include <stdint.h>
-
-#include <SDL2/SDL_image.h>
 
 // FIXME:
 // Somehow refactor copying methods.
@@ -53,8 +50,8 @@ void MainSdlImpl::render_rect(SDL_Texture *texture, const SDL_Rect *DstRect, con
   SDL_RenderCopy(renderer, texture, NULL, DstRect);
 }
 
-SDL_Texture *MainSdlImpl::make_texture(std::string &path) {
-  SDL_Surface *image = IMG_Load((GAMMA_ASSETS_PATH+path).c_str());
+SDL_Texture *MainSdlImpl::make_texture(std::string &name) {
+  SDL_Surface *image = IMG_Load((assets::path+name).c_str());
   SDL_Texture *texture = SDL_CreateTextureFromSurface(renderer, image);
   SDL_FreeSurface(image);
   return texture;
@@ -105,8 +102,8 @@ void ExitSdlImpl::render_rect(SDL_Texture *texture, const SDL_Rect *DstRect, con
   SDL_RenderCopy(renderer, texture, NULL, DstRect);
 }
 
-SDL_Texture *ExitSdlImpl::make_texture(std::string &path) {
-  SDL_Surface *image = IMG_Load((GAMMA_ASSETS_PATH+path).c_str());
+SDL_Texture *ExitSdlImpl::make_texture(std::string &name) {
+  SDL_Surface *image = IMG_Load((assets::path+name).c_str());
   SDL_Texture *texture = SDL_CreateTextureFromSurface(renderer, image);
   SDL_FreeSurface(image);
   return texture;

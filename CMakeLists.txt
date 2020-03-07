@@ -2,6 +2,17 @@ cmake_minimum_required(VERSION 3.5)
 
 project(gamma)
 
+function(add_precompiled_header precompiled_header precompiled_source source)
+  set_source_files_properties(${precompiled_source}
+      PROPERTIES COMPILE_FLAGS "/Yc${precompiled_header}")
+  
+  foreach(file ${${source}})
+    set_source_files_properties(${file}
+      PROPERTIES COMPILE_FLAGS "/Yu${precompiled_header}")
+  endforeach()
+  set(${source} ${${source}};${precompiled_source} PARENT_SCOPE)
+endfunction()
+
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -std=c++17")
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/modules")

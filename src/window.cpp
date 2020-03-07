@@ -1,11 +1,7 @@
+#include "gamma/pch.hpp"
+
 #include "gamma/window.hpp"
 #include "gamma/gamma_factory.hpp"
-
-
-#include <SDL2/SDL.h>
-#include <iostream>
-#include <cassert>
-#include <memory>
 
 
 ExitWindow::ExitWindow(GammaFactory *fact):
