@@ -5,9 +5,7 @@ project(gamma)
 
 set(GAMMA_INCLUDE_DIR "${PROJECT_SOURCE_DIR}/include")
 set(GAMMA_INCLUDE_FULL_DIR "${GAMMA_INCLUDE_DIR}/gamma")
-
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -std=c++17")
-set(TMP_CXX_FLAGS ${CMAKE_CXX_FLAGS})
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/modules")
 
 
@@ -26,7 +24,7 @@ else()
   message(STATUS "Not found SDL2_image.")
 endif()
 
-
+include(PrecompiledHeader)
 add_subdirectory(src)
 
 if(BUILD_TESTING)

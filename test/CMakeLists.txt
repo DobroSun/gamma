@@ -28,14 +28,13 @@ target_include_directories(
 
 set(precompiled_header_name "test_pch.hpp")
 set(ADDITIONAL_FLAGS "-I${GOOGLE_TEST_DIR} -I${GOOGLE_MOCK_DIR} -I${GOOGLE_TEST_DIR}/include -I${GOOGLE_MOCK_DIR}/include -I${GAMMA_INCLUDE_DIR}")
-create_pch_target(
+add_pch_target(
     precompile_gamma_test_header
     "${GAMMA_INCLUDE_TEST_FULL_DIR}/${precompiled_header_name}"
     ${ADDITIONAL_FLAGS}
 )
 
 add_dependencies(global_tests precompile_gamma_test_header)
-add_dependencies(libbb precompile_gamma_header)
 target_link_libraries(
   global_tests
     pthread

@@ -51,7 +51,7 @@ void MainSdlImpl::render_rect(SDL_Texture *texture, const SDL_Rect *DstRect, con
 }
 
 SDL_Texture *MainSdlImpl::make_texture(std::string &name) {
-  SDL_Surface *image = IMG_Load((assets::path+name).c_str());
+  SDL_Surface *image = IMG_Load((assets_path+name).c_str());
   SDL_Texture *texture = SDL_CreateTextureFromSurface(renderer, image);
   SDL_FreeSurface(image);
   return texture;
@@ -103,7 +103,7 @@ void ExitSdlImpl::render_rect(SDL_Texture *texture, const SDL_Rect *DstRect, con
 }
 
 SDL_Texture *ExitSdlImpl::make_texture(std::string &name) {
-  SDL_Surface *image = IMG_Load((assets::path+name).c_str());
+  SDL_Surface *image = IMG_Load((assets_path+name).c_str());
   SDL_Texture *texture = SDL_CreateTextureFromSurface(renderer, image);
   SDL_FreeSurface(image);
   return texture;
