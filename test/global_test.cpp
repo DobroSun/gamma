@@ -1,5 +1,4 @@
-#include "gtest/gtest.h"
-#include "gmock/gmock.h"
+#include "tests/test_pch.hpp"
 
 #include "gamma/window.hpp"
 #include "tests/mock_fact.hpp"

@@ -2,7 +2,7 @@
 #define GAMMA_PRECOMPILED_HEADER_HPP
 
 #include <memory>
-#include <assert>
+#include <cassert>
 #include <iostream>
 #include <vector>
 #include <string>
@@ -10,5 +10,5 @@
 #include <stdint.h>
 
 #include <SDL2/SDL.h>
-#include <SDL_image.h>
+#include <SDL2/SDL_image.h>
 #endif

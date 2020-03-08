@@ -2,20 +2,14 @@ cmake_minimum_required(VERSION 3.5)
 
 project(gamma)
 
-function(add_precompiled_header precompiled_header precompiled_source source)
-  set_source_files_properties(${precompiled_source}
-      PROPERTIES COMPILE_FLAGS "/Yc${precompiled_header}")
-  
-  foreach(file ${${source}})
-    set_source_files_properties(${file}
-      PROPERTIES COMPILE_FLAGS "/Yu${precompiled_header}")
-  endforeach()
-  set(${source} ${${source}};${precompiled_source} PARENT_SCOPE)
-endfunction()
 
+set(GAMMA_INCLUDE_DIR "${PROJECT_SOURCE_DIR}/include")
+set(GAMMA_INCLUDE_FULL_DIR "${GAMMA_INCLUDE_DIR}/gamma")
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -std=c++17")
+set(TMP_CXX_FLAGS ${CMAKE_CXX_FLAGS})
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/modules")
+
 
 find_package(SDL2 REQUIRED)
 find_package(SDL2_image REQUIRED)
