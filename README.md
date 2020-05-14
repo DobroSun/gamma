@@ -1,4 +1,5 @@
-# Text Editor
-[![Build Status](https://api.travis-ci.com/DobroSun/gamma.svg?branch=master)](https://travis-ci.com/DobroSun/gamma)
+# Gamma
+-----
+# Text Viewer
 -----
 * C++ text redactor using only SDL2 library
