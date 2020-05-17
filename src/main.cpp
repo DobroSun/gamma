@@ -1,12 +1,13 @@
 #include "gamma/pch.h"
 #include "gamma/globals.h"
 #include "gamma/utility.h"
-#include "gamma/load_surf.h"
 
 
 std::string filename;
 SDL_Window *win = nullptr;
 SDL_Renderer *renderer = nullptr;
+
+using String = std::vector<std::string>;
 
 
 int Init_SDL() {
@@ -25,6 +26,18 @@ void read_args(int argc, char **argv) {
   filename = (argc < 2)? "": argv[1];
 }
 
+
+/*
+enum threebool {
+  yes,
+  no,
+  none,
+};
+*/
+
+struct TextureCache {
+  std::vector<SDL_Texture *> textures;
+};
 
 
 
@@ -46,6 +59,8 @@ int main(int argc, char **argv) {
                          Width, Height, 
                          SDL_WINDOW_RESIZABLE);
   renderer = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
+  TextureCache cache;
+  String buffer;
 
   // Bug; sets only width == height.
   SDL_SetWindowMinimumSize(win, 300, 300);
@@ -53,20 +68,17 @@ int main(int argc, char **argv) {
 
 
   // Loading file in memory.
-  std::string input, acc;
-  std::vector<SDL_Texture *> textures;
+  std::string input;
   while(std::getline(file, input)) {
-    acc += input + "\n";
-
-    textures.push_back(load_text(input+"\n", "Quicksand-Regular.ttf", ptsize, WhileColor));
+    buffer.push_back(input+"\n");
   }
-
 
 
 
   int start = 0; // for scrolling text.
   bool done = false;
   while(!done) {
+
       SDL_Event e;
       if(SDL_PollEvent(&e)) {
         switch(e.type) {
@@ -82,11 +94,14 @@ int main(int argc, char **argv) {
 
           case SDL_MOUSEWHEEL:
             if(e.wheel.y > 0) {
-              start -= (start < 2)? 0: 2;
+              start -= (start < scroll_speed)? 0: scroll_speed;
 
             } else if(e.wheel.y < 0) {
-              start += ((unsigned)start > textures.size()-totalrows()-6)? 0: 2;
-              // Why -6? It just works!
+              int total = buffer.size()-numrows();
+              int speed = (total-start < scroll_speed)? total-start: scroll_speed;
+
+              assert(start <= total);
+              start += (start == total)? 0: speed;
 
             }
             break;
@@ -104,21 +119,34 @@ int main(int argc, char **argv) {
       SDL_RenderClear(renderer);
 
 
+      // On each iteration we are rerendering every texture,
+      // even though some of them were used in previous loop.
+      // TODO: Cache used ones.
+
+
       int texW = 0, texH = 0;
-      // Copying all textures even those that aren't on window.
-      for(int i = start, j = 0; (unsigned)i < textures.size(); i++, j++) {
-        SDL_QueryTexture(textures[i], nullptr, nullptr, &texW, &texH);
-        SDL_Rect dst {TextLeftBound, TextUpperBound+j*ptsize + blines, texW, texH};
-        SDL_RenderCopy(renderer, textures[i], nullptr, &dst);
+      assert((unsigned)start+numrows() <= buffer.size());
+      for(int i = start, j = 0; i < start+numrows(); i++, j++) {
+        assert(j < numrows());
+
+
+        // Rendering text.
+        auto &line = buffer[i];
+        auto txt = load_text(line, orig_font, ptsize, WhileColor);
+
+        SDL_QueryTexture(txt, nullptr, nullptr, &texW, &texH);
+        SDL_Rect dst {TextLeftBound, TextUpperBound+j*(ptsize + blines), texW, texH};
+        SDL_RenderCopy(renderer, txt, nullptr, &dst);
+
+        // Destroying texture.
+        SDL_DestroyTexture(txt);
       }
 
       SDL_RenderPresent(renderer);
   };
+  
 
-
-
-
-  for(auto &txt: textures) {
+  for(auto &txt: cache.textures) {
     SDL_DestroyTexture(txt);
   }
   SDL_DestroyRenderer(renderer);

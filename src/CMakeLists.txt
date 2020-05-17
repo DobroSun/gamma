@@ -3,7 +3,6 @@ cmake_minimum_required(VERSION 3.5)
 
 set(libbb_source
   utility.cpp
-  load_surf.cpp
 )
 
 add_library(
