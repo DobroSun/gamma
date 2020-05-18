@@ -1,13 +1,14 @@
 cmake_minimum_required(VERSION 3.5)
 
 
-set(libbb_source
+set(gamma_source
   utility.cpp
+  cache.cpp
 )
 
 add_library(
-  libbb STATIC
-  ${libbb_source}
+  libgamma STATIC
+  ${gamma_source}
 )
 
 set(precompiled_header_name "pch.h")
@@ -17,8 +18,8 @@ add_pch_target(
     ""
 )
 
-add_dependencies(libbb precompile_gamma_header)
+add_dependencies(libgamma precompile_gamma_header)
 target_include_directories(
-  libbb PUBLIC
+  libgamma PUBLIC
     ${GAMMA_INCLUDE_DIR}
 )

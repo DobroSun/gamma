@@ -43,4 +43,4 @@ add_executable(
     src/main.cpp
 )
 
-target_link_libraries(main libbb "${SDL2_LIBRARIES} ${SDL2_IMAGE_LIBRARIES} ${SDL2_TTF_LIBRARIES}")
+target_link_libraries(main libgamma "${SDL2_LIBRARIES} ${SDL2_IMAGE_LIBRARIES} ${SDL2_TTF_LIBRARIES}")

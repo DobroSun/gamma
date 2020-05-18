@@ -3,11 +3,11 @@
 #include "gamma/globals.h"
 extern SDL_Renderer *renderer;
 
-int numrows() {
+char numrows() {
   return (Height - TextUpperBound - TextBottomBound) / (ptsize+blines);
 }
-int totalrows() {
-  return Height / (ptsize+blines);
+char maxnumrows() {
+  return (MaxHeight - TextUpperBound - TextBottomBound) / (ptsize+blines);
 }
 
 /*
@@ -35,4 +35,8 @@ SDL_Texture *load_text(const std::string &text, const std::string &path, int pts
     std::cerr << "Error creating texture from rendered surface!" << std::endl;
   }
   return txt;
+}
+
+SDL_Texture *load_normal(const std::string &text) {
+  return load_text(text, orig_font, ptsize, WhileColor);
 }

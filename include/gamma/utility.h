@@ -7,9 +7,11 @@ struct SDL_Texture;
 struct SDL_Color;
 // Forward decls.
 
-int numrows();
-int totalrows();
+
+char numrows();
+char maxnumrows();
 
 SDL_Texture *load_bmp(const std::string &path);
 SDL_Texture *load_text(const std::string &text, const std::string &path, int ptsize, const SDL_Color &color);
+SDL_Texture *load_normal(const std::string &text);
 #endif
