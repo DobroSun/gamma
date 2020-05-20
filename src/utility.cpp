@@ -2,25 +2,19 @@
 #include "gamma/utility.h"
 #include "gamma/globals.h"
 extern SDL_Renderer *renderer;
+extern TTF_Font *gfont;
 
 char numrows() {
   return (Height - TextUpperBound - TextBottomBound) / (ptsize+blines);
 }
-char maxnumrows() {
-  return (MaxHeight - TextUpperBound - TextBottomBound) / (ptsize+blines);
-}
 
-/*
-SDL_Texture *load_bmp(const std::string &path) {
-  SDL_Surface *bmps = SDL_LoadBMP((assets_images+path).c_str());
-  SDL_Texture *txt = SDL_CreateTextureFromSurface(renderer, bmps);
-  SDL_FreeSurface(bmps);
-  return txt;
-}
-*/
 
-SDL_Texture *load_text(const std::string &text, const std::string &path, int ptsize, const SDL_Color &color) {
+
+SDL_Texture *load_texture(const std::string &text, const std::string &path, int ptsize, const SDL_Color &color) {
   TTF_Font *font = TTF_OpenFont((assets_fonts+path).c_str(), ptsize);
+  if(!font) {
+    std::cerr << "Error creating font from given path and size!" << std::endl;
+  }
   SDL_Surface *surf = TTF_RenderText_Solid(font, text.c_str(), color);
   TTF_CloseFont(font);
 
@@ -28,15 +22,29 @@ SDL_Texture *load_text(const std::string &text, const std::string &path, int pts
     std::cerr << "Error rendering given text!" << std::endl;
   }
 
+
   SDL_Texture *txt = SDL_CreateTextureFromSurface(renderer, surf);
   SDL_FreeSurface(surf);
-
   if(!txt) {
     std::cerr << "Error creating texture from rendered surface!" << std::endl;
   }
   return txt;
 }
 
-SDL_Texture *load_normal(const std::string &text) {
-  return load_text(text, orig_font, ptsize, WhileColor);
+SDL_Texture *load_courier(const std::string &text, const SDL_Color &color) {
+  SDL_Surface *surf = TTF_RenderText_Solid(gfont, text.c_str(), color);
+
+  // For CuriorFont this 2 are failing, have no clue why.
+/*
+  if(!surf) {
+    std::cerr << "Error rendering given text!" << std::endl;
+  }
+  if(!txt) {
+    std::cerr << "Error creating texture from rendered surface!" << std::endl;
+  }
+*/
+
+  SDL_Texture *txt = SDL_CreateTextureFromSurface(renderer, surf);
+  SDL_FreeSurface(surf);
+  return txt;
 }

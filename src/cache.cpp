@@ -1,8 +1,8 @@
+/*
 #include "gamma/pch.h"
 #include "gamma/cache.h"
 #include "gamma/globals.h"
 #include "gamma/utility.h"
-
 
 void TextureCache::push_right(SDL_Texture *p) {
   if(cached.size() >= (unsigned)maxsize)
@@ -48,7 +48,7 @@ template<>
 void update_on_scroll<true>(TextureCache &cache, const String &buffer, const int start) {
   for(int k = 0; k < scroll_speed; k++) {
     if(start+numrows()+k == (int)buffer.size()) break;
-    cache.push_right(load_normal(buffer[start+numrows()+k]));
+    cache.push_right(load_text(buffer[start+numrows()+k]));
   }
 }
 
@@ -56,6 +56,7 @@ template<>
 void update_on_scroll<false>(TextureCache &cache, const String &buffer, const int start) {
   for(int k = 0; k < scroll_speed; k++) {
     if(start == 0) break;
-    cache.push_left(load_normal(buffer[start-k-1]));
+    cache.push_left(load_text(buffer[start-k-1]));
   }
 }
+*/

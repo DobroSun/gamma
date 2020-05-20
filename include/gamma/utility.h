@@ -9,9 +9,7 @@ struct SDL_Color;
 
 
 char numrows();
-char maxnumrows();
 
-SDL_Texture *load_bmp(const std::string &path);
-SDL_Texture *load_text(const std::string &text, const std::string &path, int ptsize, const SDL_Color &color);
-SDL_Texture *load_normal(const std::string &text);
+SDL_Texture *load_texture(const std::string &text, const std::string &path, int ptsize, const SDL_Color &color);
+SDL_Texture *load_courier(const std::string &text, const SDL_Color &color);
 #endif
