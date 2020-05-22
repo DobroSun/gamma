@@ -1,6 +1,7 @@
 #include "gamma/pch.h"
 #include "gamma/utility.h"
 #include "gamma/globals.h"
+
 extern SDL_Renderer *renderer;
 extern TTF_Font *gfont;
 
@@ -34,7 +35,7 @@ SDL_Texture *load_texture(const std::string &text, const std::string &path, int 
 SDL_Texture *load_courier(const std::string &text, const SDL_Color &color) {
   SDL_Surface *surf = TTF_RenderText_Solid(gfont, text.c_str(), color);
 
-  // For CuriorFont this 2 are failing, have no clue why.
+  // FIXME: For CuriorFont this 2 are failing, have no clue why.
 /*
   if(!surf) {
     std::cerr << "Error rendering given text!" << std::endl;

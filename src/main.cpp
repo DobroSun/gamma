@@ -2,17 +2,13 @@
 #include "gamma/globals.h"
 #include "gamma/utility.h"
 #include "gamma/timer.h"
+#include "gamma/cursor.h"
 
 
-
-SDL_Window *win = nullptr;
 SDL_Renderer *renderer = nullptr;
 TTF_Font *gfont = nullptr;
-
-
-std::string filename;
-Uint64 start = 0; // line from which updating text starts.
-int tw = 0, th = 0; // used in texture quering.
+int tw = 0, th = 0; // Junks for texture quering.
+Uint64 start = 0; // first line of used visible text in buffer.
 
 
 int Init_SDL() {
@@ -27,63 +23,43 @@ int Init_SDL() {
   return 0;
 }
 
-void read_args(int argc, char **argv) {
-  filename = (argc < 2)? "": argv[1];
+std::string read_args(int argc, char **argv) {
+  return (argc < 2)? "": argv[1];
 }
 
 
 
-struct Cursor {
-  int i, j;
-};
-
-bool in_buffer(const String &buffer, const Cursor &cursor) {
-  return cursor.i >= 0 && cursor.j >= 0 &&
-         cursor.i < buffer.size() && cursor.j < buffer[0].size();
-}
 bool in_buffer(double x, double y) {
-  return y >= TextUpperBound && x >= TextLeftBound;
-}
-
-Cursor get_pos(double x, double y) {
-  Cursor ret;
-
-  // Start of text buffer.
-  auto xx = x - TextLeftBound;
-  auto yy = y - TextUpperBound;
-
-  ret.i = xx;
-  ret.j = yy + start;
-  return ret;
+  return y >= TextUpperBound && x >= TextLeftBound && y < Height - TextBottomBound;
 }
 
 
 
 
 
-std::string str(char k) {
-  return {k};
-}
-std::string str(std::string &k) {
-  return k;
-}
-std::string str(const char *k) {
-  return {k};
-}
+void LoadFile(String &buffer, std::vector<SDL_Texture *> &textures, std::fstream &file) {
+  std::string input; unsigned count = 0;
+  while(std::getline(file, input)) {
+    buffer.push_back(input);
 
-SDL_Texture *get_cursored(const String buffer, const Cursor &c) {
-  SDL_Surface *t = TTF_RenderText_Shaded(gfont, str(buffer[c.i][c.j]).c_str(), WhiteColor, BlackColor);
-  SDL_Texture *cc = SDL_CreateTextureFromSurface(renderer, t);
-  SDL_FreeSurface(t);
-  return cc;
-}
+    // Prerender visible text.
+    if(count < (unsigned)numrows()) {
+      textures.push_back(load_courier(input, BlackColor));
+      count++;
+    }
+  }
+  textures.reserve(buffer.size());
 
+  for( ; count < buffer.size(); count++) {
+    textures[count] = load_courier(buffer[count], BlackColor);
+  }
+}
 
 
 
 int main(int argc, char **argv) {
   if(Init_SDL()) return 1;
-  read_args(argc, argv);
+  auto filename =  read_args(argc, argv);
 
   std::fstream file{filename};
   if(!file) {
@@ -93,106 +69,105 @@ int main(int argc, char **argv) {
 
 
 
-
-  win = SDL_CreateWindow("Gamma",
+  SDL_Window *win = SDL_CreateWindow("Gamma",
                          SDL_WINDOWPOS_CENTERED, 
                          SDL_WINDOWPOS_CENTERED, 
                          Width, Height, 
                          SDL_WINDOW_RESIZABLE);
   renderer = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
   gfont = TTF_OpenFont((assets_fonts+courier).c_str(), ptsize);
-  int fw, fh;
   std::vector<SDL_Texture *> textures;
   String buffer;
   Cursor cursor{0, 0};
 
+  int fw, fh;
 
   // Starts timer to update the cursor.
-  StartTimer();
+  SDL_TimerID cursor_timer = StartTimer(300);
+  SDL_SetWindowMinimumSize(win, 300, 300); // Bug; sets only width == height.
+  TTF_SizeText(gfont, "G", &fw, &fh);
   
 
 
-  // Bug; sets only width == height.
-  SDL_SetWindowMinimumSize(win, 300, 300);
-  TTF_SizeText(gfont, "G", &fw, &fh);
-
-
-
-
   // Loading file in memory.
-  std::string input; int count = 0;
-  while(std::getline(file, input)) {
-    buffer.push_back(input);
-
-    // Prerender visible text.
-    if(count < numrows()) {
-      textures.push_back(load_courier(input, BlackColor));
-      count++;
-    }
-  }
-  textures.reserve(buffer.size());
-
-  // Have to do this in other thread.
-  for( ; count < buffer.size(); count++) {
-    textures[count] = load_courier(buffer[count], BlackColor);
-  }
-
-
-
-  SDL_Texture *cursor_txt = get_cursored(buffer, cursor);
+  // TODO: Load in multiple threads.
+  LoadFile(buffer, textures, file);
 
 
 
 
-
+  SDL_Texture *cursor_texture = init_cursor(buffer, cursor);
   bool done = false;
   while(!done) {
       SDL_Event e;
       if(SDL_PollEvent(&e)) {
         switch(e.type) {
-          case SDL_QUIT:
+          case SDL_QUIT: {
             done = true;
-            break;
+          } break;
+            
 
 
           case SDL_MOUSEBUTTONDOWN: {
             auto &button = e.button;
             if(button.button == SDL_BUTTON_LEFT) {
               auto x = button.x; auto y = button.y;
+
               if(in_buffer(x, y)) {
-                cursor = std::move(get_pos(x, y)); // FIXME: Not sure whether it is copy or move.
+                cursor = get_pos(buffer, x, y, fw);
+                cursor_texture = render_cursor(cursor_texture, buffer, cursor);
               }
             }
-            break;
-          }
+            cursor = fix_cursor(buffer, cursor); // If cursor is out of buffer, it is set to the end of line.
+            cursor_texture = render_cursor(cursor_texture, buffer, cursor);
+          } break;
   
-          case SDL_KEYDOWN:
+          case SDL_KEYDOWN: {
             if(e.key.keysym.sym == SDLK_ESCAPE) {
               done = true;
             }
-						break;
+          } break;
+						
 
           case SDL_MOUSEWHEEL: {
+          // Bug: When scrolling down/up if cursor.i == scroll_speed; cursor is moving with window down/up.
+
+            // Scrolling up/down.
             auto &wheel = e.wheel;
             if(wheel.y > 0) {
               start -= (start < scroll_speed)? start: scroll_speed;
 
 
+              if(start == 0) break; // HACK: rewrite without this check. if start == 0 cursor still moves down.
+              int diff = numrows() - cursor.i - 1;
+              cursor.i += (diff < scroll_speed)? diff: scroll_speed;
+
+
+
+
             } else if(wheel.y < 0) {
-              int total = buffer.size()-numrows(); int ts = total-start;
+              unsigned total = buffer.size()-numrows(); int ts = total-start;
               int speed = (ts < scroll_speed)? ts: scroll_speed;
               start += (start == total)? 0: speed;
 
-            } else {
-            }
-            break;
-          }
+              if(cursor.i != start) {
+                cursor.i -= (cursor.i < scroll_speed)? cursor.i: scroll_speed;
+              }
+              // MighFail:
+              // cursor.i finally becomes 0 and don't changes.
+              // might fail with another scroll_speed.
 
-          case SDL_WINDOWEVENT:
+
+            }
+            cursor = fix_cursor(buffer, cursor); // If scrolls, cursor may take the position > size of line.
+            cursor_texture = render_cursor(cursor_texture, buffer, cursor);
+          } break;
+
+          case SDL_WINDOWEVENT: {
             if(e.window.event == SDL_WINDOWEVENT_RESIZED) {
               SDL_GetWindowSize(win, &Width, &Height);
             }
-            break;
+          } break;
         }
       }
 
@@ -210,15 +185,14 @@ int main(int argc, char **argv) {
         SDL_RenderCopy(renderer, txt, nullptr, &dst);
 
       }
-      timer::update_cursor(cursor_txt, cursor, fw);
-
-
-
+      timer::update_cursor(cursor_texture, cursor, fw);
       SDL_RenderPresent(renderer);
   }
   
-
-  SDL_DestroyTexture(cursor_txt);
+  // TODO: Check whether I even need it or not.
+  // Why freeing if programm ends.
+  SDL_RemoveTimer(cursor_timer);
+  SDL_DestroyTexture(cursor_texture);
   for(auto &txt: textures) {
     SDL_DestroyTexture(txt);
   }

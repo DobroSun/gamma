@@ -9,7 +9,7 @@ struct Cursor {
 
 namespace timer {
   bool is_shown = true;
-  void update_fake(SDL_Texture *, const Cursor &, int width) {
+  void update_fake(SDL_Texture *, const Cursor &, int) {
   }
 
   void update_real(SDL_Texture *t, const Cursor &c, int width) {
@@ -29,5 +29,11 @@ namespace timer {
     is_shown = !is_shown;
     return interval;
   }
-
 }; // namespace
+
+SDL_TimerID StartTimer(Uint32 delay) {
+  Uint32 junk = 0;
+  timer::update_cursor = timer::update_real;
+  SDL_TimerID cursortimer = SDL_AddTimer(delay, (callback)timer::change_cursor_state, &junk);
+  return cursortimer;
+}

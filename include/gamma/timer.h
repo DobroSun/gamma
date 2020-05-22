@@ -1,6 +1,7 @@
 #ifndef GAMMA_TIMER_H
 #define GAMMA_TIMER_H
 using Uint32 = unsigned int;
+extern SDL_Renderer *renderer;
 typedef Uint32 (*callback)(Uint32, void*);
 struct SDL_Texture;
 struct Cursor;
@@ -14,11 +15,5 @@ namespace timer {
   Uint32 change_cursor_state(Uint32 interval);
 };
 
-
-#define StartTimer() \
-  Uint32 delay_show = 500; \
-  timer::update_cursor = timer::update_real; \ 
-  SDL_TimerID cursortimer = SDL_AddTimer(delay_show, (callback)timer::change_cursor_state, &start); \ 
-  (void)cursortimer;
-
+SDL_TimerID StartTimer(Uint32);
 #endif

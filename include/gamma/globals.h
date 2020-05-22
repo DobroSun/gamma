@@ -13,7 +13,7 @@ inline char ptsize = 25;
 inline char blines = 5;
 inline char fsize = ptsize+blines;
 
-inline char scroll_speed = 3;
+inline unsigned char scroll_speed = 3;
 
 const std::string assets_images = "../assets/images/";
 const std::string assets_fonts = "../assets/fonts/";

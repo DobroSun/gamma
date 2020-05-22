@@ -2,4 +2,4 @@
 -----
 # Code Viewer
 -----
-* C++ text redactor using only SDL2 library
+* C++ text editor using only SDL2 library
