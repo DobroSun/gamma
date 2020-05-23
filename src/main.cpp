@@ -3,6 +3,7 @@
 #include "gamma/utility.h"
 #include "gamma/timer.h"
 #include "gamma/cursor.h"
+#include "gamma/view.h"
 
 
 SDL_Renderer *renderer = nullptr;
@@ -96,97 +97,102 @@ int main(int argc, char **argv) {
 
 
 
-  SDL_Texture *cursor_texture = init_cursor(buffer, cursor);
+  buffer_view b_view(buffer, 0, 0);
+  SDL_Texture *cursor_texture = init_cursor(b_view, cursor);
+
+
   bool done = false;
   while(!done) {
-      SDL_Event e;
-      if(SDL_PollEvent(&e)) {
-        switch(e.type) {
-          case SDL_QUIT: {
+    textures_view t_view(textures, start);
+
+    SDL_Event e;
+    if(SDL_PollEvent(&e)) {
+      switch(e.type) {
+        case SDL_QUIT: {
+          done = true;
+        } break;
+          
+
+
+        case SDL_MOUSEBUTTONDOWN: {
+          auto &button = e.button;
+          if(button.button == SDL_BUTTON_LEFT) {
+            auto x = button.x; auto y = button.y;
+
+            if(in_buffer(x, y)) {
+              cursor = get_pos(x, y, fw);
+            }
+          }
+          cursor = fix_cursor(b_view, cursor); // If cursor is out of buffer, it is set to the end of line.
+        } break;
+
+        case SDL_KEYDOWN: {
+          if(e.key.keysym.sym == SDLK_ESCAPE) {
             done = true;
-          } break;
-            
+          }
+        } break;
+          
+
+        case SDL_MOUSEWHEEL: {
+        // Bug: When scrolling down/up if cursor.i == scroll_speed; cursor is moving with window down/up.
+
+          // Scrolling up/down.
+          auto &wheel = e.wheel;
+          if(wheel.y > 0) {
+            start -= (start < scroll_speed)? start: scroll_speed;
 
 
-          case SDL_MOUSEBUTTONDOWN: {
-            auto &button = e.button;
-            if(button.button == SDL_BUTTON_LEFT) {
-              auto x = button.x; auto y = button.y;
+            if(start == 0) break; // HACK: rewrite without this check. if start == 0 cursor still moves down.
+            int diff = numrows() - cursor.i - 1;
+            cursor.i += (diff < scroll_speed)? diff: scroll_speed;
 
-              if(in_buffer(x, y)) {
-                cursor = get_pos(buffer, x, y, fw);
-                cursor_texture = render_cursor(cursor_texture, buffer, cursor);
-              }
+
+
+
+          } else if(wheel.y < 0) {
+            unsigned total = buffer.size()-numrows(); int ts = total-start;
+            int speed = (ts < scroll_speed)? ts: scroll_speed;
+            start += (start == total)? 0: speed;
+
+            if(cursor.i != start) {
+              cursor.i -= (cursor.i < scroll_speed)? cursor.i: scroll_speed;
             }
-            cursor = fix_cursor(buffer, cursor); // If cursor is out of buffer, it is set to the end of line.
-            cursor_texture = render_cursor(cursor_texture, buffer, cursor);
-          } break;
-  
-          case SDL_KEYDOWN: {
-            if(e.key.keysym.sym == SDLK_ESCAPE) {
-              done = true;
-            }
-          } break;
-						
-
-          case SDL_MOUSEWHEEL: {
-          // Bug: When scrolling down/up if cursor.i == scroll_speed; cursor is moving with window down/up.
-
-            // Scrolling up/down.
-            auto &wheel = e.wheel;
-            if(wheel.y > 0) {
-              start -= (start < scroll_speed)? start: scroll_speed;
+            // MighFail:
+            // cursor.i finally becomes 0 and don't changes.
+            // might fail with another scroll_speed.
 
 
-              if(start == 0) break; // HACK: rewrite without this check. if start == 0 cursor still moves down.
-              int diff = numrows() - cursor.i - 1;
-              cursor.i += (diff < scroll_speed)? diff: scroll_speed;
+          }
+          cursor = fix_cursor(b_view, cursor); // If scrolls, cursor may take the position > size of line.
+        } break;
 
-
-
-
-            } else if(wheel.y < 0) {
-              unsigned total = buffer.size()-numrows(); int ts = total-start;
-              int speed = (ts < scroll_speed)? ts: scroll_speed;
-              start += (start == total)? 0: speed;
-
-              if(cursor.i != start) {
-                cursor.i -= (cursor.i < scroll_speed)? cursor.i: scroll_speed;
-              }
-              // MighFail:
-              // cursor.i finally becomes 0 and don't changes.
-              // might fail with another scroll_speed.
-
-
-            }
-            cursor = fix_cursor(buffer, cursor); // If scrolls, cursor may take the position > size of line.
-            cursor_texture = render_cursor(cursor_texture, buffer, cursor);
-          } break;
-
-          case SDL_WINDOWEVENT: {
-            if(e.window.event == SDL_WINDOWEVENT_RESIZED) {
-              SDL_GetWindowSize(win, &Width, &Height);
-            }
-          } break;
-        }
+        case SDL_WINDOWEVENT: {
+          if(e.window.event == SDL_WINDOWEVENT_RESIZED) {
+            SDL_GetWindowSize(win, &Width, &Height);
+          }
+        } break;
       }
+    }
 
-      // Background color.
-      SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255); 
-      SDL_RenderClear(renderer);
+    b_view.start_i = start;
+    cursor_texture = render_cursor(cursor_texture, b_view, cursor);
+
+    // Background color.
+    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255); 
+    SDL_RenderClear(renderer);
 
 
-      // Update window.
-      for(int i = start, j = 0; j < numrows(); i++, j++) {
-        auto *txt = textures[i];
+    // Update window.
+    for(int i = 0; i < numrows(); i++) {
+      auto *txt = t_view[i];
 
-        SDL_QueryTexture(txt, nullptr, nullptr, &tw, &th);
-        SDL_Rect dst {TextLeftBound, TextUpperBound+j*fsize, tw, th};
-        SDL_RenderCopy(renderer, txt, nullptr, &dst);
+      SDL_QueryTexture(txt, nullptr, nullptr, &tw, &th);
+      SDL_Rect dst {TextLeftBound, TextUpperBound+i*fsize, tw, th};
+      SDL_RenderCopy(renderer, txt, nullptr, &dst);
 
-      }
-      timer::update_cursor(cursor_texture, cursor, fw);
-      SDL_RenderPresent(renderer);
+    }
+    timer::update_cursor(cursor_texture, cursor, fw);
+    SDL_RenderPresent(renderer);
   }
   
   // TODO: Check whether I even need it or not.
