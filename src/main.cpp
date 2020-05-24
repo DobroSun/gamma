@@ -57,6 +57,22 @@ void LoadFile(String &buffer, std::vector<SDL_Texture *> &textures, std::fstream
 }
 
 
+struct SelectedText {
+  std::vector<int> i;
+  std::vector<int> j;
+};
+
+void add_cursor(SelectedText &ss, const Cursor &c) {
+  ss.i.push_back(c.i);
+  ss.j.push_back(c.j);
+}
+
+void clear(SelectedText &ss) {
+  ss.i.clear();
+  ss.j.clear();
+}
+
+
 
 int main(int argc, char **argv) {
   if(Init_SDL()) return 1;
@@ -81,6 +97,8 @@ int main(int argc, char **argv) {
   String buffer;
   Cursor cursor{0, 0};
 
+  SelectedText selected;
+
   int fw, fh;
 
   // Starts timer to update the cursor.
@@ -101,6 +119,11 @@ int main(int argc, char **argv) {
   SDL_Texture *cursor_texture = init_cursor(b_view, cursor);
 
 
+
+
+
+
+  bool clicked = false;
   bool done = false;
   while(!done) {
     textures_view t_view(textures, start);
@@ -113,18 +136,57 @@ int main(int argc, char **argv) {
         } break;
           
 
-
         case SDL_MOUSEBUTTONDOWN: {
           auto &button = e.button;
-          if(button.button == SDL_BUTTON_LEFT) {
+          auto &b_type = button.button; 
+          auto &b_click = button.clicks;
+
+
+
+          if(b_type == SDL_BUTTON_LEFT && b_click == 3) {
+              std::cout << "Triple click!" << std::endl;
+
+          } else if(b_type == SDL_BUTTON_LEFT && b_click == 2) {
+              std::cout << "Double click!" << std::endl;
+
+          } else if(b_type == SDL_BUTTON_LEFT) {
             auto x = button.x; auto y = button.y;
+
 
             if(in_buffer(x, y)) {
               cursor = get_pos(x, y, fw);
+              clicked = true;
+              PauseTimer(); // FIXME: depends on current cursor_texture.
+            }
+            cursor = fix_cursor(b_view, cursor); // If cursor is out of buffer, it is set to the end of line+1.
+          }
+        } break;
+
+        case SDL_MOUSEBUTTONUP: {
+          auto &button = e.button;
+          if(button.button == SDL_BUTTON_LEFT) {
+            clicked = false;
+            clear(selected);
+            ResumeTimer();
+          }
+        } break;
+
+        case SDL_MOUSEMOTION: {
+          if(clicked) {
+            auto &motion = e.motion;
+            auto &x = motion.x; auto &y = motion.y;
+
+            // For now handles only select in one line.
+            Cursor cc;
+            if(in_buffer(x, y)) {
+              cc = get_pos(x, y, fw);
+              if(cc != cursor) {
+                add_cursor(selected, cc);
+              }
             }
           }
-          cursor = fix_cursor(b_view, cursor); // If cursor is out of buffer, it is set to the end of line.
         } break;
+          
 
         case SDL_KEYDOWN: {
           if(e.key.keysym.sym == SDLK_ESCAPE) {
@@ -134,7 +196,7 @@ int main(int argc, char **argv) {
           
 
         case SDL_MOUSEWHEEL: {
-        // Bug: When scrolling down/up if cursor.i == scroll_speed; cursor is moving with window down/up.
+        // FIXME: Bug: When scrolling down/up if cursor.i == scroll_speed; cursor is moving with window down/up.
 
           // Scrolling up/down.
           auto &wheel = e.wheel;
@@ -145,9 +207,6 @@ int main(int argc, char **argv) {
             if(start == 0) break; // HACK: rewrite without this check. if start == 0 cursor still moves down.
             int diff = numrows() - cursor.i - 1;
             cursor.i += (diff < scroll_speed)? diff: scroll_speed;
-
-
-
 
           } else if(wheel.y < 0) {
             unsigned total = buffer.size()-numrows(); int ts = total-start;
@@ -173,13 +232,13 @@ int main(int argc, char **argv) {
         } break;
       }
     }
-
     b_view.start_i = start;
     cursor_texture = render_cursor(cursor_texture, b_view, cursor);
 
     // Background color.
     SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255); 
     SDL_RenderClear(renderer);
+
 
 
     // Update window.
@@ -192,6 +251,20 @@ int main(int argc, char **argv) {
 
     }
     timer::update_cursor(cursor_texture, cursor, fw);
+
+
+
+    // Update selected text.
+    for(int i = 0; i < selected.i.size(); i++) {
+      Cursor c {selected.i[i], selected.j[i]};
+      auto new_txt = init_cursor(b_view, c);
+
+      SDL_QueryTexture(new_txt, nullptr, nullptr, &tw, &th);
+      SDL_Rect dst {TextLeftBound+fw*c.j, TextUpperBound+fsize*c.i, tw, th};
+      SDL_RenderCopy(renderer, new_txt, nullptr, &dst);
+
+      SDL_DestroyTexture(new_txt);
+    }
     SDL_RenderPresent(renderer);
   }
   

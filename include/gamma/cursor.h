@@ -10,6 +10,9 @@ struct Cursor {
   int i, j;
 };
 
+bool operator==(const Cursor &c1, const Cursor &c2);
+bool operator!=(const Cursor &c1, const Cursor &c2);
+
 namespace cursor {
   std::string str(const char k);
   std::string str(const std::string &k);

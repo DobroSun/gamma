@@ -16,4 +16,6 @@ namespace timer {
 };
 
 SDL_TimerID StartTimer(Uint32);
+void PauseTimer();
+void ResumeTimer();
 #endif

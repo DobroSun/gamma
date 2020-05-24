@@ -8,6 +8,15 @@ extern int start;
 extern SDL_Renderer *renderer;
 extern TTF_Font *gfont;
 
+
+bool operator==(const Cursor &c1, const Cursor &c2) {
+  return c1.i == c2.i && c1.j == c2.j;
+}
+bool operator!=(const Cursor &c1, const Cursor &c2) {
+  return c1.i != c2.i || c1.j != c2.j;
+}
+
+
 namespace {
 
 std::string str(const char k) {
