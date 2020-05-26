@@ -196,33 +196,25 @@ int main(int argc, char **argv) {
           
 
         case SDL_MOUSEWHEEL: {
-        // FIXME: Bug: When scrolling down/up if cursor.i == scroll_speed; cursor is moving with window down/up.
 
           // Scrolling up/down.
           auto &wheel = e.wheel;
           if(wheel.y > 0) {
-            start -= (start < scroll_speed)? start: scroll_speed;
-
-
-            if(start == 0) break; // HACK: rewrite without this check. if start == 0 cursor still moves down.
+            if(start == 0) break;
             int diff = numrows() - cursor.i - 1;
             cursor.i += (diff < scroll_speed)? diff: scroll_speed;
 
+            start -= (start < scroll_speed)? start: scroll_speed;
+
           } else if(wheel.y < 0) {
+            cursor.i -= (cursor.i < scroll_speed)? cursor.i: scroll_speed;
+
             unsigned total = buffer.size()-numrows(); int ts = total-start;
             int speed = (ts < scroll_speed)? ts: scroll_speed;
             start += (start == total)? 0: speed;
 
-            if(cursor.i != start) {
-              cursor.i -= (cursor.i < scroll_speed)? cursor.i: scroll_speed;
-            }
-            // MighFail:
-            // cursor.i finally becomes 0 and don't changes.
-            // might fail with another scroll_speed.
-
-
           }
-          cursor = fix_cursor(b_view, cursor); // If scrolls, cursor may take the position > size of line.
+          cursor = fix_cursor(b_view, cursor);
         } break;
 
         case SDL_WINDOWEVENT: {
