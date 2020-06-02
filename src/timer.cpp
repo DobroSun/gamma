@@ -9,7 +9,6 @@ struct Cursor {
 
 namespace timer {
   bool is_shown = true;
-  bool paused = true;
   void update_fake(SDL_Texture *, const Cursor &, int) {
   }
 
@@ -22,8 +21,6 @@ namespace timer {
 
 
   Uint32 change_cursor_state(Uint32 interval) {
-    if(paused) return interval;
-
     if(is_shown) {
       update_cursor = update_real;
     } else {
@@ -40,7 +37,7 @@ SDL_TimerID StartTimer(Uint32 delay) {
   SDL_TimerID cursortimer = SDL_AddTimer(delay, (callback)timer::change_cursor_state, &junk);
   return cursortimer;
 }
-
+/*
 void PauseTimer() {
   timer::paused = true;
 }
@@ -48,3 +45,4 @@ void PauseTimer() {
 void ResumeTimer() {
   timer::paused = false;
 }
+*/

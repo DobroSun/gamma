@@ -6,71 +6,15 @@
 #include "gamma/view.h"
 
 
+#include "gamma/scroll_bar.h"
+#include "gamma/init.h"
+#include "gamma/j.h"
+
 SDL_Renderer *renderer = nullptr;
 TTF_Font *gfont = nullptr;
 int tw = 0, th = 0; // Junks for texture quering.
-Uint64 start = 0; // first line of used visible text in buffer.
+Uint32 start = 0; // first line of visible text used in buffer.
 
-
-int Init_SDL() {
-  if(SDL_Init(SDL_INIT_EVENTS | SDL_INIT_TIMER)) {
-    std::cerr << "Error Initializing SDL: " << SDL_GetError() << std::endl;
-    return 1;
-  }
-  if(TTF_Init()) {
-    std::cerr << "Error Initializing TTF: " << TTF_GetError() << std::endl;
-    return 1;
-  }
-  return 0;
-}
-
-std::string read_args(int argc, char **argv) {
-  return (argc < 2)? "": argv[1];
-}
-
-
-
-bool in_buffer(double x, double y) {
-  return y >= TextUpperBound && x >= TextLeftBound && y < Height - TextBottomBound;
-}
-
-
-
-
-
-void LoadFile(String &buffer, std::vector<SDL_Texture *> &textures, std::fstream &file) {
-  std::string input; unsigned count = 0;
-  while(std::getline(file, input)) {
-    buffer.push_back(input);
-
-    // Prerender visible text.
-    if(count < (unsigned)numrows()) {
-      textures.push_back(load_courier(input, BlackColor));
-      count++;
-    }
-  }
-  textures.reserve(buffer.size());
-
-  for( ; count < buffer.size(); count++) {
-    textures[count] = load_courier(buffer[count], BlackColor);
-  }
-}
-
-
-struct SelectedText {
-  std::vector<int> i;
-  std::vector<int> j;
-};
-
-void add_cursor(SelectedText &ss, const Cursor &c) {
-  ss.i.push_back(c.i);
-  ss.j.push_back(c.j);
-}
-
-void clear(SelectedText &ss) {
-  ss.i.clear();
-  ss.j.clear();
-}
 
 
 
@@ -87,19 +31,19 @@ int main(int argc, char **argv) {
 
 
   SDL_Window *win = SDL_CreateWindow("Gamma",
-                         SDL_WINDOWPOS_CENTERED, 
-                         SDL_WINDOWPOS_CENTERED, 
-                         Width, Height, 
+                         SDL_WINDOWPOS_CENTERED,
+                         SDL_WINDOWPOS_CENTERED,
+                         Width, Height,
                          SDL_WINDOW_RESIZABLE);
   renderer = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
   gfont = TTF_OpenFont((assets_fonts+courier).c_str(), ptsize);
   std::vector<SDL_Texture *> textures;
   String buffer;
   Cursor cursor{0, 0};
-
-  SelectedText selected;
-
   int fw, fh;
+
+  ScrollBar scroll_bar;
+
 
   // Starts timer to update the cursor.
   SDL_TimerID cursor_timer = StartTimer(300);
@@ -109,9 +53,7 @@ int main(int argc, char **argv) {
 
 
   // Loading file in memory.
-  // TODO: Load in multiple threads.
-  LoadFile(buffer, textures, file);
-
+  LoadFile(renderer, buffer, textures, file);
 
 
 
@@ -119,14 +61,13 @@ int main(int argc, char **argv) {
   SDL_Texture *cursor_texture = init_cursor(b_view, cursor);
 
 
+  std::vector<ScrollBar*> active_bar;
 
 
-
-
-  bool clicked = false;
   bool done = false;
   while(!done) {
     textures_view t_view(textures, start);
+
 
     SDL_Event e;
     if(SDL_PollEvent(&e)) {
@@ -137,99 +78,56 @@ int main(int argc, char **argv) {
           
 
         case SDL_MOUSEBUTTONDOWN: {
-          auto &button = e.button;
-          auto &b_type = button.button; 
-          auto &b_click = button.clicks;
+          cursor = handle_mousebuttondown(e, cursor, b_view, scroll_bar, fw, active_bar);
 
-
-
-          if(b_type == SDL_BUTTON_LEFT && b_click == 3) {
-              std::cout << "Triple click!" << std::endl;
-
-          } else if(b_type == SDL_BUTTON_LEFT && b_click == 2) {
-              std::cout << "Double click!" << std::endl;
-
-          } else if(b_type == SDL_BUTTON_LEFT) {
-            auto x = button.x; auto y = button.y;
-
-
-            if(in_buffer(x, y)) {
-              cursor = get_pos(x, y, fw);
-              clicked = true;
-              PauseTimer(); // FIXME: depends on current cursor_texture.
-            }
-            cursor = fix_cursor(b_view, cursor); // If cursor is out of buffer, it is set to the end of line+1.
-          }
         } break;
 
         case SDL_MOUSEBUTTONUP: {
-          auto &button = e.button;
-          if(button.button == SDL_BUTTON_LEFT) {
-            clicked = false;
-            clear(selected);
-            ResumeTimer();
-          }
+          handle_mousebuttonup(e, active_bar);
         } break;
 
         case SDL_MOUSEMOTION: {
-          if(clicked) {
-            auto &motion = e.motion;
-            auto &x = motion.x; auto &y = motion.y;
-
-            // For now handles only select in one line.
-            Cursor cc;
-            if(in_buffer(x, y)) {
-              cc = get_pos(x, y, fw);
-              if(cc != cursor) {
-                add_cursor(selected, cc);
-              }
-            }
-          }
+          start = handle_mousemotion(e, buffer, active_bar, start);
+              
         } break;
           
 
         case SDL_KEYDOWN: {
-          if(e.key.keysym.sym == SDLK_ESCAPE) {
-            done = true;
-          }
+          handle_keydown(e, done);
+
         } break;
           
 
         case SDL_MOUSEWHEEL: {
-
-          // Scrolling up/down.
-          auto &wheel = e.wheel;
-          if(wheel.y > 0) {
-            if(start == 0) break;
-            int diff = numrows() - cursor.i - 1;
-            cursor.i += (diff < scroll_speed)? diff: scroll_speed;
-
-            start -= (start < scroll_speed)? start: scroll_speed;
-
-          } else if(wheel.y < 0) {
-            cursor.i -= (cursor.i < scroll_speed)? cursor.i: scroll_speed;
-
-            unsigned total = buffer.size()-numrows(); int ts = total-start;
-            int speed = (ts < scroll_speed)? ts: scroll_speed;
-            start += (start == total)? 0: speed;
-
-          }
+          handle_mousewheel(e, buffer, scroll_bar, cursor, start);
           cursor = fix_cursor(b_view, cursor);
+
         } break;
 
         case SDL_WINDOWEVENT: {
-          if(e.window.event == SDL_WINDOWEVENT_RESIZED) {
-            SDL_GetWindowSize(win, &Width, &Height);
-          }
+          handle_resize(e, win);
+
         } break;
       }
     }
-    b_view.start_i = start;
-    cursor_texture = render_cursor(cursor_texture, b_view, cursor);
+    cursor = fix_cursor(b_view, cursor);
+    slice_buffer(b_view, cursor, cursor_texture, start);
+
 
     // Background color.
     SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255); 
     SDL_RenderClear(renderer);
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -246,22 +144,18 @@ int main(int argc, char **argv) {
 
 
 
-    // Update selected text.
-    for(int i = 0; i < selected.i.size(); i++) {
-      Cursor c {selected.i[i], selected.j[i]};
-      auto new_txt = init_cursor(b_view, c);
+    draw_bar(scroll_bar, renderer);
+   
 
-      SDL_QueryTexture(new_txt, nullptr, nullptr, &tw, &th);
-      SDL_Rect dst {TextLeftBound+fw*c.j, TextUpperBound+fsize*c.i, tw, th};
-      SDL_RenderCopy(renderer, new_txt, nullptr, &dst);
 
-      SDL_DestroyTexture(new_txt);
-    }
     SDL_RenderPresent(renderer);
   }
   
-  // TODO: Check whether I even need it or not.
-  // Why freeing if programm ends.
+
+
+  // Actually no need to freeing this.
+  // Cause it's slowing up closing.
+/*
   SDL_RemoveTimer(cursor_timer);
   SDL_DestroyTexture(cursor_texture);
   for(auto &txt: textures) {
@@ -272,5 +166,6 @@ int main(int argc, char **argv) {
   TTF_CloseFont(gfont);
   TTF_Quit();
   SDL_Quit();
+*/
   return 0;
 }

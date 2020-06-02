@@ -22,16 +22,11 @@ namespace {
 std::string str(const char k) {
   return {k};
 }
-std::string str(const std::string &k) {
-  return k;
-}
 std::string str(const char *k) {
   return {k};
 }
 
 SDL_Texture *get_cursored(const buffer_view &buffer, const Cursor &c) {
-  // TODO: Need to check all possible wrong cursor moves.
-
   auto &line = buffer[c.i]; auto &ll = line[c.j];
   auto s = (c.j >= line.size())? str(" ").c_str(): str(ll).c_str();
 
