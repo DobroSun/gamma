@@ -10,17 +10,23 @@ struct ScrollBar {
   int starty = TextUpperBound;
 
   int start = 0;
-  int small_h = h/20;
-  char clicky = 0;
+  int clicky = 0;
+  int small_h;
+
+  //char expand = 1;
+
+  ScrollBar(long unsigned buffer_size) {
+    small_h = h /** expand*/ / buffer_size;
+  }
 };
 
-bool clicked_bar(const ScrollBar &bar, double x, double y);
-bool clicked_small(const ScrollBar &bar, double x, double y);
+bool clicked_bar(const ScrollBar &, double, double);
+bool clicked_small(const ScrollBar &, double, double);
 
-void reinit_bar(ScrollBar &bar);
-void draw_bar(const ScrollBar &bar, SDL_Renderer *renderer);
-void got_clicked(ScrollBar &bar, double x, double y);
-void update_bar(const buffer_view &buffer, ScrollBar &bar, Uint32 start);
-void update_start(const buffer_view &buffer, ScrollBar*& bar, double y, Uint32 &);
+void reinit_bar(ScrollBar &, const buffer_view &);
+void draw_bar(const ScrollBar &, SDL_Renderer *);
+void got_clicked(ScrollBar &, double, double);
+void start_to_bar(const buffer_view &, ScrollBar &, Uint32);
+void bar_to_start(const buffer_view &, ScrollBar*&, double, Uint32 &);
 
 #endif

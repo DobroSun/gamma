@@ -20,8 +20,7 @@ void LoadFile(SDL_Renderer *renderer, TTF_Font *gfont, String &buffer, std::vect
     }
   }
 
-
-  textures.reserve(buffer.size());
+  textures.resize(buffer.size());
   for( ; count < buffer.size(); count++) {
     textures[count] = load_courier(renderer, gfont, buffer[count], BlackColor);
   }
@@ -41,8 +40,7 @@ static void handle_scroll_up(Uint32 &start, Cursor &cursor) {
 
 static void handle_scroll_down(Uint32 &start, Cursor &cursor, const buffer_view &buffer) {
   cursor.i -= (cursor.i < scroll_speed)? cursor.i: scroll_speed;
-
-  unsigned total = buffer.size()-numrows(); int ts = total-start;
+  unsigned total = buffer.size()-1; int ts = total-start;
   int speed = (ts < scroll_speed)? ts: scroll_speed;
   start += (start == total)? 0: speed;
 }
@@ -52,23 +50,22 @@ void handle_mousewheel(const SDL_Event &e, const buffer_view &buffer, ScrollBar 
   auto &wheel = e.wheel;
 
   if(wheel.y > 0) {
-    update_bar(buffer, bar, start);
-
     handle_scroll_up(start, cursor);
+    start_to_bar(buffer, bar, start);
     if(start == 0) return;
 
 
   } else if(wheel.y < 0) {
-    update_bar(buffer, bar, start);
+    start_to_bar(buffer, bar, start);
     handle_scroll_down(start, cursor, buffer);
   }
 }
 
 
-void handle_resize(const SDL_Event &e, SDL_Window *win, ScrollBar &bar) {
+void handle_resize(const SDL_Event &e, SDL_Window *win, ScrollBar &bar, const buffer_view &buffer) {
   if(e.window.event == SDL_WINDOWEVENT_RESIZED) {
     SDL_GetWindowSize(win, &Width, &Height);
-    reinit_bar(bar);
+    reinit_bar(bar, buffer);
   }
 }
 
@@ -87,7 +84,7 @@ void handle_mousemotion(const SDL_Event &e, const buffer_view &buffer, ScrollBar
   if(active) {
     auto yy = y-TextUpperBound;
     if(yy <= TextUpperBound+active->h) {
-      update_start(buffer, active, y-TextUpperBound, s);
+      bar_to_start(buffer, active, yy, s);
     }
   }
 }
@@ -122,7 +119,6 @@ void handle_mousebuttondown(const SDL_Event &e, Cursor &cursor, const buffer_vie
 }
 
 
-
 void handle_mousebuttonup(const SDL_Event &e, ScrollBar*& active) {
   auto &button = e.button;
   if(button.button == SDL_BUTTON_LEFT) {
@@ -130,8 +126,3 @@ void handle_mousebuttonup(const SDL_Event &e, ScrollBar*& active) {
   }
 }
 
-
-void slice_buffer(SDL_Renderer *renderer, TTF_Font *gfont, buffer_view &b_view, const Cursor &cursor, SDL_Texture *cursor_texture, Uint32 start) {
-  b_view.start_i = start; // slicing buffer into buffer_view.
-  cursor_texture = render_cursor(renderer, gfont, cursor_texture, b_view, cursor);
-}

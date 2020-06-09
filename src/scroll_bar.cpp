@@ -5,14 +5,14 @@
 
 
 // Handles resize action.
-void reinit_bar(ScrollBar &bar) {
+void reinit_bar(ScrollBar &bar, const buffer_view &buffer) {
   auto tmp = bar.start / static_cast<double>(bar.h);
 
-  const ScrollBar bb;
+  const ScrollBar bb{buffer.size()};
   bar = bb;
   bar.start = tmp * bb.h;
   // bar.start == start * bar.h / buffer.size();
-  // See update_bar method.
+  // See start_to_bar method.
 }
 
 static void draw_smallbar(const ScrollBar &bar, SDL_Renderer *renderer) {
@@ -42,20 +42,29 @@ void got_clicked(ScrollBar &bar, double x, double y) {
   bar.clicky = y-TextUpperBound-bar.start;
 }
 
-void update_bar(const buffer_view &buffer, ScrollBar &bar, Uint32 start) {
-  bar.start = (start * bar.h / buffer.size());
+void start_to_bar(const buffer_view &buffer, ScrollBar &bar, Uint32 start) {
+  bar.start = start * bar.h /** bar.expand*/ / buffer.size();
 }
-void update_start(const buffer_view &buffer, ScrollBar*& bar, double y, Uint32 &s) {
-  auto &clicked = bar->clicky;
-  auto tmp = (y < clicked)? clicked: y;
+void bar_to_start(const buffer_view &buffer, ScrollBar*& bar, double y, Uint32 &start) {
+  auto clicked = bar->clicky;
+  auto &bar_start = bar->start;
+  auto bar_h = bar->h;
+  auto pos = (y < clicked)? clicked: y; // if user clicks and moves it over the bar.
+  auto buffer_size = buffer.size()-1;
 
-  Uint32 r = tmp * buffer.size() / bar->h;
-  auto maxr = buffer.size()-numrows();
+  Uint32 r = pos * buffer_size / bar_h;
+  if(r > buffer_size) {
+    start = buffer_size;
 
-  if(r > maxr) {
-    s = maxr;
   } else {
-    bar->start = tmp-bar->clicky;
-    s = r;
+    auto small_top = pos-clicked;
+    auto bound = bar_h-bar->small_h;
+    if(small_top > bound) {
+      bar_start = bound;
+      start = buffer_size;
+    } else {
+      bar_start = small_top;
+      start = r;
+    }
   }
 }

@@ -7,7 +7,7 @@ inline int Width = 1200;
 inline int Height = 800;
 inline char TextUpperBound = 100;
 inline char TextLeftBound = 50;
-inline char TextBottomBound = 20;
+inline char TextBottomBound = 50;
 
 inline char ptsize = 25;
 inline char blines = 5;
