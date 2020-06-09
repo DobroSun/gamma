@@ -3,16 +3,17 @@
 #include "gamma/utility.h"
 #include "gamma/view.h"
 
+ScrollBar::ScrollBar(long unsigned buffer_size) {
+  small_h = numrows() * h / static_cast<float>(buffer_size-1);
+}
 
 // Handles resize action.
 void reinit_bar(ScrollBar &bar, const buffer_view &buffer) {
-  auto tmp = bar.start / static_cast<double>(bar.h);
+  auto constant = bar.start / static_cast<float>(bar.h-bar.small_h);
 
   const ScrollBar bb{buffer.size()};
   bar = bb;
-  bar.start = tmp * bb.h;
-  // bar.start == start * bar.h / buffer.size();
-  // See start_to_bar method.
+  bar.start = constant * (bb.h-bb.small_h);
 }
 
 static void draw_smallbar(const ScrollBar &bar, SDL_Renderer *renderer) {
@@ -43,8 +44,9 @@ void got_clicked(ScrollBar &bar, double x, double y) {
 }
 
 void start_to_bar(const buffer_view &buffer, ScrollBar &bar, Uint32 start) {
-  bar.start = start * bar.h /** bar.expand*/ / buffer.size();
+  bar.start = start * (bar.h-bar.small_h) / (buffer.size()-1);
 }
+
 void bar_to_start(const buffer_view &buffer, ScrollBar*& bar, double y, Uint32 &start) {
   auto clicked = bar->clicky;
   auto &bar_start = bar->start;

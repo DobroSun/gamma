@@ -54,7 +54,6 @@ int main(int argc, char **argv) {
   ScrollBar* active_bar = nullptr;
 
 
-
   Uint32 start = 0;
   bool done = false;
   while(!done) {
@@ -93,8 +92,11 @@ int main(int argc, char **argv) {
         } break;
       }
     }
+    /*
+    // FIXME, Please: Cursor is broken.
     fix_cursor(b_view, cursor);
     cursor_texture = render_cursor(renderer, gfont, cursor_texture, b_view, cursor);
+    */
 
 
     // Background color.

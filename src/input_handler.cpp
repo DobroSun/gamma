@@ -50,14 +50,15 @@ void handle_mousewheel(const SDL_Event &e, const buffer_view &buffer, ScrollBar 
   auto &wheel = e.wheel;
 
   if(wheel.y > 0) {
+
     handle_scroll_up(start, cursor);
     start_to_bar(buffer, bar, start);
+
     if(start == 0) return;
 
-
   } else if(wheel.y < 0) {
-    start_to_bar(buffer, bar, start);
     handle_scroll_down(start, cursor, buffer);
+    start_to_bar(buffer, bar, start);
   }
 }
 
@@ -83,7 +84,7 @@ void handle_mousemotion(const SDL_Event &e, const buffer_view &buffer, ScrollBar
 
   if(active) {
     auto yy = y-TextUpperBound;
-    if(yy <= TextUpperBound+active->h) {
+    if(yy <= active->h) {
       bar_to_start(buffer, active, yy, s);
     }
   }

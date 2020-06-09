@@ -13,11 +13,7 @@ struct ScrollBar {
   int clicky = 0;
   int small_h;
 
-  //char expand = 1;
-
-  ScrollBar(long unsigned buffer_size) {
-    small_h = h /** expand*/ / buffer_size;
-  }
+  ScrollBar(long unsigned buffer_size);
 };
 
 bool clicked_bar(const ScrollBar &, double, double);
