@@ -4,10 +4,6 @@
 #include "gamma/utility.h"
 #include "gamma/view.h"
 
-extern int start;
-extern SDL_Renderer *renderer;
-extern TTF_Font *gfont;
-
 
 bool operator==(const Cursor &c1, const Cursor &c2) {
   return c1.i == c2.i && c1.j == c2.j;
@@ -15,7 +11,6 @@ bool operator==(const Cursor &c1, const Cursor &c2) {
 bool operator!=(const Cursor &c1, const Cursor &c2) {
   return c1.i != c2.i || c1.j != c2.j;
 }
-
 
 namespace {
 
@@ -26,7 +21,7 @@ std::string str(const char *k) {
   return {k};
 }
 
-SDL_Texture *get_cursored(const buffer_view &buffer, const Cursor &c) {
+SDL_Texture *get_cursored(SDL_Renderer *renderer, TTF_Font *gfont, const buffer_view &buffer, const Cursor &c) {
   auto &line = buffer[c.i]; auto &ll = line[c.j];
   auto s = (c.j >= line.size())? str(" ").c_str(): str(ll).c_str();
 
@@ -47,35 +42,25 @@ bool out_buffer(const buffer_view &buffer, const Cursor &c) {
 }; // namespace
 
 
-Cursor get_pos(double x, double y, int fw) {
-  Cursor ret;
-
-  // Beginning of text buffer.
+void get_pos(double x, double y, int fw, Cursor &c) {
   auto xx = x - TextLeftBound;
   auto yy = y - TextUpperBound;
-
-  auto &i = ret.i; auto &j = ret.j;
-
-  i = (yy + TextBottomBound - fsize/2) / fsize;
-  j = xx / fw;
-  return ret;
+  c.i = (yy + TextBottomBound - fsize/2) / fsize;
+  c.j = xx / fw;
 }
 
-Cursor fix_cursor(const buffer_view &buffer, const Cursor &c) {
-  Cursor ret{c};
-  if(!out_buffer(buffer, ret)) {
-    return ret;
+void fix_cursor(const buffer_view &buffer, Cursor &c) {
+  if(out_buffer(buffer, c)) {
+    auto &line = buffer[c.i];
+    c.j = line.size();
   }
-  auto &line = buffer[ret.i];
-  ret.j = line.size();
-  return ret;
 }
 
-SDL_Texture *init_cursor(const buffer_view &buffer, const Cursor &cursor) {
-  return get_cursored(buffer, cursor);
+SDL_Texture *init_cursor(SDL_Renderer *renderer, TTF_Font *gfont, const buffer_view &buffer, const Cursor &cursor) {
+  return get_cursored(renderer, gfont, buffer, cursor);
 }
 
-SDL_Texture *render_cursor(SDL_Texture *t, const buffer_view &buffer, const Cursor &cursor) {
+SDL_Texture *render_cursor(SDL_Renderer *renderer, TTF_Font *gfont, SDL_Texture *t, const buffer_view &buffer, const Cursor &cursor) {
   SDL_DestroyTexture(t);
-  return get_cursored(buffer, cursor);
+  return get_cursored(renderer, gfont, buffer, cursor);
 }

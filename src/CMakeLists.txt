@@ -5,6 +5,8 @@ set(gamma_source
   utility.cpp
   timer.cpp
   cursor.cpp
+  input_handler.cpp
+  scroll_bar.cpp
 )
 
 add_library(

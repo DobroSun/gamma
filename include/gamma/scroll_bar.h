@@ -1,5 +1,7 @@
 #ifndef GAMMA_SCROLL_BAR_H
 #define GAMMA_SCROLL_BAR_H
+#include "gamma/globals.h"
+#include "gamma/fwd_decl.h"
 
 struct ScrollBar {
   int h = Height - TextUpperBound - TextBottomBound;
@@ -8,47 +10,17 @@ struct ScrollBar {
   int starty = TextUpperBound;
 
   int start = 0;
-  int small_h = 40;
+  int small_h = h/20;
+  char clicky = 0;
 };
 
-void draw_smallbar(const ScrollBar &bar, SDL_Renderer *renderer) {
-  SDL_SetRenderDrawColor(renderer, 200, 100, 40, 255); 
-  SDL_Rect rr {bar.startx, bar.start+bar.starty, bar.w, bar.small_h};
-  SDL_RenderFillRect(renderer, &rr);
-}
+bool clicked_bar(const ScrollBar &bar, double x, double y);
+bool clicked_small(const ScrollBar &bar, double x, double y);
 
-void draw_bar(const ScrollBar &bar, SDL_Renderer *renderer) {
-  SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255); 
-  SDL_Rect rr {bar.startx, bar.starty, bar.w, bar.h};
-  SDL_RenderFillRect(renderer, &rr);
-  draw_smallbar(bar, renderer);
-}
-
-bool clicked_bar(const ScrollBar &bar, double x, double y) {
-  auto &starty = bar.starty;
-  return y >= starty && x >= bar.startx && y < starty+bar.h;
-}
-
-bool clicked_small(const ScrollBar &bar, double x, double y) {
-  auto starty = bar.start+TextUpperBound;
-  return y >= starty && x >= bar.startx && y < starty+bar.small_h;
-}
-
-void update_bar(const String &buffer, ScrollBar &bar, Uint32 start) {
-  bar.start = start * bar.h / buffer.size();
-}
-Uint32 update_start(const String &buffer, ScrollBar *bar, double y) {
-  auto tmp = (y < 0)? 0: y;
-
-  Uint32 r = tmp * buffer.size() / bar->h;
-  auto maxr = buffer.size()-numrows();
-
-  if(r > maxr) {
-    return maxr;
-  } else {
-    bar->start = tmp;
-    return r;
-  }
-}
+void reinit_bar(ScrollBar &bar);
+void draw_bar(const ScrollBar &bar, SDL_Renderer *renderer);
+void got_clicked(ScrollBar &bar, double x, double y);
+void update_bar(const buffer_view &buffer, ScrollBar &bar, Uint32 start);
+void update_start(const buffer_view &buffer, ScrollBar*& bar, double y, Uint32 &);
 
 #endif

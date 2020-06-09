@@ -12,8 +12,5 @@ int Init_SDL() {
   return 0;
 }
 
-std::string read_args(int argc, char **argv) {
-  return (argc < 2)? "": argv[1];
-}
 
 #endif

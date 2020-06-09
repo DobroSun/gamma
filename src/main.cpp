@@ -1,19 +1,12 @@
 #include "gamma/pch.h"
-#include "gamma/globals.h"
+#include "gamma/init.h"
+#include "gamma/input_handler.h"
 #include "gamma/utility.h"
 #include "gamma/timer.h"
 #include "gamma/cursor.h"
 #include "gamma/view.h"
-
-
 #include "gamma/scroll_bar.h"
-#include "gamma/init.h"
-#include "gamma/j.h"
 
-SDL_Renderer *renderer = nullptr;
-TTF_Font *gfont = nullptr;
-int tw = 0, th = 0; // Junks for texture quering.
-Uint32 start = 0; // first line of visible text used in buffer.
 
 
 
@@ -35,8 +28,8 @@ int main(int argc, char **argv) {
                          SDL_WINDOWPOS_CENTERED,
                          Width, Height,
                          SDL_WINDOW_RESIZABLE);
-  renderer = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
-  gfont = TTF_OpenFont((assets_fonts+courier).c_str(), ptsize);
+  auto renderer = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
+  auto gfont = TTF_OpenFont((assets_fonts+courier).c_str(), ptsize);
   std::vector<SDL_Texture *> textures;
   String buffer;
   Cursor cursor{0, 0};
@@ -47,27 +40,26 @@ int main(int argc, char **argv) {
 
   // Starts timer to update the cursor.
   SDL_TimerID cursor_timer = StartTimer(300);
+  (void)cursor_timer;
   SDL_SetWindowMinimumSize(win, 300, 300); // Bug; sets only width == height.
   TTF_SizeText(gfont, "G", &fw, &fh);
   
 
 
   // Loading file in memory.
-  LoadFile(renderer, buffer, textures, file);
-
+  LoadFile(renderer, gfont, buffer, textures, file);
 
 
   buffer_view b_view(buffer, 0, 0);
-  SDL_Texture *cursor_texture = init_cursor(b_view, cursor);
+  SDL_Texture *cursor_texture = init_cursor(renderer, gfont, b_view, cursor);
+
+  ScrollBar* active_bar = nullptr;
 
 
-  std::vector<ScrollBar*> active_bar;
-
-
+  Uint32 start = 0;
   bool done = false;
   while(!done) {
     textures_view t_view(textures, start);
-
 
     SDL_Event e;
     if(SDL_PollEvent(&e)) {
@@ -78,8 +70,7 @@ int main(int argc, char **argv) {
           
 
         case SDL_MOUSEBUTTONDOWN: {
-          cursor = handle_mousebuttondown(e, cursor, b_view, scroll_bar, fw, active_bar);
-
+          handle_mousebuttondown(e, cursor, b_view, scroll_bar, fw, active_bar);
         } break;
 
         case SDL_MOUSEBUTTONUP: {
@@ -87,31 +78,26 @@ int main(int argc, char **argv) {
         } break;
 
         case SDL_MOUSEMOTION: {
-          start = handle_mousemotion(e, buffer, active_bar, start);
-              
+          handle_mousemotion(e, b_view, active_bar, start);
         } break;
           
 
         case SDL_KEYDOWN: {
           handle_keydown(e, done);
-
         } break;
           
 
         case SDL_MOUSEWHEEL: {
-          handle_mousewheel(e, buffer, scroll_bar, cursor, start);
-          cursor = fix_cursor(b_view, cursor);
-
+          handle_mousewheel(e, b_view, scroll_bar, cursor, start);
         } break;
 
         case SDL_WINDOWEVENT: {
-          handle_resize(e, win);
-
+          handle_resize(e, win, scroll_bar);
         } break;
       }
     }
-    cursor = fix_cursor(b_view, cursor);
-    slice_buffer(b_view, cursor, cursor_texture, start);
+    fix_cursor(b_view, cursor);
+    slice_buffer(renderer, gfont, b_view, cursor, cursor_texture, start);
 
 
     // Background color.
@@ -119,35 +105,19 @@ int main(int argc, char **argv) {
     SDL_RenderClear(renderer);
 
 
-
-
-
-
-
-
-
-
-
-
-
-
     // Update window.
     for(int i = 0; i < numrows(); i++) {
       auto *txt = t_view[i];
 
+      int tw = 0, th = 0;
       SDL_QueryTexture(txt, nullptr, nullptr, &tw, &th);
       SDL_Rect dst {TextLeftBound, TextUpperBound+i*fsize, tw, th};
       SDL_RenderCopy(renderer, txt, nullptr, &dst);
 
     }
-    timer::update_cursor(cursor_texture, cursor, fw);
-
-
+    timer::update_cursor(renderer, cursor_texture, cursor, fw);
 
     draw_bar(scroll_bar, renderer);
-   
-
-
     SDL_RenderPresent(renderer);
   }
   

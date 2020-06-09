@@ -1,18 +1,15 @@
 #include "gamma/pch.h"
 #include "gamma/timer.h"
 #include "gamma/globals.h"
-extern SDL_Renderer *renderer;
-struct Cursor {
-  int i, j;
-};
+#include "gamma/cursor.h"
 
 
 namespace timer {
   bool is_shown = true;
-  void update_fake(SDL_Texture *, const Cursor &, int) {
+  void update_fake(SDL_Renderer *renderer, SDL_Texture *, const Cursor &, int) {
   }
 
-  void update_real(SDL_Texture *t, const Cursor &c, int width) {
+  void update_real(SDL_Renderer *renderer, SDL_Texture *t, const Cursor &c, int width) {
     int tw = 0, th = 0;
     SDL_QueryTexture(t, nullptr, nullptr, &tw, &th);
     SDL_Rect dst {TextLeftBound+width*c.j, TextUpperBound+fsize*c.i, tw, th};
@@ -37,12 +34,3 @@ SDL_TimerID StartTimer(Uint32 delay) {
   SDL_TimerID cursortimer = SDL_AddTimer(delay, (callback)timer::change_cursor_state, &junk);
   return cursortimer;
 }
-/*
-void PauseTimer() {
-  timer::paused = true;
-}
-
-void ResumeTimer() {
-  timer::paused = false;
-}
-*/

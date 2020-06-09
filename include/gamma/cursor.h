@@ -1,11 +1,6 @@
 #ifndef GAMMA_CURSOR_H
 #define GAMMA_CURSOR_H
-
-template<class T>
-struct vector2D_view;
-using buffer_view = vector2D_view<std::string>;
-
-struct SDL_Texture;
+#include "gamma/fwd_decl.h"
 struct Cursor {
   int i, j;
 };
@@ -22,8 +17,8 @@ namespace cursor {
   bool out_buffer(const buffer_view &buffer, const Cursor &c);
 };
 
-Cursor get_pos(double x, double y, int);
-Cursor fix_cursor(const buffer_view &, const Cursor &);
-SDL_Texture *init_cursor(const buffer_view &buffer, const Cursor &cursor);
-SDL_Texture *render_cursor(SDL_Texture *t, const buffer_view &buffer, const Cursor &cursor);
+void get_pos(double x, double y, int, Cursor &);
+void fix_cursor(const buffer_view &, Cursor &);
+SDL_Texture *init_cursor(SDL_Renderer *renderer, TTF_Font *gfont, const buffer_view &buffer, const Cursor &cursor);
+SDL_Texture *render_cursor(SDL_Renderer *renderer, TTF_Font *gfont, SDL_Texture *t, const buffer_view &buffer, const Cursor &cursor);
 #endif
