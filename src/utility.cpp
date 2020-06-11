@@ -7,8 +7,17 @@ char numrows() {
   return (Height - TextUpperBound - TextBottomBound) / (ptsize+blines);
 }
 
+
 std::string read_args(int argc, char **argv) {
   return (argc < 2)? "": argv[1];
+}
+
+
+void create_alphabet(SDL_Renderer *renderer, TTF_Font *gfont, std::unordered_map<char, SDL_Texture *> &alphabet) {
+  for_each(chars) {
+    auto c = *it;
+    alphabet.insert(std::make_pair(c, load_courier(renderer, gfont, std::string{c}, BlackColor)));
+  }
 }
 
 
