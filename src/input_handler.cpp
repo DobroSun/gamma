@@ -7,22 +7,12 @@
 #include "gamma/utility.h"
 #include "gamma/view.h"
 
-void LoadFile(SDL_Renderer *renderer, TTF_Font *gfont, String &buffer, std::vector<SDL_Texture *> &textures, std::fstream &file) {
+
+
+void LoadFile(String &buffer, std::fstream &file) {
   std::string input; 
-  unsigned count = 0;
   while(std::getline(file, input)) {
     buffer.push_back(input);
-
-    // Prerender visible text.
-    if(count < (unsigned)numrows()) {
-      textures.push_back(load_courier(renderer, gfont, input, BlackColor));
-      count++;
-    }
-  }
-
-  textures.resize(buffer.size());
-  for( ; count < buffer.size(); count++) {
-    textures[count] = load_courier(renderer, gfont, buffer[count], BlackColor);
   }
 }
 
@@ -71,9 +61,55 @@ void handle_resize(const SDL_Event &e, SDL_Window *win, ScrollBar &bar, const bu
 }
 
 
-void handle_keydown(const SDL_Event &e, bool &done) {
-  if(e.key.keysym.sym == SDLK_ESCAPE) {
+void handle_keydown(const SDL_Event &e, buffer_view &buffer, Cursor &cursor, bool &done) {
+  auto keysym = e.key.keysym;
+  auto key = keysym.sym;
+
+  if(key == SDLK_LSHIFT || key == SDLK_RSHIFT) {
+    SDL_SetModState((SDL_Keymod)KMOD_SHIFT);
+    return;
+
+  } else if(key == SDLK_ESCAPE) {
     done = true;
+    return;
+
+  } else if(key == SDLK_BACKSPACE) {
+    std::cout << "Not yet" << std::endl;
+    return;
+
+  } else if(key == SDLK_DELETE) {
+    std::cout << "Not yet" << std::endl;
+    return;
+
+  } else if(key == SDLK_RETURN) {
+    std::cout << "Not yet" << std::endl;
+    return;
+  }
+
+
+  auto mod = keysym.mod;
+  bool is_upper = mod == KMOD_SHIFT;
+  auto &i = cursor.i; auto &j = cursor.j;
+  auto shifted = slice(key_lookup, underlying);
+
+  for_each(key_lookup) {
+    if(key == *it) {
+      char push;
+      if(is_upper && isalpha(key)) {
+        push = toupper(key);
+
+      } else if(is_upper && in(shifted, key)) {
+        const SDL_Keycode *sh = it;
+        sh += key_offset;
+        push = (char)*sh;
+
+      } else {
+        push = (char)key;
+      }
+      buffer[i].insert(j, 1, push);
+      j++;
+      return;
+    }
   }
 }
 

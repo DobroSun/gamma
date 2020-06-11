@@ -10,6 +10,7 @@
 
 
 
+
 int main(int argc, char **argv) {
   if(Init_SDL()) return 1;
   auto filename =  read_args(argc, argv);
@@ -22,6 +23,7 @@ int main(int argc, char **argv) {
 
 
 
+
   SDL_Window *win = SDL_CreateWindow("Gamma",
                          SDL_WINDOWPOS_CENTERED,
                          SDL_WINDOWPOS_CENTERED,
@@ -29,14 +31,12 @@ int main(int argc, char **argv) {
                          SDL_WINDOW_RESIZABLE);
   auto renderer = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
   auto gfont = TTF_OpenFont((assets_fonts+courier).c_str(), ptsize);
-  std::vector<SDL_Texture *> textures;
   String buffer;
   Cursor cursor{0, 0};
 
 
   // Starts timer to update the cursor.
   SDL_TimerID cursor_timer = StartTimer(300);
-  (void)cursor_timer;
   SDL_SetWindowMinimumSize(win, 300, 300); // Bug; sets only width == height.
 
   int fw, fh;
@@ -46,7 +46,7 @@ int main(int argc, char **argv) {
 
 
   // Loading file in memory.
-  LoadFile(renderer, gfont, buffer, textures, file);
+  LoadFile(buffer, file);
 
 
   ScrollBar scroll_bar{buffer.size()};
@@ -54,10 +54,14 @@ int main(int argc, char **argv) {
   ScrollBar* active_bar = nullptr;
 
 
+  std::unordered_map<char, SDL_Texture *> alphabet;
+  create_alphabet(renderer, gfont, alphabet);
+
+
+
   Uint32 start = 0;
   bool done = false;
   while(!done) {
-    textures_view t_view(textures, start);
     buffer_view b_view(buffer, start, 0);
 
     SDL_Event e;
@@ -80,7 +84,7 @@ int main(int argc, char **argv) {
         } break;
 
         case SDL_KEYDOWN: {
-          handle_keydown(e, done);
+          handle_keydown(e, b_view, cursor, done);
         } break;
 
         case SDL_MOUSEWHEEL: {
@@ -105,14 +109,17 @@ int main(int argc, char **argv) {
 
 
     // Update window.
+    int tw = 0, th = 0;
     for(int i = 0; i < numrows(); i++) {
-      auto txt = t_view.at_or(i, nullptr);
+      auto string = b_view.at_or(i, "");
+      for(unsigned j = 0; j < string.size(); j++) {
+        auto char_texture = alphabet[string[j]];
+        assert(char_texture);
 
-      int tw = 0, th = 0;
-      SDL_QueryTexture(txt, nullptr, nullptr, &tw, &th);
-      SDL_Rect dst {TextLeftBound, TextUpperBound+i*fsize, tw, th};
-      SDL_RenderCopy(renderer, txt, nullptr, &dst);
-
+        SDL_QueryTexture(char_texture, nullptr, nullptr, &tw, &th);
+        SDL_Rect dst {TextLeftBound+j*fw, TextUpperBound+i*fsize, tw, th};
+        SDL_RenderCopy(renderer, char_texture, nullptr, &dst);
+      }
     }
     timer::update_cursor(renderer, cursor_texture, cursor, fw);
 

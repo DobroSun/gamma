@@ -33,14 +33,16 @@ else()
 endif()
 
 
-
 include(PrecompiledHeader)
 add_subdirectory(src)
 
-
-add_executable(
-  main
-    src/main.cpp
-)
-
+if(BUILD_TESTING)
+  enable_testing()
+  add_subdirectory(test)
+else()
+  add_executable(
+    main
+      src/main.cpp
+  )
 target_link_libraries(main libgamma "${SDL2_LIBRARIES} ${SDL2_IMAGE_LIBRARIES} ${SDL2_TTF_LIBRARIES}")
+endif()

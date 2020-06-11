@@ -1,13 +1,14 @@
 #ifndef GAMMA_VIEW_H
 #define GAMMA_VIEW_H
 
+// TODO: Check performance on copy/move/ref.
 template<class T>
 struct vector_view {
-  const std::vector<T> &v;
+  std::vector<T> &v;
   unsigned start;
 
 public:
-  vector_view(const std::vector<T> &view, unsigned __start=0): v{view}, start{__start} {}
+  vector_view(std::vector<T> &view, unsigned __start=0): v{view}, start{__start} {}
 
   vector_view(const vector_view<T> &) = delete;
   vector_view(vector_view<T> &&) = delete;
@@ -19,14 +20,12 @@ public:
     return v[start+i];
   }
 
-  // TODO: Check if it copies SDL_Texture * or not.
-  // MAYLEAK.
-  const T at_or(unsigned i, T value) const {
-    auto s = start+i;
-    if(s >= v.size()) 
-      return value;
-    return v[s];
+  T &operator[](unsigned i) {
+    assert(start+i < v.size());
+    return v[start+i];
   }
+
+
   int size() const {
     return v.size();
   }
@@ -34,11 +33,11 @@ public:
 
 template<>
 struct vector_view<std::string> {
-  const std::string &v;
+  std::string &v;
   unsigned start;
 
 public:
-  vector_view(const std::string &view, unsigned __start=0): v{view}, start{__start} {}
+  vector_view(std::string &view, unsigned __start=0): v{view}, start{__start} {}
 
   vector_view(const std::string &) = delete;
   vector_view(std::string &&) = delete;
@@ -46,23 +45,32 @@ public:
   vector_view &operator=(std::string &&) = delete;
 
   const char &operator[](unsigned i) const {
-    // This handles string and v.size() can be 0 so it's possible to return empty string.
-    // So, no check for: start+i < v.size());
+    assert(start+i < v.size());
     return v[start+i];
   }
+
+  char &operator[](unsigned i) {
+    assert(start+i < v.size());
+    return v[start+i];
+  }
+
   int size() const {
     return v.size();
+  }
+
+  std::string &insert(size_t pos, size_t n, char c) {
+    return v.insert(pos, n, c);
   }
 };
 
 
 template<class T>
 struct vector2D_view {
-  const std::vector<std::vector<T>> &v;
+  std::vector<std::vector<T>> v;
   unsigned start_i, start_j;
 
 public:
-  vector2D_view(const std::vector<std::vector<T>> &view, unsigned __start_i=0, unsigned __start_j=0)
+  vector2D_view(std::vector<std::vector<T>> view, unsigned __start_i=0, unsigned __start_j=0)
                : v{view}, start_i{__start_i}, start_j{__start_j}
                {}
 
@@ -75,6 +83,12 @@ public:
     assert(start_i+i < v.size());
     return vector_view<T>(v[start_i+i], start_j);
   }
+
+  vector_view<T> operator[](unsigned i) {
+    assert(start_i+i < v.size());
+    return vector_view<T>(v[start_i+i], start_j);
+  }
+
   unsigned size() const {
     return v.size();
   }
@@ -82,11 +96,11 @@ public:
 
 template<>
 struct vector2D_view<std::string> {
-  const std::vector<std::string> &v;
+  std::vector<std::string> &v;
   unsigned start_i, start_j;
 
 public:
-  vector2D_view(const std::vector<std::string> &view, unsigned __start_i=0, unsigned __start_j=0)
+  vector2D_view(std::vector<std::string> &view, unsigned __start_i=0, unsigned __start_j=0)
                : v{view}, start_i{__start_i}, start_j{__start_j}
                {}
 
@@ -96,16 +110,28 @@ public:
   vector2D_view &operator=(vector2D_view<std::string> &&) = delete;
 
   const vector_view<std::string> operator[](unsigned i) const {
-    // Same as for vector_view<std::string>; No check.
+    assert(start_i+i < v.size());
     return vector_view<std::string>(v[start_i+i], start_j);
   }
+
+  vector_view<std::string> operator[](unsigned i) {
+    assert(start_i+i < v.size());
+    return vector_view<std::string>(v[start_i+i], start_j);
+  }
+
+
+  const vector_view<std::string> at_or(unsigned i, std::string s="") const {
+    if(start_i+i < v.size()) {
+      return this->operator[](i);
+    } 
+    return vector_view<std::string>{s, 0};
+  }
+
   unsigned size() const {
     return v.size();
   }
-
 };
 
-using textures_view = vector_view<SDL_Texture *>;
 using buffer_view = vector2D_view<std::string>;
 
 #endif

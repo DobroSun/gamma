@@ -1,5 +1,6 @@
 #ifndef GAMMA_INIT_H
 #define GAMMA_INIT_H
+
 int Init_SDL() {
   if(SDL_Init(SDL_INIT_EVENTS | SDL_INIT_TIMER)) {
     std::cerr << "Error Initializing SDL: " << SDL_GetError() << std::endl;
