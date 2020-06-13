@@ -1,9 +1,10 @@
-/*
+
 void init(gap_buffer<char> &buffer, const char *c) {
   for_each(c) {
     buffer.insert(*it);
   }
 }
+
 template<class T>
 void print(const T &a) {
   for(auto i: a) {
@@ -40,7 +41,7 @@ TEST_CASE("Test gap_buffer_insert") {
 }
 
 
-TEST_CASE("Test gap_buffer_inc_cursor") {
+TEST_CASE("Test gap_buffer_move_right") {
   gap_buffer<char> buffer;
   const char *c = "Hello world\n\0";
   init(buffer, c);
@@ -52,7 +53,7 @@ TEST_CASE("Test gap_buffer_inc_cursor") {
     auto gap_len = buffer.gap_len;
     auto pre_len = buffer.pre_len;
 
-    buffer.inc_cursor();
+    buffer.move_right();
 
     auto new_gap_len = buffer.gap_len;
     auto new_pre_len = buffer.pre_len;
@@ -71,25 +72,26 @@ TEST_CASE("Test gap_buffer_inc_cursor") {
 }
 
 
-TEST_CASE("Test gap_buffer_dec&inc_cursor") {
+TEST_CASE("Test gap_buffer_move_left&right") {
   gap_buffer<char> buffer;
 
   auto gap_len = buffer.gap_len;
 
-  for(auto i = 0; i < 10; i++) {
-    buffer.dec_cursor();
+
+  for(int i = 0; i < 10; i++) {
+    buffer.move_left();
     CHECK(buffer.pre_len == 0);
     CHECK(buffer.gap_len == gap_len);
   }
-  for(auto i = 0; i < 10; i++) {
-    buffer.inc_cursor();
+  for(int i = 0; i < 10; i++) {
+    buffer.move_right();
     CHECK(buffer.pre_len == 0);
     CHECK(buffer.gap_len == gap_len);
   }
 }
 
 
-TEST_CASE("Test gap_buffer_append") {
+TEST_CASE("Test gap_buffer_add") {
   gap_buffer<char> buffer;
   const char *c = "Zefirka\0";
   init(buffer, c);
@@ -100,11 +102,10 @@ TEST_CASE("Test gap_buffer_append") {
   for(unsigned i = 0; i < 1000; i++) {
     auto ch = c[i % c_size];
 
-    buffer.append(ch);
-    std::cout << buffer.gap_len << std::endl;
+    buffer.add(ch);
 
     CHECK(arr[i] == ch);
     CHECK(buffer.pre_len == i+1);
   }
 }
-*/
+

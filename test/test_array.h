@@ -185,3 +185,4 @@ TEST_CASE("Test array_move_copy") {
   a.clear();
   CHECK(a == b);
 }
+

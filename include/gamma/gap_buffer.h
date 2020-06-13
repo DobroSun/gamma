@@ -1,17 +1,7 @@
 #ifndef GAMMA_GAP_BUFFER_H
 #define GAMMA_GAP_BUFFER_H
 
-// So I will have buffer type like this:
-// buffergap<buffergap<char>> buffer;
-/*
-Wanna my custom dynamic array type.
-template<class T>
-class array {
-};
-
-*/
-/*
-
+#include "gamma/array.h"
 
 template<class T>
 struct gap_buffer {
@@ -26,71 +16,72 @@ struct gap_buffer {
     buf.resize(gap_len);
   }
 
-  void insert(T val) {
+  void insert(const T &val) {
+    buf.push_back(val);
+  }
+
+  void insert(T &&val) {
     buf.push_back(std::move(val));
   }
 
-  void inc_cursor() {
+  void move_right() {
     auto post_start = pre_len + gap_len;
     auto gap_start = pre_len;
     if(buf.size() == post_start) {
       return;
     }
-    buf[gap_start] = buf[post_start];
+    buf[gap_start] = buf[post_start-1];
     pre_len++;
   }
 
-  void dec_cursor() {
+  void move_left() {
     auto post_start = pre_len + gap_len;
     auto gap_start = pre_len;
     if(gap_start == 0) {
       return;
     }
-    buf[post_start] = buf[gap_start];
+    buf[post_start-1] = buf[gap_start];
     pre_len--;
   }
 
-  void append(T val) {
-    auto post_start = pre_len + gap_len;
+  void add(T val) {
     auto gap_start = pre_len;
 
     if(gap_len == 0)  {
+    /*
       Allocate array with new gap.
-        1) allocate size + gap_len*2.
-        2) copy from new_post_start() to an end, post_len # characters.
+        1) allocate new array of (size*2).
+        2) move gap left by post_len # of times.
       So from pre_len to pre_len+gap_len will be new gap.
-      unsigned prev_size = buf.size();
 
-      buf.reserve(prev_size*2);
-      gap_len = prev_size-1;
+      // [1, 2, 3, 4, 5]
+      //       |
+      //    [ ' ' ]
+      //   gap(len=0).
 
-      auto to = post_start + prev_size;
-      unsigned i = post_start, j = post_start+prev_size;
-      for(int k = j-i; k > -1; k--) {
-        buf[to+k] = buf[i+k];
+      // [1, 2, 3, 4, 5, [' ', ' ', ' ', ' ', ' ']] <- resize.
+      //                      new_gap(len=5)
+      //              |            |
+      //            pre_len     gap_len
+
+      // [1, 2, [' ', ' ', ' ', ' ', ' '], 3, 4, 5]
+      //         moving gap(3 times left).
+    */
+      auto size = buf.size();
+      auto post_len = size - pre_len;
+      pre_len = size;
+      gap_len = size;
+
+      buf.resize_with_no_init();
+      for(unsigned i = 0; i < post_len; i++) {
+        move_left();
       }
     }
-
     buf[gap_start] = val;
     pre_len++;
     gap_len--;
   }
-
-
-
-private:
 };
 
-
-// [1, 2, [' ', ' '], 3, 4, 5, 6] buffer.
-//           gap:2
-
-
-   buffer_t buffer; // with default cursor == 0,0;
-
-   append();
-   pop();
-
 using buffer_t = gap_buffer<gap_buffer<char>>;
-*/
 #endif

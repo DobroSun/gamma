@@ -19,16 +19,15 @@ void init(T *p, unsigned from, unsigned to) {
 
 template<class T>
 class array {
-  T *p;
-  unsigned __capacity; 
-  unsigned __size;
+  T *p = nullptr;
+  unsigned __capacity = 0;
+  unsigned __size = 0;
 
   constexpr static unsigned original_capacity = 8;
 
 
 public:
-  array(): p{nullptr}, __capacity{0}, __size{0} {
-  }
+  array() = default;
 
   array(const array &other) {
     on_copy_assign(other);
@@ -99,11 +98,19 @@ public:
     }
   }
 
+  void resize_with_no_init(unsigned size_to_resize=0) {
+    reserve(size_to_resize);
+    __size = __capacity;
+  }
+
   void push_back(const T &val) {
-    if(__size+1 > __capacity) {
-      reserve();
-    }
+    reserve_ones();
     p[__size++] = val;
+  }
+
+  void push_back(T &&val) {
+    reserve_ones();
+    p[__size++] = std::move(val);
   }
 
   void pop_back() {
@@ -194,6 +201,12 @@ private:
     other.__size = 0;
     other.__capacity = 0;
     other.p = nullptr;
+  }
+
+  void reserve_ones() {
+    if(__size+1 > __capacity) {
+      reserve();
+    }
   }
 };
 
