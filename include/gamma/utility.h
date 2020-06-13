@@ -6,9 +6,10 @@
   
 
 char numrows();
-std::string read_args(int argc, char **argv);
-void create_alphabet(SDL_Renderer *, TTF_Font *, std::unordered_map<char, SDL_Texture *> &alphabet);
+std::string read_args(int, char **);
+void create_alphabet(SDL_Renderer *, TTF_Font *, std::unordered_map<char, SDL_Texture *> &, std::unordered_map<char, SDL_Texture *> &);
 
+SDL_Texture *load_cursor(SDL_Renderer *, TTF_Font *, const std::string &, const SDL_Color &, const SDL_Color &);
 SDL_Texture *load_texture(SDL_Renderer*, const std::string &, const std::string &, int , const SDL_Color &);
 SDL_Texture *load_courier(SDL_Renderer *, TTF_Font *, const std::string &, const SDL_Color &);
 

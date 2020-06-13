@@ -22,7 +22,7 @@ bool clicked_small(const ScrollBar &, double, double);
 void reinit_bar(ScrollBar &, const buffer_view &);
 void draw_bar(const ScrollBar &, SDL_Renderer *);
 void got_clicked(ScrollBar &, double, double);
-void start_to_bar(const buffer_view &, ScrollBar &, Uint32);
-void bar_to_start(const buffer_view &, ScrollBar*&, double, Uint32 &);
+void start_to_bar(const buffer_view &, ScrollBar &);
+void bar_to_start(buffer_view &, ScrollBar*&, double);
 
 #endif

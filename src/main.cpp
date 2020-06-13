@@ -50,19 +50,17 @@ int main(int argc, char **argv) {
 
 
   ScrollBar scroll_bar{buffer.size()};
-  SDL_Texture *cursor_texture = init_cursor(renderer, gfont, buffer, cursor);
   ScrollBar* active_bar = nullptr;
 
 
   std::unordered_map<char, SDL_Texture *> alphabet;
-  create_alphabet(renderer, gfont, alphabet);
+  std::unordered_map<char, SDL_Texture *> selected;
+  create_alphabet(renderer, gfont, alphabet, selected);
 
 
-
-  Uint32 start = 0;
+  buffer_view b_view(buffer, 0, 0);
   bool done = false;
   while(!done) {
-    buffer_view b_view(buffer, start, 0);
 
     SDL_Event e;
     if(SDL_PollEvent(&e)) {
@@ -72,7 +70,7 @@ int main(int argc, char **argv) {
         } break;
 
         case SDL_MOUSEBUTTONDOWN: {
-          handle_mousebuttondown(e, cursor, b_view, scroll_bar, fw, active_bar);
+          handle_mousebuttondown(e, cursor, scroll_bar, fw, active_bar);
         } break;
 
         case SDL_MOUSEBUTTONUP: {
@@ -80,7 +78,7 @@ int main(int argc, char **argv) {
         } break;
 
         case SDL_MOUSEMOTION: {
-          handle_mousemotion(e, b_view, active_bar, start);
+          handle_mousemotion(e, b_view, active_bar);
         } break;
 
         case SDL_KEYDOWN: {
@@ -88,7 +86,7 @@ int main(int argc, char **argv) {
         } break;
 
         case SDL_MOUSEWHEEL: {
-          handle_mousewheel(e, b_view, scroll_bar, cursor, start);
+          handle_mousewheel(e, b_view, scroll_bar, cursor);
         } break;
 
         case SDL_WINDOWEVENT: {
@@ -96,11 +94,9 @@ int main(int argc, char **argv) {
         } break;
       }
     }
-    /*
-    // FIXME, Please: Cursor is broken.
+      std::cout << "HERE" << std::endl;
     fix_cursor(b_view, cursor);
-    cursor_texture = render_cursor(renderer, gfont, cursor_texture, b_view, cursor);
-    */
+      std::cout << "After" << std::endl;
 
 
     // Background color.
@@ -111,7 +107,9 @@ int main(int argc, char **argv) {
     // Update window.
     int tw = 0, th = 0;
     for(int i = 0; i < numrows(); i++) {
+      std::cout << "HERE" << std::endl;
       auto string = b_view.at_or(i, "");
+      std::cout << "After" << std::endl;
       for(unsigned j = 0; j < string.size(); j++) {
         auto char_texture = alphabet[string[j]];
         assert(char_texture);
@@ -121,7 +119,11 @@ int main(int argc, char **argv) {
         SDL_RenderCopy(renderer, char_texture, nullptr, &dst);
       }
     }
+    /*
+    auto c = b_view.at_or(cursor.i, "").at_or(cursor.j, ' ');
+    auto cursor_texture = selected[c];
     timer::update_cursor(renderer, cursor_texture, cursor, fw);
+    */
 
     draw_bar(scroll_bar, renderer);
     SDL_RenderPresent(renderer);

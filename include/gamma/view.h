@@ -25,7 +25,6 @@ public:
     return v[start+i];
   }
 
-
   int size() const {
     return v.size();
   }
@@ -52,6 +51,13 @@ public:
   char &operator[](unsigned i) {
     assert(start+i < v.size());
     return v[start+i];
+  }
+
+  char at_or(unsigned i, char val) const {
+    if(start+i < v.size()) {
+      return this->operator[](i);
+    }
+    return val;
   }
 
   int size() const {

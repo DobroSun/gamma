@@ -7,16 +7,15 @@ char numrows() {
   return (Height - TextUpperBound - TextBottomBound) / (ptsize+blines);
 }
 
-
 std::string read_args(int argc, char **argv) {
   return (argc < 2)? "": argv[1];
 }
 
-
-void create_alphabet(SDL_Renderer *renderer, TTF_Font *gfont, std::unordered_map<char, SDL_Texture *> &alphabet) {
+void create_alphabet(SDL_Renderer *renderer, TTF_Font *gfont, std::unordered_map<char, SDL_Texture *> &alphabet, std::unordered_map<char, SDL_Texture *> &selected) {
   for_each(chars) {
     auto c = *it;
     alphabet.insert(std::make_pair(c, load_courier(renderer, gfont, std::string{c}, BlackColor)));
+    selected.insert(std::make_pair(c, load_cursor(renderer, gfont, std::string{c}, WhiteColor, BlackColor)));
   }
 }
 
@@ -48,4 +47,12 @@ SDL_Texture *load_courier(SDL_Renderer *renderer, TTF_Font *font, const std::str
   SDL_Texture *txt = SDL_CreateTextureFromSurface(renderer, surf);
   SDL_FreeSurface(surf);
   return txt;
+}
+
+
+SDL_Texture *load_cursor(SDL_Renderer *renderer, TTF_Font *gfont, const std::string &s, const SDL_Color &c1, const SDL_Color &c2) {
+  SDL_Surface *t = TTF_RenderText_Shaded(gfont, s.c_str(), c1, c2);
+  SDL_Texture *cc = SDL_CreateTextureFromSurface(renderer, t);
+  SDL_FreeSurface(t);
+  return cc;
 }

@@ -43,16 +43,17 @@ void got_clicked(ScrollBar &bar, double x, double y) {
   bar.clicky = y-TextUpperBound-bar.start;
 }
 
-void start_to_bar(const buffer_view &buffer, ScrollBar &bar, Uint32 start) {
-  bar.start = start * (bar.h-bar.small_h) / (buffer.size()-1);
+void start_to_bar(const buffer_view &buffer, ScrollBar &bar) {
+  bar.start = buffer.start_i * (bar.h-bar.small_h) / (buffer.size()-1);
 }
 
-void bar_to_start(const buffer_view &buffer, ScrollBar*& bar, double y, Uint32 &start) {
+void bar_to_start(buffer_view &buffer, ScrollBar*& bar, double y) {
   auto clicked = bar->clicky;
   auto &bar_start = bar->start;
   auto bar_h = bar->h;
-  auto pos = (y < clicked)? clicked: y; // if user clicks and moves it over the bar.
+  auto pos = (y < clicked)? clicked: y;
   auto buffer_size = buffer.size()-1;
+  auto &start = buffer.start_i;
 
   Uint32 r = pos * buffer_size / bar_h;
   if(r > buffer_size) {

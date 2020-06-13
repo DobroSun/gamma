@@ -4,7 +4,7 @@
 typedef Uint32 (*callback)(Uint32, void*);
 struct SDL_Renderer;
 using String = std::vector<std::string>;
-using Uint32 = unsigned int;
+typedef uint32_t Uint32;
 struct SDL_Texture;
 struct Cursor;
 struct ScrollBar;

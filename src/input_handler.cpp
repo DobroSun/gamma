@@ -22,13 +22,15 @@ static bool in_buffer(double x, double y) {
 }
 
 
-static void handle_scroll_up(Uint32 &start, Cursor &cursor) {
+static void handle_scroll_up(buffer_view &buffer, Cursor &cursor) {
+  auto &start = buffer.start_i;
   int diff = numrows() - cursor.i - 1;
   cursor.i += (diff < scroll_speed)? diff: scroll_speed;
   start -= (start < scroll_speed)? start: scroll_speed;
 }
 
-static void handle_scroll_down(Uint32 &start, Cursor &cursor, const buffer_view &buffer) {
+static void handle_scroll_down(buffer_view &buffer, Cursor &cursor) {
+  auto &start = buffer.start_i;
   cursor.i -= (cursor.i < scroll_speed)? cursor.i: scroll_speed;
   unsigned total = buffer.size()-1; int ts = total-start;
   int speed = (ts < scroll_speed)? ts: scroll_speed;
@@ -36,19 +38,19 @@ static void handle_scroll_down(Uint32 &start, Cursor &cursor, const buffer_view 
 }
 
 
-void handle_mousewheel(const SDL_Event &e, const buffer_view &buffer, ScrollBar &bar, Cursor &cursor, Uint32 &start) {
+void handle_mousewheel(const SDL_Event &e, buffer_view &buffer, ScrollBar &bar, Cursor &cursor) {
   auto &wheel = e.wheel;
+  auto &start = buffer.start_i;
 
   if(wheel.y > 0) {
-
-    handle_scroll_up(start, cursor);
-    start_to_bar(buffer, bar, start);
+    handle_scroll_up(buffer, cursor);
+    start_to_bar(buffer, bar);
 
     if(start == 0) return;
 
   } else if(wheel.y < 0) {
-    handle_scroll_down(start, cursor, buffer);
-    start_to_bar(buffer, bar, start);
+    handle_scroll_down(buffer, cursor);
+    start_to_bar(buffer, bar);
   }
 }
 
@@ -88,17 +90,17 @@ void handle_keydown(const SDL_Event &e, buffer_view &buffer, Cursor &cursor, boo
 
 
   auto mod = keysym.mod;
-  bool is_upper = mod == KMOD_SHIFT;
+  bool is_shift = mod == KMOD_SHIFT;
   auto &i = cursor.i; auto &j = cursor.j;
   auto shifted = slice(key_lookup, underlying);
 
   for_each(key_lookup) {
     if(key == *it) {
       char push;
-      if(is_upper && isalpha(key)) {
+      if(is_shift && isalpha(key)) {
         push = toupper(key);
 
-      } else if(is_upper && in(shifted, key)) {
+      } else if(is_shift && in(shifted, key)) {
         const SDL_Keycode *sh = it;
         sh += key_offset;
         push = (char)*sh;
@@ -106,7 +108,7 @@ void handle_keydown(const SDL_Event &e, buffer_view &buffer, Cursor &cursor, boo
       } else {
         push = (char)key;
       }
-      buffer[i].insert(j, 1, push);
+      //buffer[i].insert(j, 1, push);
       j++;
       return;
     }
@@ -114,20 +116,20 @@ void handle_keydown(const SDL_Event &e, buffer_view &buffer, Cursor &cursor, boo
 }
 
 
-void handle_mousemotion(const SDL_Event &e, const buffer_view &buffer, ScrollBar*& active, Uint32 &s) {
+void handle_mousemotion(const SDL_Event &e, buffer_view &buffer, ScrollBar*& active) {
   auto &motion = e.motion;
   auto &x = motion.x; auto &y = motion.y;
 
   if(active) {
     auto yy = y-TextUpperBound;
     if(yy <= active->h) {
-      bar_to_start(buffer, active, yy, s);
+      bar_to_start(buffer, active, yy);
     }
   }
 }
 
 
-void handle_mousebuttondown(const SDL_Event &e, Cursor &cursor, const buffer_view &b_view, ScrollBar &bar, int fw, ScrollBar*& active) {
+void handle_mousebuttondown(const SDL_Event &e, Cursor &cursor, ScrollBar &bar, int fw, ScrollBar*& active) {
   auto &button = e.button;
   auto &b_type = button.button; 
   auto &b_click = button.clicks;
@@ -150,7 +152,6 @@ void handle_mousebuttondown(const SDL_Event &e, Cursor &cursor, const buffer_vie
 
     } else if(b_type == SDL_BUTTON_LEFT) {
       get_pos(x, y, fw, cursor);
-      //fix_cursor(b_view, cursor);
     }
   }
 }

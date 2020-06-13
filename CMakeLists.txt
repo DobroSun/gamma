@@ -36,13 +36,18 @@ endif()
 include(PrecompiledHeader)
 add_subdirectory(src)
 
+set(BUILD_BENCHMARK "${BUILD_BENCHMARK}")
+set(BUILD_TESTING "${BUILD_TESTING}")
 if(BUILD_TESTING)
   enable_testing()
   add_subdirectory(test)
+elseif(BUILD_BENCHMARK)
+  enable_testing()
+  add_subdirectory(benchmark)
 else()
   add_executable(
     main
       src/main.cpp
   )
-target_link_libraries(main libgamma "${SDL2_LIBRARIES} ${SDL2_IMAGE_LIBRARIES} ${SDL2_TTF_LIBRARIES}")
+  target_link_libraries(main libgamma "${SDL2_LIBRARIES} ${SDL2_IMAGE_LIBRARIES} ${SDL2_TTF_LIBRARIES}")
 endif()
