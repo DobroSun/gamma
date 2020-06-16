@@ -44,7 +44,7 @@ void got_clicked(ScrollBar &bar, double x, double y) {
 }
 
 void start_to_bar(const buffer_view &buffer, ScrollBar &bar) {
-  bar.start = buffer.start_i * (bar.h-bar.small_h) / (buffer.size()-1);
+  bar.start = buffer.start * (bar.h-bar.small_h) / (buffer.size()-1);
 }
 
 void bar_to_start(buffer_view &buffer, ScrollBar*& bar, double y) {
@@ -53,7 +53,7 @@ void bar_to_start(buffer_view &buffer, ScrollBar*& bar, double y) {
   auto bar_h = bar->h;
   auto pos = (y < clicked)? clicked: y;
   auto buffer_size = buffer.size()-1;
-  auto &start = buffer.start_i;
+  auto &start = buffer.start;
 
   Uint32 r = pos * buffer_size / bar_h;
   if(r > buffer_size) {

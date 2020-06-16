@@ -10,10 +10,11 @@ struct gap_buffer {
   unsigned gap_len;
 
 
+public:
   gap_buffer(unsigned __pre=0)
     : pre_len{__pre}, gap_len{2} //  TODO: Check on the fastest default value for gap_len.
     {
-    buf.resize(gap_len);
+    buf.resize_with_no_init(pre_len+gap_len);
   }
 
   void insert(const T &val) {
@@ -30,7 +31,7 @@ struct gap_buffer {
     if(buf.size() == post_start) {
       return;
     }
-    buf[gap_start] = buf[post_start-1];
+    buf[gap_start] = buf[post_start];
     pre_len++;
   }
 
@@ -40,13 +41,12 @@ struct gap_buffer {
     if(gap_start == 0) {
       return;
     }
-    buf[post_start-1] = buf[gap_start];
+    buf[post_start-1] = buf[gap_start-1];
     pre_len--;
   }
 
   void add(T val) {
     auto gap_start = pre_len;
-
     if(gap_len == 0)  {
     /*
       Allocate array with new gap.
@@ -81,7 +81,62 @@ struct gap_buffer {
     pre_len++;
     gap_len--;
   }
+
+  void backspace() {
+    // [1, 2, [' ', ' '], 3, 4, 5]
+    // [1, [' ', ' ', ' '], 3, 4, 5] // backspace.
+    if(pre_len == 0) return;
+    pre_len--;
+    gap_len++;
+  }
+
+  void del() {
+    // [1, 2, [' ', ' '], 3, 4, 5]
+    // [1, 2, [' ', ' ', ' '], 4, 5] // delete.
+    auto post_len = buf.size() - pre_len - gap_len;
+    if(post_len == 0) return;
+    gap_len++;
+  }
+
+  T &operator[](unsigned i) {
+    assert(i >= 0 && i < buf.size()-gap_len);
+    if(i < pre_len) {
+      return buf[i];
+    } else {
+      return buf[i+gap_len];
+    }
+  }
+
+  const T &operator[](unsigned i) const {
+    // Copy&Paste.
+    std::cout << buf.size()-gap_len << std::endl;
+    assert(i >= 0 && i < buf.size()-gap_len);
+    if(i < pre_len) {
+      return buf[i];
+    } else {
+      return buf[i+gap_len];
+    }
+  }
+
+  unsigned size() const {
+    return buf.size() - gap_len;
+  }
+
 };
 
-using buffer_t = gap_buffer<gap_buffer<char>>;
+template<class T>
+bool operator==(const gap_buffer<T> &t, const gap_buffer<T> &b) {
+  auto size = t.size();
+  if(t.size() != b.size()) {
+    return false;
+  }
+  for(unsigned i = 0; i < size; i++) {
+    if(t[i] != b[i]) {
+      return false;
+    }
+  }
+  return true;
+}
+
+
 #endif

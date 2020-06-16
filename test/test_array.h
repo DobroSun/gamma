@@ -92,6 +92,7 @@ TEST_CASE("Test array_back") {
   }
 }
 
+
 TEST_CASE("Test array_clear") {
   array<int> a;
   a.clear();
@@ -185,4 +186,3 @@ TEST_CASE("Test array_move_copy") {
   a.clear();
   CHECK(a == b);
 }
-

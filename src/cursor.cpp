@@ -21,6 +21,7 @@ void get_pos(double x, double y, int fw, Cursor &c) {
 
 void fix_cursor(const buffer_view &buffer, Cursor &c) {
   auto &i = c.i; auto &j = c.j;
-  auto actual_size = buffer.at_or(i, "").size();
+  auto actual_size = buffer.at_or(i, gap_buffer<char>{}).size();
+
   j = (j > actual_size)? actual_size: j;
 }

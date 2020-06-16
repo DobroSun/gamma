@@ -5,14 +5,19 @@
 #include "gamma/scroll_bar.h"
 #include "gamma/cursor.h"
 #include "gamma/utility.h"
+#include "gamma/gap_buffer.h"
 #include "gamma/view.h"
 
 
-
-void LoadFile(String &buffer, std::fstream &file) {
+void LoadFile(buffer_t &buffer, std::fstream &file) {
   std::string input; 
   while(std::getline(file, input)) {
-    buffer.push_back(input);
+    gap_buffer<char> g;
+
+    for(unsigned i = 0; i < input.size(); i++) {
+      g.insert(input[i]);
+    }
+    buffer.insert(g);
   }
 }
 
@@ -23,14 +28,14 @@ static bool in_buffer(double x, double y) {
 
 
 static void handle_scroll_up(buffer_view &buffer, Cursor &cursor) {
-  auto &start = buffer.start_i;
+  auto &start = buffer.start;
   int diff = numrows() - cursor.i - 1;
   cursor.i += (diff < scroll_speed)? diff: scroll_speed;
   start -= (start < scroll_speed)? start: scroll_speed;
 }
 
 static void handle_scroll_down(buffer_view &buffer, Cursor &cursor) {
-  auto &start = buffer.start_i;
+  auto &start = buffer.start;
   cursor.i -= (cursor.i < scroll_speed)? cursor.i: scroll_speed;
   unsigned total = buffer.size()-1; int ts = total-start;
   int speed = (ts < scroll_speed)? ts: scroll_speed;
@@ -40,7 +45,7 @@ static void handle_scroll_down(buffer_view &buffer, Cursor &cursor) {
 
 void handle_mousewheel(const SDL_Event &e, buffer_view &buffer, ScrollBar &bar, Cursor &cursor) {
   auto &wheel = e.wheel;
-  auto &start = buffer.start_i;
+  auto &start = buffer.start;
 
   if(wheel.y > 0) {
     handle_scroll_up(buffer, cursor);

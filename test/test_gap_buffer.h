@@ -1,5 +1,6 @@
 
-void init(gap_buffer<char> &buffer, const char *c) {
+template<class T>
+void init(gap_buffer<T> &buffer, const T *c) {
   for_each(c) {
     buffer.insert(*it);
   }
@@ -7,23 +8,28 @@ void init(gap_buffer<char> &buffer, const char *c) {
 
 template<class T>
 void print(const T &a) {
-  for(auto i: a) {
-    if(!i) {
+  for(unsigned i = 0; i < a.size(); i++) {
+    auto it = a[i];
+    if(!it) {
       std::cout << ' ';
     } else {
-      std::cout << i;
+      std::cout << it;
     }
   }
   std::cout << std::endl;
 }
 
 
+
 TEST_CASE("Test gap_buffer_insert") {
   gap_buffer<char> buffer;
-  const char *c = "Hello world\n\0";
-  init(buffer, c);
-
+  const char *c = "Hello world\0";
   auto c_len = strlen(c);
+
+  for(unsigned i = 0; i < c_len; i++) {
+    buffer.insert(c[i]);
+  }
+
 
   auto arr = buffer.buf;
   auto gap_len = buffer.gap_len;
@@ -39,6 +45,7 @@ TEST_CASE("Test gap_buffer_insert") {
   CHECK(arr[post_start] == c[0]);
   CHECK(arr[post_start+1] == c[1]);
 }
+
 
 
 TEST_CASE("Test gap_buffer_move_right") {
@@ -98,14 +105,161 @@ TEST_CASE("Test gap_buffer_add") {
   auto c_size = strlen(c);
   auto &arr = buffer.buf;
 
-
   for(unsigned i = 0; i < 1000; i++) {
     auto ch = c[i % c_size];
-
     buffer.add(ch);
-
     CHECK(arr[i] == ch);
     CHECK(buffer.pre_len == i+1);
   }
 }
 
+TEST_CASE("Test gap_buffer_delete") {
+  gap_buffer<char> buffer;
+  const char *c = "Test gap_buffer_backspace\0";
+  init(buffer, c);
+  auto c_size = strlen(c);
+
+  auto pre_len = buffer.pre_len;
+  auto gap_len = buffer.gap_len;
+  for(unsigned i = 0; i < 100; i++) {
+    buffer.backspace();
+    CHECK(buffer.pre_len == pre_len);
+    CHECK(buffer.gap_len == gap_len);
+  }
+  for(unsigned i = 0; i < c_size; i++) {
+    buffer.del();
+    CHECK(buffer.gap_len == ++gap_len);
+    CHECK(buffer.pre_len == pre_len);
+  }
+  for(unsigned i = 0; i < 100; i++) {
+    buffer.del();
+    buffer.backspace();
+    CHECK(buffer.gap_len == gap_len);
+    CHECK(buffer.pre_len == pre_len);
+  }
+}
+
+TEST_CASE("Test gap_buffer_backspace") {
+  gap_buffer<char> buffer;
+  const char *c = "Test gap_buffer_backspace\0";
+  init(buffer, c);
+  auto c_size = strlen(c);
+
+  auto pre_len = buffer.pre_len;
+  auto gap_len = buffer.gap_len;
+  for(unsigned i = 0; i < c_size; i++) {
+    buffer.move_right();
+    buffer.backspace();
+
+    CHECK(buffer.gap_len == ++gap_len);
+    CHECK(buffer.pre_len == pre_len);
+  }
+}
+
+TEST_CASE("Test gap_buffer[]") {
+  gap_buffer<int> buffer;
+  unsigned size = 6;
+  int a[size] = {1, 2, 3, 4, 5, 6};
+
+  for(unsigned i = 0; i < size; i++) {
+    buffer.insert(a[i]);
+  }
+
+
+  for(unsigned i = 0; i < size; i++) {
+    CHECK(buffer[i] == i+1);
+  }
+
+  buffer.move_right();
+
+  for(unsigned i = 0; i < size; i++) {
+    CHECK(buffer[i] == i+1);
+  }
+
+  buffer.move_right();
+  buffer.move_right();
+  buffer.move_right();
+  buffer.move_right();
+
+
+  for(unsigned i = 0; i < size; i++) {
+    CHECK(buffer[i] == i+1);
+  }
+
+  buffer.move_left();
+
+  for(unsigned i = 0; i < size; i++) {
+    CHECK(buffer[i] == i+1);
+  }
+
+  buffer.move_left();
+  buffer.move_left();
+  buffer.move_left();
+  buffer.move_left();
+  buffer.move_left();
+  buffer.move_left();
+  buffer.move_left();
+
+  for(unsigned i = 0; i < size; i++) {
+    CHECK(buffer[i] == i+1);
+  }
+
+  buffer.move_right();
+  buffer.move_right();
+  buffer.move_left();
+
+  for(unsigned i = 0; i < size; i++) {
+    CHECK(buffer[i] == i+1);
+  }
+
+  buffer.move_left();
+  buffer.move_right();
+  buffer.move_left();
+
+  for(unsigned i = 0; i < size; i++) {
+    CHECK(buffer[i] == i+1);
+  }
+}
+
+TEST_CASE("Test gap_buffer_init") {
+  gap_buffer<gap_buffer<int>> b;
+
+  gap_buffer<int> d;
+  gap_buffer<int> e;
+  gap_buffer<int> c;
+  auto size = 6;
+  for(unsigned i = 0; i < size; i++) {
+    d.insert(i);
+    e.insert(i);
+    c.insert(i);
+  }
+
+  d.move_right();
+  e.move_right();
+  e.move_right();
+  e.move_left();
+
+  b.insert(d);
+  b.insert(e);
+  b.insert(c);
+
+  CHECK(b.size() == 3);
+
+  for(unsigned i = 0; i < 3; i++) {
+    b.move_right();
+    CHECK(b[0].size() == b[1].size());
+    CHECK(b[0].size() == 6);
+  }
+  for(unsigned i = 0; i < 3; i++) {
+    b.move_left();
+    CHECK(b[0].size() == b[1].size());
+    CHECK(b[0].size() == 6);
+  }
+
+
+  for(unsigned i = 0; i < b.size(); i++) {
+    for(unsigned j = 0; j < b[i].size(); j++) {
+      CHECK(b[i][j] == j);
+    }
+  }
+}

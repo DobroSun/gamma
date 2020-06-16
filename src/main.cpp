@@ -4,9 +4,9 @@
 #include "gamma/utility.h"
 #include "gamma/timer.h"
 #include "gamma/cursor.h"
-#include "gamma/view.h"
 #include "gamma/scroll_bar.h"
-
+#include "gamma/gap_buffer.h"
+#include "gamma/view.h"
 
 
 
@@ -14,8 +14,8 @@
 int main(int argc, char **argv) {
   if(Init_SDL()) return 1;
   auto filename =  read_args(argc, argv);
-
   std::fstream file{filename};
+
   if(!file) {
     std::cerr << "Error opening file: " << filename << std::endl;
     return 1;
@@ -31,7 +31,6 @@ int main(int argc, char **argv) {
                          SDL_WINDOW_RESIZABLE);
   auto renderer = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
   auto gfont = TTF_OpenFont((assets_fonts+courier).c_str(), ptsize);
-  String buffer;
   Cursor cursor{0, 0};
 
 
@@ -42,10 +41,10 @@ int main(int argc, char **argv) {
   int fw, fh;
   TTF_SizeText(gfont, "G", &fw, &fh);
   // Got size of font in fw, fh.
-  
 
 
   // Loading file in memory.
+  buffer_t buffer;
   LoadFile(buffer, file);
 
 
@@ -58,7 +57,7 @@ int main(int argc, char **argv) {
   create_alphabet(renderer, gfont, alphabet, selected);
 
 
-  buffer_view b_view(buffer, 0, 0);
+  buffer_view b_view(buffer, 0);
   bool done = false;
   while(!done) {
 
@@ -94,9 +93,7 @@ int main(int argc, char **argv) {
         } break;
       }
     }
-      std::cout << "HERE" << std::endl;
     fix_cursor(b_view, cursor);
-      std::cout << "After" << std::endl;
 
 
     // Background color.
@@ -107,9 +104,7 @@ int main(int argc, char **argv) {
     // Update window.
     int tw = 0, th = 0;
     for(int i = 0; i < numrows(); i++) {
-      std::cout << "HERE" << std::endl;
-      auto string = b_view.at_or(i, "");
-      std::cout << "After" << std::endl;
+      auto string = b_view.at_or(i, gap_buffer<char>{});
       for(unsigned j = 0; j < string.size(); j++) {
         auto char_texture = alphabet[string[j]];
         assert(char_texture);

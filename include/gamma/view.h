@@ -1,5 +1,6 @@
 #ifndef GAMMA_VIEW_H
 #define GAMMA_VIEW_H
+#include "gamma/gap_buffer.h"
 
 // TODO: Check performance on copy/move/ref.
 template<class T>
@@ -138,6 +139,45 @@ public:
   }
 };
 
-using buffer_view = vector2D_view<std::string>;
+
+
+// @Incomplete: need to have shift_j.
+// for handling gorizontal shifts.
+// Ex: when the text is too long for current window
+// we will shift it by: buffer.start_j = shift.
+struct buffer_view {
+  buffer_t &v;
+  unsigned start;
+  //unsigned start_j;
+
+
+public:
+  buffer_view(buffer_t &view, unsigned __start=0)
+             : v{view}, start{__start}
+             {}
+
+
+  unsigned size() const {
+    return v.size();
+  }
+
+  const gap_buffer<char> at_or(unsigned i, gap_buffer<char> val) const {
+    if(start+i < v.size()) {
+      return this->operator[](i);
+    } 
+    return val;
+  }
+
+  gap_buffer<char> &operator[](unsigned i) {
+    assert(start+i < v.size());
+    return v[start+i];
+  }
+
+  // @Copy&Paste.
+  const gap_buffer<char> &operator[](unsigned i) const {
+    assert(start+i < v.size());
+    return v[start+i];
+  }
+};
 
 #endif
