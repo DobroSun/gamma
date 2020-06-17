@@ -101,28 +101,26 @@ int main(int argc, char **argv) {
 
 
     // Update window.
-    int tw = 0, th = 0, i = 0;
-    auto max_size = (Width-TextLeftBound-scroll_bar.w)/fw;
-    while(i < numrows()) {
+    int tw = 0, th = 0;
+    unsigned max_line = (Width-TextLeftBound-scroll_bar.w)/fw;
+    for(unsigned i = 0, offset_y = 0; i < numrows(); i++) {
       auto string = b_view.at_or(i, gap_buffer<char>{});
 
-      unsigned j = 0, offset_page = 0;
-      while(j < string.size()) {
+      
+      for(unsigned j = 0, offset_x = 0; j < string.size(); j++) {
         auto char_texture = alphabet[string[j]];
         assert(char_texture);
 
-        if(j-offset_page*max_size == max_size) {
-          offset_page++;
-          i++;
+        if(j-offset_x*max_line == max_line) {
+          offset_x++;
+          offset_y++;
         }
 
         SDL_QueryTexture(char_texture, nullptr, nullptr, &tw, &th);
-        SDL_Rect dst {TextLeftBound+(j-offset_page*max_size)*fw, TextUpperBound+i*fsize, tw, th};
+        SDL_Rect dst {TextLeftBound+(j-offset_x*max_line)*fw, TextUpperBound+(i+offset_y)*fsize, tw, th};
         SDL_RenderCopy(renderer, char_texture, nullptr, &dst);
 
-        j++;
       }
-      i++;
     }
     /*
     auto c = b_view.at_or(cursor.i, "").at_or(cursor.j, ' ');
