@@ -10,7 +10,6 @@
 
 
 
-
 int main(int argc, char **argv) {
   if(Init_SDL()) return 1;
   auto filename =  read_args(argc, argv);
@@ -102,17 +101,28 @@ int main(int argc, char **argv) {
 
 
     // Update window.
-    int tw = 0, th = 0;
-    for(int i = 0; i < numrows(); i++) {
+    int tw = 0, th = 0, i = 0;
+    auto max_size = (Width-TextLeftBound-scroll_bar.w)/fw;
+    while(i < numrows()) {
       auto string = b_view.at_or(i, gap_buffer<char>{});
-      for(unsigned j = 0; j < string.size(); j++) {
+
+      unsigned j = 0, offset_page = 0;
+      while(j < string.size()) {
         auto char_texture = alphabet[string[j]];
         assert(char_texture);
 
+        if(j-offset_page*max_size == max_size) {
+          offset_page++;
+          i++;
+        }
+
         SDL_QueryTexture(char_texture, nullptr, nullptr, &tw, &th);
-        SDL_Rect dst {TextLeftBound+j*fw, TextUpperBound+i*fsize, tw, th};
+        SDL_Rect dst {TextLeftBound+(j-offset_page*max_size)*fw, TextUpperBound+i*fsize, tw, th};
         SDL_RenderCopy(renderer, char_texture, nullptr, &dst);
+
+        j++;
       }
+      i++;
     }
     /*
     auto c = b_view.at_or(cursor.i, "").at_or(cursor.j, ' ');
