@@ -3,12 +3,17 @@
 
 #include "gamma/array.h"
 
+
+// @Note:
+// Gap_buffer working correct only if 
+// buf.__size == buf.__capacity;
+// Don't know whether it's good or not.
+
 template<class T>
 struct gap_buffer {
   array<T> buf;
   unsigned pre_len;
   unsigned gap_len;
-
 
 public:
   gap_buffer(unsigned __pre=0)
@@ -45,8 +50,9 @@ public:
     pre_len--;
   }
 
-  void add(T val) {
-    auto gap_start = pre_len;
+  void add(const T &val) {
+    auto &gap_start = pre_len;
+
     if(gap_len == 0)  {
     /*
       Allocate array with new gap.
@@ -77,6 +83,7 @@ public:
         move_left();
       }
     }
+
     buf[gap_start] = val;
     pre_len++;
     gap_len--;
@@ -109,7 +116,6 @@ public:
 
   const T &operator[](unsigned i) const {
     // Copy&Paste.
-    std::cout << buf.size()-gap_len << std::endl;
     assert(i >= 0 && i < buf.size()-gap_len);
     if(i < pre_len) {
       return buf[i];

@@ -27,6 +27,7 @@ void reserve_impl(unsigned size_to_alloc, T *&p, unsigned &__size, unsigned &__c
   if(!p) {
     assert(!__capacity);
     assert(!__size);
+
     __capacity = (!size_to_alloc)? original_capacity: size_to_alloc;
     p = new T[__capacity];
 
@@ -187,6 +188,7 @@ void on_copy_assign_impl(const array<T> &other, T *&p, unsigned &__size, unsigne
     resize_with_no_init_impl(other_size, p, __size, __capacity, original_capacity);
   } else {
     __size = other_size;
+    __capacity = other_size;
   }
 
   for(unsigned i = 0; i < other_size; i++) {

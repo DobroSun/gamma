@@ -12,5 +12,6 @@
 /*
 #include "test_string.h"
 */
+#include "test_view.h"
 #include "test_array.h"
 #include "test_gap_buffer.h"

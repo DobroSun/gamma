@@ -72,6 +72,7 @@ void handle_keydown(const SDL_Event &e, buffer_view &buffer, Cursor &cursor, boo
   auto keysym = e.key.keysym;
   auto key = keysym.sym;
 
+  auto &i = cursor.i; auto &j = cursor.j;
   if(key == SDLK_LSHIFT || key == SDLK_RSHIFT) {
     SDL_SetModState((SDL_Keymod)KMOD_SHIFT);
     return;
@@ -81,22 +82,48 @@ void handle_keydown(const SDL_Event &e, buffer_view &buffer, Cursor &cursor, boo
     return;
 
   } else if(key == SDLK_BACKSPACE) {
-    std::cout << "Not yet" << std::endl;
+    buffer[i].backspace();
+    j--;
     return;
 
   } else if(key == SDLK_DELETE) {
-    std::cout << "Not yet" << std::endl;
+    buffer[i].del();
     return;
 
   } else if(key == SDLK_RETURN) {
-    std::cout << "Not yet" << std::endl;
+    gap_buffer<char> to_end;
+    gap_buffer<char> from_start;
+
+    auto buf_i = buffer[i];
+    for(unsigned k = 0; k < j; k++) {
+      from_start.insert(buf_i[k]);
+    }
+    for(unsigned k = j; k < buf_i.size(); k++) {
+      to_end.insert(buf_i[k]);
+    }
+    buffer.v.add(from_start);
+    
+
+    // TODO: 
+    // Handle cursor on bottom of the window.
+/*
+    if(numrows()+1 == i) { 
+      // Cursor places on last line.
+      // It stays here and start increases.
+      buffer.start++;
+      buffer[i] = to_end;
+
+    } else {
+    }
+*/
+    buffer[++i] = to_end;
+    j = 0;
     return;
   }
 
 
   auto mod = keysym.mod;
   bool is_shift = mod == KMOD_SHIFT;
-  auto &i = cursor.i; auto &j = cursor.j;
   auto shifted = slice(key_lookup, underlying);
 
   for_each(key_lookup) {
@@ -113,7 +140,8 @@ void handle_keydown(const SDL_Event &e, buffer_view &buffer, Cursor &cursor, boo
       } else {
         push = (char)key;
       }
-      //buffer[i].insert(j, 1, push);
+
+      buffer[i].add(push);
       j++;
       return;
     }

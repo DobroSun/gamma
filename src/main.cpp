@@ -10,6 +10,7 @@
 
 
 
+
 int main(int argc, char **argv) {
   if(Init_SDL()) return 1;
   auto filename =  read_args(argc, argv);
@@ -59,7 +60,6 @@ int main(int argc, char **argv) {
   buffer_view b_view(buffer, 0);
   bool done = false;
   while(!done) {
-
     SDL_Event e;
     if(SDL_PollEvent(&e)) {
       switch(e.type) {
@@ -92,8 +92,7 @@ int main(int argc, char **argv) {
         } break;
       }
     }
-    fix_cursor(b_view, cursor);
-
+    //fix_cursor(b_view, cursor);
 
     // Background color.
     SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255); 
@@ -104,8 +103,7 @@ int main(int argc, char **argv) {
     int tw = 0, th = 0;
     unsigned max_line = (Width-TextLeftBound-scroll_bar.w)/fw;
     for(unsigned i = 0, offset_y = 0; i < numrows(); i++) {
-      auto string = b_view.at_or(i, gap_buffer<char>{});
-
+      const auto string = b_view.at_or(i, gap_buffer<char>{});
       
       for(unsigned j = 0, offset_x = 0; j < string.size(); j++) {
         auto char_texture = alphabet[string[j]];
@@ -119,7 +117,6 @@ int main(int argc, char **argv) {
         SDL_QueryTexture(char_texture, nullptr, nullptr, &tw, &th);
         SDL_Rect dst {TextLeftBound+(j-offset_x*max_line)*fw, TextUpperBound+(i+offset_y)*fsize, tw, th};
         SDL_RenderCopy(renderer, char_texture, nullptr, &dst);
-
       }
     }
     /*
