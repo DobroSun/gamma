@@ -119,11 +119,10 @@ int main(int argc, char **argv) {
         SDL_RenderCopy(renderer, char_texture, nullptr, &dst);
       }
     }
-    /*
-    auto c = b_view.at_or(cursor.i, "").at_or(cursor.j, ' ');
+    auto c = b_view[cursor.i][cursor.j];
     auto cursor_texture = selected[c];
     timer::update_cursor(renderer, cursor_texture, cursor, fw);
-    */
+
 
     draw_bar(scroll_bar, renderer);
     SDL_RenderPresent(renderer);
@@ -131,9 +130,11 @@ int main(int argc, char **argv) {
   
 /*
   SDL_RemoveTimer(cursor_timer);
-  SDL_DestroyTexture(cursor_texture);
-  for(auto &txt: textures) {
-    SDL_DestroyTexture(txt);
+  for(auto &[key, texture]: alphabet) {
+    SDL_DestroyTexture(texture);
+  }
+  for(auto &[key, texture]: selected) {
+    SDL_DestroyTexture(texture);
   }
   SDL_DestroyRenderer(renderer);
   SDL_DestroyWindow(win);

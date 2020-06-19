@@ -68,6 +68,70 @@ void handle_resize(const SDL_Event &e, SDL_Window *win, ScrollBar &bar, const bu
 }
 
 
+static void move_cursor(buffer_view &buffer, int &from_i, int &from_j, int to_i, int to_j) {
+  auto max_size = buffer.size()-1;
+  if(to_i < 0) {
+    to_i = 0;
+  }
+  int page_diff = to_i - numrows() + 1;
+  if(page_diff > 0) {
+    // If moving down from the visible part of window.
+    // Need to increase buffer.start also.
+
+    while(page_diff--) {
+      buffer.start++;
+    }
+    return;
+  }
+  if(to_i > max_size) {
+    to_i = max_size;
+  }
+
+  if(to_j < 0) {
+    to_j = 0;
+  }
+  auto dest_size = buffer[to_i].size();
+  if(to_j > dest_size) {
+    to_j = dest_size;
+  }
+  
+
+  if(from_j == to_j) {
+    int diff = to_i - from_i;
+
+    if(diff > 0) {
+      for(int k = 0; k < diff; k++) {
+        from_i++;
+        buffer.v.move_right();
+      }
+    } else {
+      for(int k = 0; k > diff; k--) {
+        from_i--;
+        buffer.v.move_left();
+      }
+    }
+
+  } else if(from_i == to_i) {
+    int diff = to_j - from_j;
+
+    if(diff > 0) {
+      for(int k = 0; k < diff; k++) {
+        from_j++;
+        buffer[to_i].move_right();
+      }
+    } else {
+      for(int k = 0; k > diff; k--) {
+        from_j--;
+        buffer[to_i].move_left();
+      }
+    }
+
+    
+  } else {
+
+  }
+}
+
 void handle_keydown(const SDL_Event &e, buffer_view &buffer, Cursor &cursor, bool &done) {
   auto keysym = e.key.keysym;
   auto key = keysym.sym;
@@ -119,7 +183,25 @@ void handle_keydown(const SDL_Event &e, buffer_view &buffer, Cursor &cursor, boo
     buffer[++i] = to_end;
     j = 0;
     return;
+
+  } else if(key == SDLK_UP) {
+    move_cursor(buffer, i, j, i-1, j);
+    return;
+
+  } else if(key == SDLK_DOWN) {
+    move_cursor(buffer, i, j, i+1, j);
+    return;
+
+  } else if(key == SDLK_LEFT) {
+    move_cursor(buffer, i, j, i, j-1);
+    return;
+
+  } else if(key == SDLK_RIGHT) {
+    move_cursor(buffer, i, j, i, j+1);
+    return;
   }
+
+
 
 
   auto mod = keysym.mod;
