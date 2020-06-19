@@ -9,6 +9,11 @@
 // buf.__size == buf.__capacity;
 // Don't know whether it's good or not.
 
+// @Note:
+// In text editor it's everywhere used
+// with an additional trailing space.
+// Helps to handle cursor positions/moves.
+
 template<class T>
 struct gap_buffer {
   array<T> buf;
@@ -101,7 +106,7 @@ public:
     // [1, 2, [' ', ' '], 3, 4, 5]
     // [1, 2, [' ', ' ', ' '], 4, 5] // delete.
     auto post_len = buf.size() - pre_len - gap_len;
-    if(post_len == 0) return;
+    if(post_len == 1) return; // also 1 extra space.
     gap_len++;
   }
 

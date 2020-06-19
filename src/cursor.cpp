@@ -3,6 +3,7 @@
 #include "gamma/globals.h"
 #include "gamma/utility.h"
 #include "gamma/view.h"
+#include "gamma/gap_buffer.h"
 
 
 bool operator==(const Cursor &c1, const Cursor &c2) {
@@ -20,8 +21,8 @@ void get_pos(double x, double y, int fw, Cursor &c) {
 }
 
 void fix_cursor(const buffer_view &buffer, Cursor &c) {
-  auto &i = c.i; auto &j = c.j;
-  auto actual_size = buffer.at_or(i, gap_buffer<char>{}).size();
+  int i = c.i; int &j = c.j;
+  int actual_size = buffer[i].size();
 
   j = (j > actual_size)? actual_size: j;
 }

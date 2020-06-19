@@ -36,6 +36,7 @@ int main(int argc, char **argv) {
 
   // Starts timer to update the cursor.
   SDL_TimerID cursor_timer = StartTimer(300);
+  (void)cursor_timer;
   SDL_SetWindowMinimumSize(win, 300, 300); // Bug; sets only width == height.
 
   int fw, fh;
@@ -102,8 +103,8 @@ int main(int argc, char **argv) {
     // Update window.
     int tw = 0, th = 0;
     unsigned max_line = (Width-TextLeftBound-scroll_bar.w)/fw;
-    for(unsigned i = 0, offset_y = 0; i < numrows(); i++) {
-      const auto string = b_view.at_or(i, gap_buffer<char>{});
+    for(int i = 0, offset_y = 0; i < numrows(); i++) {
+      const auto &string = b_view[i];
       
       for(unsigned j = 0, offset_x = 0; j < string.size(); j++) {
         auto char_texture = alphabet[string[j]];
@@ -115,14 +116,11 @@ int main(int argc, char **argv) {
         }
 
         SDL_QueryTexture(char_texture, nullptr, nullptr, &tw, &th);
-        SDL_Rect dst {TextLeftBound+(j-offset_x*max_line)*fw, TextUpperBound+(i+offset_y)*fsize, tw, th};
+        SDL_Rect dst {(int)(TextLeftBound+(j-offset_x*max_line)*fw), TextUpperBound+(i+offset_y)*fsize, tw, th};
         SDL_RenderCopy(renderer, char_texture, nullptr, &dst);
       }
     }
-    char c = ' ';
-    if(b_view[cursor.i].size()) {
-      c = b_view[cursor.i][cursor.j];
-    }
+    char c = b_view[cursor.i][cursor.j];
     auto cursor_texture = selected[c];
     timer::update_cursor(renderer, cursor_texture, cursor, fw);
 

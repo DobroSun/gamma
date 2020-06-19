@@ -17,6 +17,8 @@ void LoadFile(buffer_t &buffer, std::fstream &file) {
     for(unsigned i = 0; i < input.size(); i++) {
       g.insert(input[i]);
     }
+    g.insert(' ');
+
     buffer.insert(g);
   }
 }
@@ -71,17 +73,16 @@ void handle_resize(const SDL_Event &e, SDL_Window *win, ScrollBar &bar, const bu
 
 
 static void move_cursor(buffer_view &buffer, int &from_i, int &from_j, int to_i, int to_j) {
-  auto max_size = buffer.size()-1;
+  int max_size = buffer.size()-1;
   auto &start = buffer.start;
 
   int is_up = to_i+start;
   if(is_up < 0) {
     // If start is zero it won't go up.
     assert(start == 0);
-
     to_i = 0;
 
-  } else if(is_up < start) {
+  } else if((unsigned)is_up < start) {
     // If to_i < 0, and start != 0; so we will go up.
     assert(to_i < 0 && start != 0);
 
@@ -108,7 +109,7 @@ static void move_cursor(buffer_view &buffer, int &from_i, int &from_j, int to_i,
   if(to_j < 0) {
     to_j = 0;
   }
-  auto dest_size = buffer[to_i].size();
+  int dest_size = buffer[to_i].size()-1;
   if(to_j > dest_size) {
     to_j = dest_size;
   }
@@ -120,12 +121,12 @@ static void move_cursor(buffer_view &buffer, int &from_i, int &from_j, int to_i,
     if(diff > 0) {
       for(int k = 0; k < diff; k++) {
         from_i++;
-        buffer.v.move_right();
+        buffer.move_right();
       }
     } else {
       for(int k = 0; k > diff; k--) {
         from_i--;
-        buffer.v.move_left();
+        buffer.move_left();
       }
     }
 
@@ -165,8 +166,11 @@ void handle_keydown(const SDL_Event &e, buffer_view &buffer, Cursor &cursor, boo
     return;
 
   } else if(key == SDLK_BACKSPACE) {
+    if(buffer[i].pre_len > 0) {
+      j--;
+    } 
     buffer[i].backspace();
-    j--;
+
     return;
 
   } else if(key == SDLK_DELETE) {
@@ -178,13 +182,14 @@ void handle_keydown(const SDL_Event &e, buffer_view &buffer, Cursor &cursor, boo
     gap_buffer<char> from_start;
 
     auto buf_i = buffer[i];
-    for(unsigned k = 0; k < j; k++) {
+    for(auto k = 0; k < j; k++) {
       from_start.insert(buf_i[k]);
     }
+    from_start.insert(' '); // add extra space.
     for(unsigned k = j; k < buf_i.size(); k++) {
       to_end.insert(buf_i[k]);
     }
-    buffer.v.add(from_start);
+    buffer.add(from_start);
     
 
     // TODO: 
@@ -221,12 +226,12 @@ void handle_keydown(const SDL_Event &e, buffer_view &buffer, Cursor &cursor, boo
   }
 
 
-
-
   auto mod = keysym.mod;
   bool is_shift = mod == KMOD_SHIFT;
   auto shifted = slice(key_lookup, underlying);
 
+  // @Note: Need to load settings from 
+  // file and generate keyscodes.
   for_each(key_lookup) {
     if(key == *it) {
       char push;
@@ -253,6 +258,7 @@ void handle_keydown(const SDL_Event &e, buffer_view &buffer, Cursor &cursor, boo
 void handle_mousemotion(const SDL_Event &e, buffer_view &buffer, ScrollBar*& active) {
   auto &motion = e.motion;
   auto &x = motion.x; auto &y = motion.y;
+  (void)x;
 
   if(active) {
     auto yy = y-TextUpperBound;
