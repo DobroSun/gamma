@@ -1,10 +1,8 @@
 #include "gamma/pch.h"
 #include "gamma/input_handler.h"
-#include "gamma/timer.h"
 #include "gamma/globals.h"
 #include "gamma/scroll_bar.h"
 #include "gamma/cursor.h"
-#include "gamma/utility.h"
 #include "gamma/gap_buffer.h"
 #include "gamma/view.h"
 
@@ -33,17 +31,26 @@ void handle_scroll_up(buffer_view &buffer, Cursor &cursor) {
   auto &start = buffer.start;
   if(start == 0) return;
 
-  int diff = numrows() - cursor.i - 1;
-  cursor.i += (diff < scroll_speed)? diff: scroll_speed;
-  start -= (start < scroll_speed)? start: scroll_speed;
+  auto &i = cursor.i;
+  int diff = numrows()-i-1;
+
+  i += (diff < scroll_speed)? diff: scroll_speed;
+
+  auto start_change = (start < scroll_speed)? start: scroll_speed;
+  buffer.decrease_start_by(start_change);
 }
 
 void handle_scroll_down(buffer_view &buffer, Cursor &cursor) {
   auto &start = buffer.start;
-  cursor.i -= (cursor.i < scroll_speed)? cursor.i: scroll_speed;
+  auto &i = cursor.i;
+
+  i -= (i < scroll_speed)? i: scroll_speed;
+
   unsigned total = buffer.size()-1; int ts = total-start;
   int speed = (ts < scroll_speed)? ts: scroll_speed;
-  start += (start == total)? 0: speed;
+  auto start_change = (start == total)? 0: speed;
+
+  buffer.increase_start_by(start_change);
 }
 
 
@@ -71,86 +78,6 @@ void handle_resize(const SDL_Event &e, SDL_Window *win, ScrollBar &bar, const bu
   }
 }
 
-
-static void move_cursor(buffer_view &buffer, int &from_i, int &from_j, int to_i, int to_j) {
-  int max_size = buffer.size()-1;
-  auto &start = buffer.start;
-
-  int is_up = to_i+start;
-  if(is_up < 0) {
-    // If start is zero it won't go up.
-    assert(start == 0);
-    to_i = 0;
-
-  } else if((unsigned)is_up < start) {
-    // If to_i < 0, and start != 0; so we will go up.
-    assert(to_i < 0 && start != 0);
-
-    auto diff = start-is_up;
-    while(diff--) {
-      buffer.start--;
-    }
-    return;
-  }
-  int page_diff = to_i - numrows() + 1;
-  if(page_diff > 0) {
-    // If moving down from the visible part of window.
-    // Need to increase buffer.start also.
-
-    while(page_diff--) {
-      buffer.start++;
-    }
-    return;
-  }
-  if(to_i > max_size) {
-    to_i = max_size;
-  }
-
-  if(to_j < 0) {
-    to_j = 0;
-  }
-  int dest_size = buffer[to_i].size()-1;
-  if(to_j > dest_size) {
-    to_j = dest_size;
-  }
-  
-
-  if(from_j == to_j) {
-    int diff = to_i - from_i;
-
-    if(diff > 0) {
-      for(int k = 0; k < diff; k++) {
-        from_i++;
-        buffer.move_right();
-      }
-    } else {
-      for(int k = 0; k > diff; k--) {
-        from_i--;
-        buffer.move_left();
-      }
-    }
-
-  } else if(from_i == to_i) {
-    int diff = to_j - from_j;
-
-    if(diff > 0) {
-      for(int k = 0; k < diff; k++) {
-        from_j++;
-        buffer[to_i].move_right();
-      }
-    } else {
-      for(int k = 0; k > diff; k--) {
-        from_j--;
-        buffer[to_i].move_left();
-      }
-    }
-
-    
-  } else {
-    // When moving to arbitrary (x, y).
-
-  }
-}
 
 void handle_keydown(const SDL_Event &e, buffer_view &buffer, Cursor &cursor, bool &done) {
   auto keysym = e.key.keysym;
@@ -230,6 +157,7 @@ void handle_keydown(const SDL_Event &e, buffer_view &buffer, Cursor &cursor, boo
   bool is_shift = mod == KMOD_SHIFT;
   auto shifted = slice(key_lookup, underlying);
 
+
   // @Note: Need to load settings from 
   // file and generate keyscodes.
   for_each(key_lookup) {
@@ -291,7 +219,7 @@ void handle_mousebuttondown(const SDL_Event &e, Cursor &cursor, ScrollBar &bar, 
       std::cout << "Double click!" << std::endl;
 
     } else if(b_type == SDL_BUTTON_LEFT) {
-      get_pos(x, y, fw, cursor);
+      std::cout << "Click!" << std::endl;
     }
   }
 }

@@ -1,6 +1,5 @@
 #ifndef GAMMA_GAP_BUFFER_H
 #define GAMMA_GAP_BUFFER_H
-
 #include "gamma/array.h"
 
 
@@ -25,6 +24,9 @@ public:
     : pre_len{__pre}, gap_len{2} //  TODO: Check on the fastest default value for gap_len.
     {
     buf.resize_with_no_init(pre_len+gap_len);
+  }
+  gap_buffer(T val): gap_buffer{} {
+    insert(val);
   }
 
   void insert(const T &val) {
@@ -133,6 +135,22 @@ public:
     return buf.size() - gap_len;
   }
 
+
+  void move_right_by(unsigned i) {
+    assert(i);
+    while(i) {
+      move_right();
+      i--;
+    }
+  }
+
+  void move_left_by(unsigned i) {
+    assert(i);
+    while(i) {
+      move_left();
+      i--;
+    }
+  }
 };
 
 template<class T>

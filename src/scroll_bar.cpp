@@ -48,6 +48,13 @@ void start_to_bar(const buffer_view &buffer, ScrollBar &bar) {
 }
 
 void bar_to_start(buffer_view &buffer, ScrollBar*& bar, double y) {
+  // TODO:
+  // Get rid of assigning smth to start.
+  // Cause that way I don't know the change
+  // needed to shift gap inside buffer.
+
+  // Assigns also make bar jump near the bounds.
+
   auto clicked = bar->clicky;
   auto &bar_start = bar->start;
   auto bar_h = bar->h;

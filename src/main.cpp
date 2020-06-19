@@ -93,7 +93,6 @@ int main(int argc, char **argv) {
         } break;
       }
     }
-    //fix_cursor(b_view, cursor);
 
     // Background color.
     SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255); 
