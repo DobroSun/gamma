@@ -27,14 +27,16 @@ static bool in_buffer(double x, double y) {
 }
 
 
-static void handle_scroll_up(buffer_view &buffer, Cursor &cursor) {
+void handle_scroll_up(buffer_view &buffer, Cursor &cursor) {
   auto &start = buffer.start;
+  if(start == 0) return;
+
   int diff = numrows() - cursor.i - 1;
   cursor.i += (diff < scroll_speed)? diff: scroll_speed;
   start -= (start < scroll_speed)? start: scroll_speed;
 }
 
-static void handle_scroll_down(buffer_view &buffer, Cursor &cursor) {
+void handle_scroll_down(buffer_view &buffer, Cursor &cursor) {
   auto &start = buffer.start;
   cursor.i -= (cursor.i < scroll_speed)? cursor.i: scroll_speed;
   unsigned total = buffer.size()-1; int ts = total-start;
@@ -70,8 +72,24 @@ void handle_resize(const SDL_Event &e, SDL_Window *win, ScrollBar &bar, const bu
 
 static void move_cursor(buffer_view &buffer, int &from_i, int &from_j, int to_i, int to_j) {
   auto max_size = buffer.size()-1;
-  if(to_i < 0) {
+  auto &start = buffer.start;
+
+  int is_up = to_i+start;
+  if(is_up < 0) {
+    // If start is zero it won't go up.
+    assert(start == 0);
+
     to_i = 0;
+
+  } else if(is_up < start) {
+    // If to_i < 0, and start != 0; so we will go up.
+    assert(to_i < 0 && start != 0);
+
+    auto diff = start-is_up;
+    while(diff--) {
+      buffer.start--;
+    }
+    return;
   }
   int page_diff = to_i - numrows() + 1;
   if(page_diff > 0) {
@@ -128,6 +146,7 @@ static void move_cursor(buffer_view &buffer, int &from_i, int &from_j, int to_i,
 
     
   } else {
+    // When moving to arbitrary (x, y).
 
   }
 }

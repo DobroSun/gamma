@@ -13,9 +13,11 @@ target_include_directories(
 )
 
 target_link_libraries(
-  tests 
+  tests
     pthread
     libgamma
+    stdc++fs
+    "${SDL2_LIBRARIES} ${SDL2_IMAGE_LIBRARIES} ${SDL2_TTF_LIBRARIES}"
 )
 
 add_test(NAME exe_tests

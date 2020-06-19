@@ -5,6 +5,9 @@
 
 void LoadFile(buffer_t &, std::fstream &);
 
+void handle_scroll_up(buffer_view &, Cursor &);
+void handle_scroll_down(buffer_view &, Cursor &);
+
 void handle_mousewheel(const SDL_Event &, buffer_view &, ScrollBar &, Cursor &);
 void handle_resize(const SDL_Event &, SDL_Window *, ScrollBar &, const buffer_view &);
 void handle_keydown(const SDL_Event &, buffer_view &buffer, Cursor &cursor, bool &);

@@ -119,7 +119,10 @@ int main(int argc, char **argv) {
         SDL_RenderCopy(renderer, char_texture, nullptr, &dst);
       }
     }
-    auto c = b_view[cursor.i][cursor.j];
+    char c = ' ';
+    if(b_view[cursor.i].size()) {
+      c = b_view[cursor.i][cursor.j];
+    }
     auto cursor_texture = selected[c];
     timer::update_cursor(renderer, cursor_texture, cursor, fw);
 
