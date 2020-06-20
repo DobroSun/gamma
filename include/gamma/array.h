@@ -50,6 +50,11 @@ void reserve_impl(unsigned size_to_alloc, T *&p, unsigned &__size, unsigned &__c
 }
 
 
+// @MayLeak:
+// resize on object that allocates in constructor will leak.
+// Cause it calls constructor on new, and then inside init().
+// But new T[__capacity] DO NOT constructs objects with default values(as it should).
+// That is why I need that additional init() function call.
 template<class T>
 void resize_impl(unsigned size_to_resize, T *&p, unsigned &__size, unsigned &__capacity, unsigned original_capacity) {
   assert(__size <= __capacity);

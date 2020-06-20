@@ -23,7 +23,7 @@ public:
   gap_buffer(unsigned __pre=0)
     : pre_len{__pre}, gap_len{12} //  TODO: Check on the fastest default value for gap_len.
     {
-    buf.resize(pre_len+gap_len);
+    buf.resize_with_no_init(pre_len+gap_len);
   }
   gap_buffer(T val): gap_buffer{} {
     insert(val);
