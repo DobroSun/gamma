@@ -30,6 +30,7 @@ TEST_CASE("Test array_reserve&resize_with_elements") {
   CHECK(a.size() <= a.capacity());
 
   for(unsigned i = 0; i < 10; i++) {
+    CHECK(a.size() <= a.capacity());
     a.push_back(i);
   }
   CHECK(a.size() == 10);
@@ -37,6 +38,7 @@ TEST_CASE("Test array_reserve&resize_with_elements") {
 
   auto size = a.size();
   a.resize(100);
+
   for(unsigned i = size; i < a.size(); i++) {
     CHECK(a[i] == int{});
   }

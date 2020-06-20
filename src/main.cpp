@@ -100,6 +100,10 @@ int main(int argc, char **argv) {
 
 
     // Update window.
+    // TODO:
+    // Need to implement array of offsets for big strings.
+    // That is needed to handle clicks, correct cursor moves,
+
     int tw = 0, th = 0;
     unsigned max_line = (Width-TextLeftBound-scroll_bar.w)/fw;
     for(int i = 0, offset_y = 0; i < numrows(); i++) {
@@ -110,6 +114,11 @@ int main(int argc, char **argv) {
         assert(char_texture);
 
         if(j-offset_x*max_line == max_line) {
+        /*
+          if(i == numrows()-1) {
+            break;
+          }
+        */
           offset_x++;
           offset_y++;
         }

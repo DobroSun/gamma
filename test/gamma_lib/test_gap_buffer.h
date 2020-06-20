@@ -126,7 +126,7 @@ TEST_CASE("Test gap_buffer_delete") {
     CHECK(buffer.pre_len == pre_len);
     CHECK(buffer.gap_len == gap_len);
   }
-  for(unsigned i = 0; i < c_size; i++) {
+  for(unsigned i = 1; i < c_size; i++) {
     buffer.del();
     CHECK(buffer.gap_len == ++gap_len);
     CHECK(buffer.pre_len == pre_len);
@@ -223,11 +223,12 @@ TEST_CASE("Test gap_buffer[]") {
 
 TEST_CASE("Test gap_buffer_init") {
   gap_buffer<gap_buffer<int>> b;
+///*
 
   gap_buffer<int> d;
   gap_buffer<int> e;
   gap_buffer<int> c;
-  auto size = 6;
+  unsigned size = 6;
   for(unsigned i = 0; i < size; i++) {
     d.insert(i);
     e.insert(i);
@@ -262,4 +263,5 @@ TEST_CASE("Test gap_buffer_init") {
       CHECK(b[i][j] == j);
     }
   }
+//*/
 }

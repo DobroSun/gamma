@@ -25,6 +25,7 @@ void move_cursor(buffer_view &buffer, int &from_i, int &from_j, int to_i, int to
   int max_size = buffer.size()-1;
   auto &start = buffer.start;
 
+
   int is_up = to_i+start;
   if(is_up < 0) {
     // If start is zero it won't go up.
@@ -35,24 +36,19 @@ void move_cursor(buffer_view &buffer, int &from_i, int &from_j, int to_i, int to
     // If to_i < 0, and start != 0; so we will go up.
     assert(to_i < 0 && start != 0);
 
-    auto diff = start-is_up;
-    while(diff--) {
-      buffer.start--;
-    }
+    buffer.decrease_start_by(start-is_up);
     return;
+
+  } else if(is_up > max_size) {
+    to_i = max_size-start;
   }
-  int page_diff = to_i - numrows() + 1;
+
+  int page_diff = to_i-numrows()+1;
   if(page_diff > 0) {
     // If moving down from the visible part of window.
     // Need to increase buffer.start also.
-
-    while(page_diff--) {
-      buffer.start++;
-    }
+    buffer.increase_start_by(page_diff);
     return;
-  }
-  if(to_i > max_size) {
-    to_i = max_size;
   }
 
   if(to_j < 0) {

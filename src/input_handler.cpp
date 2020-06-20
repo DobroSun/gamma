@@ -119,20 +119,18 @@ void handle_keydown(const SDL_Event &e, buffer_view &buffer, Cursor &cursor, boo
     buffer.add(from_start);
     
 
-    // TODO: 
-    // Handle cursor on bottom of the window.
-/*
-    if(numrows()+1 == i) { 
-      // Cursor places on last line.
-      // It stays here and start increases.
-      buffer.start++;
-      buffer[i] = to_end;
+    if(i < numrows()-1) {
+      buffer[++i] = to_end;
 
     } else {
+      // Cursor places on last line.
+      // It stays here and start increases.
+
+      buffer.start++;
+      buffer[i] = to_end;
     }
-*/
-    buffer[++i] = to_end;
     j = 0;
+
     return;
 
   } else if(key == SDLK_UP) {

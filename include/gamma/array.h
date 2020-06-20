@@ -15,21 +15,22 @@ void copy(T *p1, T *p2, unsigned size) {
 
 template<class T>
 void init(T *p, unsigned from, unsigned to) {
-  auto d = T{};
   for(unsigned i = from; i < to; i++) {
-    p[i] = d;
+    ::new (&p[i]) T{};
   }
 }
 
 // @Note: string must use malloc.
 template<class T>
 void reserve_impl(unsigned size_to_alloc, T *&p, unsigned &__size, unsigned &__capacity, unsigned original_capacity) {
+  assert(__size <= __capacity);
   if(!p) {
     assert(!__capacity);
     assert(!__size);
 
     __capacity = (!size_to_alloc)? original_capacity: size_to_alloc;
     p = new T[__capacity];
+
 
   } else {
     assert(p);
@@ -43,23 +44,23 @@ void reserve_impl(unsigned size_to_alloc, T *&p, unsigned &__size, unsigned &__c
     p = new_p;
 
   }
+  assert(__size <= __capacity);
   assert(__capacity);
   assert(p);
 }
 
-// FIXME: resize is broken somehow. XD.
-// Calling resize inside of gap_buffer constructor
-// can't take size > 2. Fails only in gap_buffer.
+
 template<class T>
 void resize_impl(unsigned size_to_resize, T *&p, unsigned &__size, unsigned &__capacity, unsigned original_capacity) {
+  assert(__size <= __capacity);
   if(!p) {
     assert(!__capacity);
     assert(!__size);
 
     __capacity = (!size_to_resize)? original_capacity: size_to_resize;
-    __size = __capacity;
     p = new T[__capacity];
-    init(p, 0, __size);
+    init(p, 0, __capacity);
+    __size = __capacity;
 
   } else {
     assert(__capacity);
@@ -68,16 +69,16 @@ void resize_impl(unsigned size_to_resize, T *&p, unsigned &__size, unsigned &__c
 
     __capacity = (!size_to_resize)? __capacity*2: size_to_resize;
     auto new_p = new T[__capacity];
+    init(new_p, 0, __capacity);
 
     copy(p, new_p, __size);
-    init(new_p, __size, __capacity); // from old_size to new_size.
     __size = __capacity;
     delete[] p;
     p = new_p;
 
   }
   assert(__capacity);
-  assert(__size);
+  assert(__size == __capacity);
   assert(p);
 }
 
