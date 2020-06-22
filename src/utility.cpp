@@ -1,6 +1,9 @@
 #include "gamma/pch.h"
 #include "gamma/utility.h"
 #include "gamma/globals.h"
+#include "gamma/view.h"
+#include "gamma/gap_buffer.h"
+#include "gamma/cursor.h"
 
 
 char numrows() {
@@ -56,3 +59,29 @@ SDL_Texture *load_cursor(SDL_Renderer *renderer, TTF_Font *gfont, const std::str
   SDL_FreeSurface(t);
   return cc;
 }
+
+// Editor commands.
+
+bool save(const buffer_t &b, const std::string &filename) {
+  std::fstream file{filename};
+  if(!file) {
+    return false;
+  }
+  for(unsigned i = 0; i < b.size(); i++) {
+    auto &b_i = b[i];
+    for(unsigned j = 0; j < b_i.size()-1; j++) {
+      file << b_i[j];
+    }
+    file << "\n";
+  }
+  return true;
+}
+
+void go_to_line(buffer_view &b, Cursor &c, int nline) {
+  auto j = c.j;
+  move_cursor(b, c.i, j, nline, j);
+}
+/*
+void delete_line(buffer_view &b, Cursor &c) {
+}
+*/

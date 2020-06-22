@@ -3,7 +3,7 @@
 #include "gamma/globals.h"
 #include "gamma/fwd_decl.h"
 
-void LoadFile(buffer_t &, std::fstream &);
+bool LoadFile(buffer_t &, const std::string &);
 
 void handle_scroll_up(buffer_view &, Cursor &);
 void handle_scroll_down(buffer_view &, Cursor &);

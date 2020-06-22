@@ -8,6 +8,7 @@ set(gamma_source
   input_handler.cpp
   scroll_bar.cpp
   view.cpp
+  update.cpp
 )
 
 add_library(

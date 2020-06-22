@@ -7,7 +7,13 @@
 #include "gamma/view.h"
 
 
-void LoadFile(buffer_t &buffer, std::fstream &file) {
+
+bool LoadFile(buffer_t &buffer, const std::string &filename) {
+  std::fstream file{filename};
+  if(!file) {
+    return false;
+  }
+
   std::string input; 
   while(std::getline(file, input)) {
     gap_buffer<char> g;
@@ -19,6 +25,7 @@ void LoadFile(buffer_t &buffer, std::fstream &file) {
 
     buffer.insert(g);
   }
+  return true;
 }
 
 
@@ -95,8 +102,27 @@ void handle_keydown(const SDL_Event &e, buffer_view &buffer, Cursor &cursor, boo
   } else if(key == SDLK_BACKSPACE) {
     if(buffer[i].pre_len > 0) {
       j--;
-    } 
-    buffer[i].backspace();
+      buffer[i].backspace();
+
+    } else if(buffer.pre_len() > 0) {
+      assert(i && !j);
+      /*
+      auto &buffer_prev = buffer[i-1];
+      auto &buffer_cur = buffer[i];
+      buffer_prev.remove();
+
+      for(unsigned k = 0; k < buffer_cur.size(); k++) {
+        buffer_prev.insert(buffer_cur[k]);
+      }
+      buffer.del();
+      i--;
+
+      move_cursor
+      */
+
+    } else {
+      buffer[i].backspace();
+    }
 
     return;
 
@@ -208,8 +234,6 @@ void handle_mousebuttondown(const SDL_Event &e, Cursor &cursor, ScrollBar &bar, 
   } else if(clicked_bar(bar, x, y)) {
 
   } else if(in_buffer(x, y)) {
-    std::cout << "Buffer clicked" << std::endl;
-
     if(b_type == SDL_BUTTON_LEFT && b_click == 3) {
       std::cout << "Triple click!" << std::endl;
 
@@ -229,4 +253,3 @@ void handle_mousebuttonup(const SDL_Event &e, ScrollBar*& active) {
     active = nullptr;
   }
 }
-

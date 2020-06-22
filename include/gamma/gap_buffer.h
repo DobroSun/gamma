@@ -37,6 +37,10 @@ public:
     buf.push_back(std::move(val));
   }
 
+  void remove() {
+    buf.pop_back();
+  }
+
   void move_right() {
     auto post_start = pre_len + gap_len;
     auto gap_start = pre_len;

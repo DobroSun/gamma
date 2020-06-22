@@ -6,12 +6,6 @@
 #include "gamma/gap_buffer.h"
 
 
-bool operator==(const Cursor &c1, const Cursor &c2) {
-  return c1.i == c2.i && c1.j == c2.j;
-}
-bool operator!=(const Cursor &c1, const Cursor &c2) {
-  return c1.i != c2.i || c1.j != c2.j;
-}
 /*
 void fix_cursor(const buffer_view &buffer, Cursor &c) {
   int i = c.i; int &j = c.j;
@@ -20,6 +14,25 @@ void fix_cursor(const buffer_view &buffer, Cursor &c) {
   j = (j > actual_size)? actual_size: j;
 }
 */
+
+static void fix_gap(buffer_view &buffer, int i, int j) {
+  auto &line = buffer[i];
+  auto diff = j - line.pre_len;
+  if(diff > 0) {
+    // cursor.j is bigger than start of gap.
+    // so moving gap right.
+    line.move_right_by(diff);
+  
+  } else if(diff < 0) {
+    // cursor.j is less than start of gap.
+    line.move_left_by(-diff);
+
+  } else {
+    assert(!diff);
+    // There is no difference between cursor.j and start index of gap.
+    // do nothing.
+  } 
+}
 
 void move_cursor(buffer_view &buffer, int &from_i, int &from_j, int to_i, int to_j) {
   int max_size = buffer.size()-1;
@@ -61,6 +74,7 @@ void move_cursor(buffer_view &buffer, int &from_i, int &from_j, int to_i, int to
   
 
   if(from_j == to_j) {
+    // Moving to another line.
     int diff = to_i - from_i;
 
     if(diff > 0) {
@@ -75,7 +89,13 @@ void move_cursor(buffer_view &buffer, int &from_i, int &from_j, int to_i, int to
       }
     }
 
+    // We moved up/down, but gap on i'th line stays unchanged,
+    // so cursor.j may not correspond to the beginning of gap(pre_len).
+    assert(from_i == to_i);
+    fix_gap(buffer, from_i, from_j);
+
   } else if(from_i == to_i) {
+    // Moving across current line.
     int diff = to_j - from_j;
 
     if(diff > 0) {
@@ -83,6 +103,8 @@ void move_cursor(buffer_view &buffer, int &from_i, int &from_j, int to_i, int to
         from_j++;
         buffer[to_i].move_right();
       }
+
+      
     } else {
       for(int k = 0; k > diff; k--) {
         from_j--;
@@ -91,7 +113,7 @@ void move_cursor(buffer_view &buffer, int &from_i, int &from_j, int to_i, int to
     }
 
   } else {
-    // When moving to arbitrary (x, y).
+    // Moving to arbitrary (x, y).
 
   }
 }

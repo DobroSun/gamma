@@ -7,21 +7,16 @@
 #include "gamma/scroll_bar.h"
 #include "gamma/gap_buffer.h"
 #include "gamma/view.h"
+#include "gamma/update.h"
+
+
 
 
 
 
 int main(int argc, char **argv) {
   if(Init_SDL()) return 1;
-  auto filename =  read_args(argc, argv);
-  std::fstream file{filename};
-
-  if(!file) {
-    std::cerr << "Error opening file: " << filename << std::endl;
-    return 1;
-  }
-
-
+  auto filename = read_args(argc, argv);
 
 
   SDL_Window *win = SDL_CreateWindow("Gamma",
@@ -46,7 +41,11 @@ int main(int argc, char **argv) {
 
   // Loading file in memory.
   buffer_t buffer;
-  LoadFile(buffer, file);
+  bool success = LoadFile(buffer, filename);
+  if(!success) {
+    std::cerr << "Error opening file: " << filename << std::endl;
+    return 1;
+  }
 
 
   ScrollBar scroll_bar{buffer.size()};
@@ -104,30 +103,8 @@ int main(int argc, char **argv) {
     // Need to implement array of offsets for big strings.
     // That is needed to handle clicks, correct cursor moves,
 
-    int tw = 0, th = 0;
-    unsigned max_line = (Width-TextLeftBound-scroll_bar.w)/fw;
-    for(int i = 0, offset_y = 0; i < numrows(); i++) {
-      const auto &string = b_view[i];
-      
-      for(unsigned j = 0, offset_x = 0; j < string.size(); j++) {
-        auto char_texture = alphabet[string[j]];
-        assert(char_texture);
+    update(renderer, b_view, scroll_bar, alphabet, fw);
 
-        if(j-offset_x*max_line == max_line) {
-        /*
-          if(i == numrows()-1) {
-            break;
-          }
-        */
-          offset_x++;
-          offset_y++;
-        }
-
-        SDL_QueryTexture(char_texture, nullptr, nullptr, &tw, &th);
-        SDL_Rect dst {(int)(TextLeftBound+(j-offset_x*max_line)*fw), TextUpperBound+(i+offset_y)*fsize, tw, th};
-        SDL_RenderCopy(renderer, char_texture, nullptr, &dst);
-      }
-    }
     char c = b_view[cursor.i][cursor.j];
     auto cursor_texture = selected[c];
     timer::update_cursor(renderer, cursor_texture, cursor, fw);
