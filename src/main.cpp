@@ -10,6 +10,7 @@
 #include "gamma/update.h"
 
 
+#include <chrono>
 
 
 
@@ -17,6 +18,8 @@
 int main(int argc, char **argv) {
   if(Init_SDL()) return 1;
   auto filename = read_args(argc, argv);
+  // 
+// ajdfkl;ajdksfl;asjdkfl;asdjkfl;asjdklf;asdjfk;asdjfkl;asdjsfkl;asdjfkl;asdfjkl;asdf
 
 
   // Loading file in memory.
@@ -61,6 +64,9 @@ int main(int argc, char **argv) {
   buffer_view b_view(buffer, 0);
   bool done = false;
   while(!done) {
+    auto begin = std::chrono::steady_clock::now();
+
+
     SDL_Event e;
     if(SDL_PollEvent(&e)) {
       switch(e.type) {
@@ -81,7 +87,7 @@ int main(int argc, char **argv) {
         } break;
 
         case SDL_KEYDOWN: {
-          handle_keydown(e, b_view, done);
+          handle_keydown(e, b_view, done, fw);
         } break;
 
         case SDL_MOUSEWHEEL: {
@@ -98,12 +104,13 @@ int main(int argc, char **argv) {
     SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255); 
     SDL_RenderClear(renderer);
 
-
     update(renderer, b_view, scroll_bar, alphabet, selected, fw);
-
 
     draw_bar(scroll_bar, renderer);
     SDL_RenderPresent(renderer);
+
+    auto end = std::chrono::steady_clock::now();
+    //std::cout << 1000000 / std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() << std::endl;
   }
   
 /*

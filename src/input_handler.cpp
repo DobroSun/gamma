@@ -12,7 +12,46 @@ static bool in_buffer(double x, double y) {
   return y >= TextUpperBound && x >= TextLeftBound && y < Height - TextBottomBound;
 }
 
+static bool is_last_line(int index, int start, int length_on_screen) {
+  return index+start == numrows()-length_on_screen;
+}
 
+// 
+// Function moves cursor to the next line. If cursor is on the last line inside screen,
+// It just moves to next line, but if not, it looks on the last line and goes down by 
+// length of this line on screen. However, if the first line on screen also is `huge` it 
+// it will go down by length that is needed to keep all lines on screen `full`.
+// 
+static void next_line(buffer_view &buffer, int fw) {
+  auto &start = buffer.start;
+  auto &cursor = buffer.cursor;
+  auto &i = cursor.i; auto &j = cursor.j;
+
+  int max_size = buffer.size()-1;
+  int max_line = (Width-TextLeftBound-25)/fw;
+
+  if(i+start == max_size) {
+    // On the last line of file.
+    return;
+  }
+
+  std::cout << buffer.pre_len() << std::endl;
+
+  auto length_on_screen = buffer[i+1].size()/max_line + 1;
+  auto current_length = buffer[i].size()/max_line + 1;
+  if(!is_last_line(i, start, current_length)) {
+    // Just go to the next line inside buffer.
+    buffer.move_right();
+    i++;
+
+  } else {
+
+    //start += length_on_screen;
+    buffer.move_right();
+    i++;
+  }
+  std::cout << i << " and " << buffer[i][0] << std::endl;
+}
 
 
 bool LoadFile(buffer_t &buffer, const std::string &filename) {
@@ -88,7 +127,7 @@ void handle_resize(const SDL_Event &e, SDL_Window *win, ScrollBar &bar, const bu
 }
 
 
-void handle_keydown(const SDL_Event &e, buffer_view &buffer, bool &done) {
+void handle_keydown(const SDL_Event &e, buffer_view &buffer, bool &done, int fw) {
   auto keysym = e.key.keysym;
   auto key = keysym.sym;
 
@@ -106,28 +145,9 @@ void handle_keydown(const SDL_Event &e, buffer_view &buffer, bool &done) {
     if(buffer[i].pre_len > 0) {
       j--;
       buffer[i].backspace();
-
-    } else if(buffer.pre_len() > 0) {
-      assert(i && !j);
-      /*
-      auto &buffer_prev = buffer[i-1];
-      auto &buffer_cur = buffer[i];
-      buffer_prev.remove();
-
-      for(unsigned k = 0; k < buffer_cur.size(); k++) {
-        buffer_prev.insert(buffer_cur[k]);
-      }
-      buffer.del();
-      i--;
-
-      move_cursor
-      */
-
     } else {
       buffer[i].backspace();
     }
-
-    return;
 
   } else if(key == SDLK_DELETE) {
     buffer[i].del();
@@ -152,9 +172,6 @@ void handle_keydown(const SDL_Event &e, buffer_view &buffer, bool &done) {
       buffer[++i] = to_end;
 
     } else {
-      // Cursor places on last line.
-      // It stays here and start increases.
-
       buffer.start++;
       buffer[i] = to_end;
     }
@@ -167,7 +184,7 @@ void handle_keydown(const SDL_Event &e, buffer_view &buffer, bool &done) {
     return;
 
   } else if(key == SDLK_DOWN) {
-    move_cursor(buffer, i, j, i+1, j);
+    next_line(buffer, fw);
     return;
 
   } else if(key == SDLK_LEFT) {

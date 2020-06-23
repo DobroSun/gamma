@@ -49,12 +49,14 @@ const gap_buffer<char> &buffer_view::operator[](unsigned i) const {
   }
 }
 
-void buffer_view::increase_start_by(unsigned i) {
+void buffer_view::increase_start_by(int i) {
+  assert(i >= 0);
   start += i;
   v.move_right_by(i);
 }
 
-void buffer_view::decrease_start_by(unsigned i) {
+void buffer_view::decrease_start_by(int i) {
+  assert(i >= 0);
   start -= i;
   v.move_left_by(i);
 }

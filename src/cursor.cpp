@@ -15,9 +15,9 @@ void fix_cursor(const buffer_view &buffer, Cursor &c) {
 }
 */
 
-static void fix_gap(buffer_view &buffer, int i, int j) {
+void fix_gap(buffer_view &buffer, int i, int j) {
   auto &line = buffer[i];
-  auto diff = j - line.pre_len;
+  int diff = j - line.pre_len;
   if(diff > 0) {
     // cursor.j is bigger than start of gap.
     // so moving gap right.
@@ -38,7 +38,6 @@ void move_cursor(buffer_view &buffer, int &from_i, int &from_j, int to_i, int to
   int max_size = buffer.size()-1;
   auto &start = buffer.start;
 
-
   int is_up = to_i+start;
   if(is_up < 0) {
     // If start is zero it won't go up.
@@ -48,7 +47,6 @@ void move_cursor(buffer_view &buffer, int &from_i, int &from_j, int to_i, int to
   } else if((unsigned)is_up < start) {
     // If to_i < 0, and start != 0; so we will go up.
     assert(to_i < 0 && start != 0);
-
     buffer.decrease_start_by(start-is_up);
     return;
 
@@ -89,10 +87,9 @@ void move_cursor(buffer_view &buffer, int &from_i, int &from_j, int to_i, int to
       }
     }
 
-    // We moved up/down, but gap on i'th line stays unchanged,
-    // so cursor.j may not correspond to the beginning of gap(pre_len).
     assert(from_i == to_i);
     fix_gap(buffer, from_i, from_j);
+
 
   } else if(from_i == to_i) {
     // Moving across current line.
@@ -116,5 +113,13 @@ void move_cursor(buffer_view &buffer, int &from_i, int &from_j, int to_i, int to
     // Moving to arbitrary (x, y).
 
   }
+
+  // 
+  // @Hack:
+  // We moved cursor, but gap on each i'th line stays unchanged,
+  // so cursor.j may not correspond to the beginning of gap(pre_len).
+  // Need somehow get rid of it.
+  //
+  fix_gap(buffer, to_i, to_j);
 }
 

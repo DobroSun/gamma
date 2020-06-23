@@ -49,7 +49,7 @@ void update(SDL_Renderer *renderer, const buffer_view &b_view, const ScrollBar &
 
       // Update character.
       SDL_QueryTexture(char_texture, nullptr, nullptr, &tw, &th);
-      SDL_Rect dst {(int)(TextLeftBound+(j-offset_x*max_line)*fw), TextUpperBound+(i+offset_y)*fsize, tw, th};
+      SDL_Rect dst {TextLeftBound+j_relative, TextUpperBound+i_relative, tw, th};
       SDL_RenderCopy(renderer, char_texture, nullptr, &dst);
 
 

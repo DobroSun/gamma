@@ -8,7 +8,7 @@ struct buffer_view {
   buffer_t &v;
   unsigned start;
   Cursor cursor;
-  
+
 
   buffer_view(buffer_t &view, unsigned __start=0);
 
@@ -21,8 +21,8 @@ struct buffer_view {
   gap_buffer<char> &operator[](unsigned i);
   const gap_buffer<char> &operator[](unsigned i) const;
 
-  void increase_start_by(unsigned);
-  void decrease_start_by(unsigned);
+  void increase_start_by(int);
+  void decrease_start_by(int);
 
 
 
