@@ -1,11 +1,13 @@
 #ifndef GAMMA_VIEW_H
 #define GAMMA_VIEW_H
 #include "gamma/fwd_decl.h"
+#include "gamma/cursor.h"
 
 
 struct buffer_view {
   buffer_t &v;
   unsigned start;
+  Cursor cursor;
   
 
   buffer_view(buffer_t &view, unsigned __start=0);

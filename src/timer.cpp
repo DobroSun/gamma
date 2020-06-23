@@ -3,34 +3,33 @@
 #include "gamma/globals.h"
 #include "gamma/cursor.h"
 
+static int tw = 0, th = 0;
+static bool is_shown = true;
 
-namespace timer {
-  bool is_shown = true;
-  void update_fake(SDL_Renderer *renderer, SDL_Texture *, const Cursor &, int) {
+static Uint32 change_cursor_state(Uint32 interval) {
+  if(is_shown) {
+    update_cursor = update_real;
+  } else {
+    update_cursor = update_fake;
   }
-
-  void update_real(SDL_Renderer *renderer, SDL_Texture *t, const Cursor &c, int width) {
-    int tw = 0, th = 0;
-    SDL_QueryTexture(t, nullptr, nullptr, &tw, &th);
-    SDL_Rect dst {TextLeftBound+width*c.j, TextUpperBound+fsize*c.i, tw, th};
-    SDL_RenderCopy(renderer, t, nullptr, &dst);
-  }
+  is_shown = !is_shown;
+  return interval;
+}
 
 
-  Uint32 change_cursor_state(Uint32 interval) {
-    if(is_shown) {
-      update_cursor = update_real;
-    } else {
-      update_cursor = update_fake;
-    }
-    is_shown = !is_shown;
-    return interval;
-  }
-}; // namespace
+void update_fake(SDL_Renderer *renderer, SDL_Texture *, int, int) {
+}
+
+void update_real(SDL_Renderer *renderer, SDL_Texture *t, int i_pixels, int j_pixels) {
+  SDL_QueryTexture(t, nullptr, nullptr, &tw, &th);
+  SDL_Rect dst {TextLeftBound + j_pixels, TextUpperBound + i_pixels, tw, th};
+  SDL_RenderCopy(renderer, t, nullptr, &dst);
+}
+
 
 SDL_TimerID StartTimer(Uint32 delay) {
-  Uint32 junk = 0;
-  timer::update_cursor = timer::update_real;
-  SDL_TimerID cursortimer = SDL_AddTimer(delay, (callback)timer::change_cursor_state, &junk);
+  char junk = 0;
+  update_cursor = update_real;
+  SDL_TimerID cursortimer = SDL_AddTimer(delay, (callback)change_cursor_state, &junk);
   return cursortimer;
 }

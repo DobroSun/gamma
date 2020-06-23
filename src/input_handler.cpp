@@ -8,6 +8,13 @@
 
 
 
+static bool in_buffer(double x, double y) {
+  return y >= TextUpperBound && x >= TextLeftBound && y < Height - TextBottomBound;
+}
+
+
+
+
 bool LoadFile(buffer_t &buffer, const std::string &filename) {
   std::fstream file{filename};
   if(!file) {
@@ -29,16 +36,11 @@ bool LoadFile(buffer_t &buffer, const std::string &filename) {
 }
 
 
-static bool in_buffer(double x, double y) {
-  return y >= TextUpperBound && x >= TextLeftBound && y < Height - TextBottomBound;
-}
-
-
-void handle_scroll_up(buffer_view &buffer, Cursor &cursor) {
+void handle_scroll_up(buffer_view &buffer) {
   auto &start = buffer.start;
   if(start == 0) return;
 
-  auto &i = cursor.i;
+  auto &i = buffer.cursor.i;
   int diff = numrows()-i-1;
 
   i += (diff < scroll_speed)? diff: scroll_speed;
@@ -47,9 +49,9 @@ void handle_scroll_up(buffer_view &buffer, Cursor &cursor) {
   buffer.decrease_start_by(start_change);
 }
 
-void handle_scroll_down(buffer_view &buffer, Cursor &cursor) {
+void handle_scroll_down(buffer_view &buffer) {
   auto &start = buffer.start;
-  auto &i = cursor.i;
+  auto &i = buffer.cursor.i;
 
   i -= (i < scroll_speed)? i: scroll_speed;
 
@@ -61,18 +63,18 @@ void handle_scroll_down(buffer_view &buffer, Cursor &cursor) {
 }
 
 
-void handle_mousewheel(const SDL_Event &e, buffer_view &buffer, ScrollBar &bar, Cursor &cursor) {
+void handle_mousewheel(const SDL_Event &e, buffer_view &buffer, ScrollBar &bar) {
   auto &wheel = e.wheel;
   auto &start = buffer.start;
 
   if(wheel.y > 0) {
-    handle_scroll_up(buffer, cursor);
+    handle_scroll_up(buffer);
     start_to_bar(buffer, bar);
 
     if(start == 0) return;
 
   } else if(wheel.y < 0) {
-    handle_scroll_down(buffer, cursor);
+    handle_scroll_down(buffer);
     start_to_bar(buffer, bar);
   }
 }
@@ -86,10 +88,11 @@ void handle_resize(const SDL_Event &e, SDL_Window *win, ScrollBar &bar, const bu
 }
 
 
-void handle_keydown(const SDL_Event &e, buffer_view &buffer, Cursor &cursor, bool &done) {
+void handle_keydown(const SDL_Event &e, buffer_view &buffer, bool &done) {
   auto keysym = e.key.keysym;
   auto key = keysym.sym;
 
+  auto &cursor = buffer.cursor;
   auto &i = cursor.i; auto &j = cursor.j;
   if(key == SDLK_LSHIFT || key == SDLK_RSHIFT) {
     SDL_SetModState((SDL_Keymod)KMOD_SHIFT);
@@ -221,7 +224,7 @@ void handle_mousemotion(const SDL_Event &e, buffer_view &buffer, ScrollBar*& act
 }
 
 
-void handle_mousebuttondown(const SDL_Event &e, Cursor &cursor, ScrollBar &bar, int fw, ScrollBar*& active) {
+void handle_mousebuttondown(const SDL_Event &e, ScrollBar &bar, int fw, ScrollBar*& active) {
   auto &button = e.button;
   auto &b_type = button.button; 
   auto &b_click = button.clicks;

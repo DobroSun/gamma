@@ -5,7 +5,7 @@
 static gap_buffer<char> empty = ' ';
 
 buffer_view::buffer_view(buffer_t &view, unsigned __start)
-                         : v{view}, start{__start}
+                         : v{view}, start{__start}, cursor{0, 0}
                          {}
 
 

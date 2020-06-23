@@ -19,6 +19,16 @@ int main(int argc, char **argv) {
   auto filename = read_args(argc, argv);
 
 
+  // Loading file in memory.
+  buffer_t buffer;
+  bool success = LoadFile(buffer, filename);
+  if(!success) {
+    std::cerr << "Error opening file: " << filename << std::endl;
+    return 1;
+  }
+
+
+
   SDL_Window *win = SDL_CreateWindow("Gamma",
                          SDL_WINDOWPOS_CENTERED,
                          SDL_WINDOWPOS_CENTERED,
@@ -26,7 +36,6 @@ int main(int argc, char **argv) {
                          SDL_WINDOW_RESIZABLE);
   auto renderer = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
   auto gfont = TTF_OpenFont((assets_fonts+courier).c_str(), ptsize);
-  Cursor cursor{0, 0};
 
 
   // Starts timer to update the cursor.
@@ -38,14 +47,6 @@ int main(int argc, char **argv) {
   TTF_SizeText(gfont, "G", &fw, &fh);
   // Got size of font in fw, fh.
 
-
-  // Loading file in memory.
-  buffer_t buffer;
-  bool success = LoadFile(buffer, filename);
-  if(!success) {
-    std::cerr << "Error opening file: " << filename << std::endl;
-    return 1;
-  }
 
 
   ScrollBar scroll_bar{buffer.size()};
@@ -68,7 +69,7 @@ int main(int argc, char **argv) {
         } break;
 
         case SDL_MOUSEBUTTONDOWN: {
-          handle_mousebuttondown(e, cursor, scroll_bar, fw, active_bar);
+          handle_mousebuttondown(e, scroll_bar, fw, active_bar);
         } break;
 
         case SDL_MOUSEBUTTONUP: {
@@ -80,11 +81,11 @@ int main(int argc, char **argv) {
         } break;
 
         case SDL_KEYDOWN: {
-          handle_keydown(e, b_view, cursor, done);
+          handle_keydown(e, b_view, done);
         } break;
 
         case SDL_MOUSEWHEEL: {
-          handle_mousewheel(e, b_view, scroll_bar, cursor);
+          handle_mousewheel(e, b_view, scroll_bar);
         } break;
 
         case SDL_WINDOWEVENT: {
@@ -98,16 +99,7 @@ int main(int argc, char **argv) {
     SDL_RenderClear(renderer);
 
 
-    // Update window.
-    // TODO:
-    // Need to implement array of offsets for big strings.
-    // That is needed to handle clicks, correct cursor moves,
-
-    update(renderer, b_view, scroll_bar, alphabet, fw);
-
-    char c = b_view[cursor.i][cursor.j];
-    auto cursor_texture = selected[c];
-    timer::update_cursor(renderer, cursor_texture, cursor, fw);
+    update(renderer, b_view, scroll_bar, alphabet, selected, fw);
 
 
     draw_bar(scroll_bar, renderer);
