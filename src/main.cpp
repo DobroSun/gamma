@@ -18,8 +18,6 @@
 int main(int argc, char **argv) {
   if(Init_SDL()) return 1;
   auto filename = read_args(argc, argv);
-  // 
-// ajdfkl;ajdksfl;asjdkfl;asdjkfl;asjdklf;asdjfk;asdjfkl;asdjsfkl;asdjfkl;asdfjkl;asdf
 
 
   // Loading file in memory.
@@ -61,7 +59,7 @@ int main(int argc, char **argv) {
   create_alphabet(renderer, gfont, alphabet, selected);
 
 
-  buffer_view b_view(buffer, 0);
+  buffer_view b_view(buffer);
   bool done = false;
   while(!done) {
     auto begin = std::chrono::steady_clock::now();

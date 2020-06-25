@@ -26,8 +26,8 @@ void update(SDL_Renderer *renderer, const buffer_view &b_view, const ScrollBar &
   char nrows = numrows();
   auto &cursor = b_view.cursor;
 
-  for(int i = 0, offset_y = 0; i < nrows; i++) {
-    const auto &string = b_view[i];
+  for(int line = b_view.start, i = 0, offset_y = 0; i < nrows; i++, line++) {
+    const auto &string = b_view[line];
 
 
     for(unsigned j = 0, offset_x = 0; j < string.size(); j++) {
@@ -44,22 +44,22 @@ void update(SDL_Renderer *renderer, const buffer_view &b_view, const ScrollBar &
         break;
       }
       
-      int j_relative = (j - offset_x*max_line) * fw;
-      int i_relative = (i+offset_y) * fsize;
+      int j_pixels = (j - offset_x*max_line) * fw;
+      int i_pixels = (i+offset_y) * fsize;
 
       // Update character.
       SDL_QueryTexture(char_texture, nullptr, nullptr, &tw, &th);
-      SDL_Rect dst {TextLeftBound+j_relative, TextUpperBound+i_relative, tw, th};
+      SDL_Rect dst {TextLeftBound+j_pixels, TextUpperBound+i_pixels, tw, th};
       SDL_RenderCopy(renderer, char_texture, nullptr, &dst);
 
 
       // If char is cursor, update cursor.
       // @Temporary: When array of offsets will be done.
       // This must be updated after update method.
-      if(i == cursor.i && (int)j == cursor.j) {
+      if(line == cursor.i && (int)j == cursor.j) {
         char c = b_view[cursor.i][cursor.j];
         auto cursor_texture = selected[c];
-        update_cursor(renderer, cursor_texture, i_relative, j_relative);
+        update_cursor(renderer, cursor_texture, i_pixels, j_pixels);
       }
     }
 

@@ -7,18 +7,21 @@
 #include "gamma/view.h"
 
 
+static unsigned offset = 0;
+
+
 
 static bool in_buffer(double x, double y) {
   return y >= TextUpperBound && x >= TextLeftBound && y < Height - TextBottomBound;
 }
 
-static bool is_last_line(int index, int start, int length_on_screen) {
-  return index+start == numrows()-length_on_screen;
+static bool is_last_line(int index, int start, int cur_length) {
+  return index-start >= numrows()-1-offset-cur_length;
 }
 
-// 
-// Function moves cursor to the next line. If cursor is on the last line inside screen,
-// It just moves to next line, but if not, it looks on the last line and goes down by 
+//
+// Function moves cursor to the next line. If cursor is not on the last line inside screen,
+// It just moves to next line, but if not, it checks if the last line is `huge` then goes down by the 
 // length of this line on screen. However, if the first line on screen also is `huge` it 
 // it will go down by length that is needed to keep all lines on screen `full`.
 // 
@@ -28,29 +31,39 @@ static void next_line(buffer_view &buffer, int fw) {
   auto &i = cursor.i; auto &j = cursor.j;
 
   int max_size = buffer.size()-1;
-  int max_line = (Width-TextLeftBound-25)/fw;
 
-  if(i+start == max_size) {
+  if(i == max_size) {
     // On the last line of file.
     return;
   }
 
-  std::cout << buffer.pre_len() << std::endl;
 
-  auto length_on_screen = buffer[i+1].size()/max_line + 1;
-  auto current_length = buffer[i].size()/max_line + 1;
-  if(!is_last_line(i, start, current_length)) {
+  int max_line = (Width-TextLeftBound-25)/fw; // where 25 is scrollbar->width.
+  auto next_line_arity = buffer[i+1].size()/max_line;
+  auto current_line_arity = buffer[i].size()/max_line;
+  auto first_line_arity = buffer[start].size()/max_line;
+
+  if(!is_last_line(i, start, current_line_arity)) {
     // Just go to the next line inside buffer.
-    buffer.move_right();
-    i++;
+    // so start and offset don't change.
 
   } else {
+    if(next_line_arity >= first_line_arity) {
+      std::cout << "HERE" << std::endl;
 
-    //start += length_on_screen;
-    buffer.move_right();
-    i++;
+      start += next_line_arity + 1;
+      offset += next_line_arity;
+    } else {
+      assert(next_line_arity < first_line_arity);
+      
+      offset -= first_line_arity;
+      start += first_line_arity;
+
+    }
+
   }
-  std::cout << i << " and " << buffer[i][0] << std::endl;
+  buffer.move_right();
+  i++;
 }
 
 
@@ -180,7 +193,7 @@ void handle_keydown(const SDL_Event &e, buffer_view &buffer, bool &done, int fw)
     return;
 
   } else if(key == SDLK_UP) {
-    move_cursor(buffer, i, j, i-1, j);
+    //move_cursor(buffer, i, j, i-1, j);
     return;
 
   } else if(key == SDLK_DOWN) {
@@ -188,11 +201,11 @@ void handle_keydown(const SDL_Event &e, buffer_view &buffer, bool &done, int fw)
     return;
 
   } else if(key == SDLK_LEFT) {
-    move_cursor(buffer, i, j, i, j-1);
+    //move_cursor(buffer, i, j, i, j-1);
     return;
 
   } else if(key == SDLK_RIGHT) {
-    move_cursor(buffer, i, j, i, j+1);
+    //move_cursor(buffer, i, j, i, j+1);
     return;
   }
 

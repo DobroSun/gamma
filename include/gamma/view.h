@@ -10,21 +10,21 @@ struct buffer_view {
   Cursor cursor;
 
 
-  buffer_view(buffer_t &view, unsigned __start=0);
+  buffer_view(buffer_t &);
 
   void move_right();
   void move_left();
-  void add(const gap_buffer<char> &val);
+  void add(const gap_buffer<char> &);
   void backspace();
   void del();
 
-  gap_buffer<char> &operator[](unsigned i);
-  const gap_buffer<char> &operator[](unsigned i) const;
+  gap_buffer<char> &operator[](unsigned);
+  const gap_buffer<char> &operator[](unsigned) const;
 
   void increase_start_by(int);
   void decrease_start_by(int);
 
-
+  void move_right_by(int);
 
   unsigned size() const;
   unsigned pre_len() const;

@@ -4,8 +4,8 @@
 
 static gap_buffer<char> empty = ' ';
 
-buffer_view::buffer_view(buffer_t &view, unsigned __start)
-                         : v{view}, start{__start}, cursor{0, 0}
+buffer_view::buffer_view(buffer_t &view)
+                         : v{view}, start{0}, cursor{0, 0}
                          {}
 
 
@@ -31,9 +31,8 @@ void buffer_view::del() {
 }
 
 gap_buffer<char> &buffer_view::operator[](unsigned i) {
-  auto index = start+i;
-  if(index < v.size()) {
-    return v[index];
+  if(i < v.size()) {
+    return v[i];
   } else {
     return empty;
   }
@@ -41,9 +40,8 @@ gap_buffer<char> &buffer_view::operator[](unsigned i) {
 
 // @Copy&Paste.
 const gap_buffer<char> &buffer_view::operator[](unsigned i) const {
-  auto index = start+i;
-  if(index < v.size()) {
-    return v[index];
+  if(i < v.size()) {
+    return v[i];
   } else {
     return empty;
   }
@@ -59,6 +57,11 @@ void buffer_view::decrease_start_by(int i) {
   assert(i >= 0);
   start -= i;
   v.move_left_by(i);
+}
+
+void buffer_view::move_right_by(int i) {
+  assert(i >= 0);
+  v.move_right_by(i);
 }
 
 unsigned buffer_view::size() const {
