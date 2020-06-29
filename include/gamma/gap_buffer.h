@@ -25,6 +25,7 @@ public:
     {
     buf.resize_with_no_init(pre_len+gap_len);
   }
+
   gap_buffer(T val): gap_buffer{} {
     insert(val);
   }
@@ -35,10 +36,6 @@ public:
 
   void insert(T &&val) {
     buf.push_back(std::move(val));
-  }
-
-  void remove() {
-    buf.pop_back();
   }
 
   void move_right() {
@@ -152,6 +149,13 @@ public:
       move_left();
       i--;
     }
+  }
+
+  void resize(unsigned size_to_resize=0) {
+    if(!size_to_resize) {
+      size_to_resize = buf.capacity() * 2;
+    }
+    buf.resize(size_to_resize);
   }
 };
 

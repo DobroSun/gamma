@@ -10,8 +10,6 @@
 #include "gamma/update.h"
 
 
-#include <chrono>
-
 
 
 
@@ -44,9 +42,10 @@ int main(int argc, char **argv) {
   (void)cursor_timer;
   SDL_SetWindowMinimumSize(win, 300, 300); // Bug; sets only width == height.
 
-  int fw, fh;
-  TTF_SizeText(gfont, "G", &fw, &fh);
+
   // Got size of font in fw, fh.
+  TTF_SizeText(gfont, "G", &fw, &fh);
+  assert(fw); assert(fh);
 
 
 
@@ -54,17 +53,15 @@ int main(int argc, char **argv) {
   ScrollBar* active_bar = nullptr;
 
 
+
   std::unordered_map<char, SDL_Texture *> alphabet;
   std::unordered_map<char, SDL_Texture *> selected;
   create_alphabet(renderer, gfont, alphabet, selected);
 
 
-  buffer_view b_view(buffer);
+  buffer_view b_view{buffer};
   bool done = false;
   while(!done) {
-    auto begin = std::chrono::steady_clock::now();
-
-
     SDL_Event e;
     if(SDL_PollEvent(&e)) {
       switch(e.type) {
@@ -73,7 +70,7 @@ int main(int argc, char **argv) {
         } break;
 
         case SDL_MOUSEBUTTONDOWN: {
-          handle_mousebuttondown(e, scroll_bar, fw, active_bar);
+          handle_mousebuttondown(e, scroll_bar, active_bar);
         } break;
 
         case SDL_MOUSEBUTTONUP: {
@@ -85,7 +82,7 @@ int main(int argc, char **argv) {
         } break;
 
         case SDL_KEYDOWN: {
-          handle_keydown(e, b_view, done, fw);
+          handle_keydown(e, b_view, done);
         } break;
 
         case SDL_MOUSEWHEEL: {
@@ -102,13 +99,10 @@ int main(int argc, char **argv) {
     SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255); 
     SDL_RenderClear(renderer);
 
-    update(renderer, b_view, scroll_bar, alphabet, selected, fw);
+    update(renderer, b_view, scroll_bar, alphabet, selected);
 
     draw_bar(scroll_bar, renderer);
     SDL_RenderPresent(renderer);
-
-    auto end = std::chrono::steady_clock::now();
-    //std::cout << 1000000 / std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() << std::endl;
   }
   
 /*

@@ -21,7 +21,7 @@ static bool is_end(int i, int offset) {
 // But with big lines, this won't work.
 // So I have to explicitly break from loop if there is no
 // place to draw new line.
-void update(SDL_Renderer *renderer, const buffer_view &b_view, const ScrollBar &scroll_bar, std::unordered_map<char, SDL_Texture *> &alphabet, std::unordered_map<char, SDL_Texture *> &selected, int fw) {
+void update(SDL_Renderer *renderer, const buffer_view &b_view, const ScrollBar &scroll_bar, std::unordered_map<char, SDL_Texture *> &alphabet, std::unordered_map<char, SDL_Texture *> &selected) {
   unsigned max_line = (Width-TextLeftBound-scroll_bar.w)/fw;
   char nrows = numrows();
   auto &cursor = b_view.cursor;
@@ -41,7 +41,7 @@ void update(SDL_Renderer *renderer, const buffer_view &b_view, const ScrollBar &
       }
 
       if(is_end(i, offset_y)) {
-        break;
+        return;
       }
       
       int j_pixels = (j - offset_x*max_line) * fw;
@@ -61,10 +61,6 @@ void update(SDL_Renderer *renderer, const buffer_view &b_view, const ScrollBar &
         auto cursor_texture = selected[c];
         update_cursor(renderer, cursor_texture, i_pixels, j_pixels);
       }
-    }
-
-    if(is_end(i, offset_y)) {
-      break;
     }
   }
 }

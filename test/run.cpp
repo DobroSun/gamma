@@ -21,4 +21,4 @@
 #include "src/test_read_file.h"
 /*
 */
-#include "src/test_cursor.h"
+#include "src/test_commands.h"

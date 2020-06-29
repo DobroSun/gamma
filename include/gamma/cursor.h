@@ -6,6 +6,5 @@ struct Cursor {
   int i, j;
 };
 
-void move_cursor(buffer_view &, int &, int &, int, int);
-void fix_gap(buffer_view &, int, int);
+void fix_gap(buffer_view &);
 #endif

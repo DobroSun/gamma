@@ -7,7 +7,7 @@
 #include "gamma/view.h"
 
 
-static unsigned offset = 0;
+static int offset = 0; // Needs to be inside buffer_view as another data member.
 
 
 
@@ -19,51 +19,75 @@ static bool is_last_line(int index, int start, int cur_length) {
   return index-start >= numrows()-1-offset-cur_length;
 }
 
-//
-// Function moves cursor to the next line. If cursor is not on the last line inside screen,
-// It just moves to next line, but if not, it checks if the last line is `huge` then goes down by the 
-// length of this line on screen. However, if the first line on screen also is `huge` it 
-// it will go down by length that is needed to keep all lines on screen `full`.
-// 
-static void next_line(buffer_view &buffer, int fw) {
-  auto &start = buffer.start;
-  auto &cursor = buffer.cursor;
-  auto &i = cursor.i; auto &j = cursor.j;
 
-  int max_size = buffer.size()-1;
+void cursor_down_detail(buffer_view &buffer, bool (*last_line)(int, int, int)) {
+  auto &start = buffer.start;
+  auto &i = buffer.cursor.i;
+
+  const int max_size = buffer.size()-1;
 
   if(i == max_size) {
     // On the last line of file.
     return;
   }
 
+  const int max_line = buffer_width() / fw;
+  const auto current_line_arity = buffer[i].size()/max_line;
+	const auto next_line_arity = buffer[i+1].size()/max_line;
+  const auto first_line_arity = buffer[start].size()/max_line;
 
-  int max_line = (Width-TextLeftBound-25)/fw; // where 25 is scrollbar->width.
-  auto next_line_arity = buffer[i+1].size()/max_line;
-  auto current_line_arity = buffer[i].size()/max_line;
-  auto first_line_arity = buffer[start].size()/max_line;
-
-  if(!is_last_line(i, start, current_line_arity)) {
-    // Just go to the next line inside buffer.
-    // so start and offset don't change.
+  if(!last_line(i, start, current_line_arity)) {
+   // Just go to the next line inside buffer.
+   // so start and offset don't change.
 
   } else {
     if(next_line_arity >= first_line_arity) {
-      std::cout << "HERE" << std::endl;
-
       start += next_line_arity + 1;
       offset += next_line_arity;
+
     } else {
       assert(next_line_arity < first_line_arity);
-      
-      offset -= first_line_arity;
       start += first_line_arity;
-
     }
 
+    offset -= first_line_arity;
   }
+
   buffer.move_right();
   i++;
+  fix_gap(buffer);
+}
+
+
+
+static void cursor_down(buffer_view &buffer) {
+  cursor_down_detail(buffer, is_last_line);
+}
+
+
+static void cursor_up(buffer_view &buffer) {
+}
+
+static void cursor_right(buffer_view &buffer) {
+  auto &cursor = buffer.cursor;
+  auto &i = cursor.i; auto &j = cursor.j;
+  auto &buffer_i = buffer[i];
+
+  if(j < (int)buffer_i.size()-1) {
+    buffer_i.move_right();
+    j++;
+  }
+}
+
+static void cursor_left(buffer_view &buffer) {
+  auto &cursor = buffer.cursor;
+  auto &i = cursor.i; auto &j = cursor.j;
+  auto &buffer_i = buffer[i];
+
+  if(j > (int)0) {
+    buffer_i.move_left();
+    j--;
+  }
 }
 
 
@@ -80,8 +104,8 @@ bool LoadFile(buffer_t &buffer, const std::string &filename) {
     for(unsigned i = 0; i < input.size(); i++) {
       g.insert(input[i]);
     }
-    g.insert(' ');
 
+    g.insert(' ');
     buffer.insert(g);
   }
   return true;
@@ -140,7 +164,7 @@ void handle_resize(const SDL_Event &e, SDL_Window *win, ScrollBar &bar, const bu
 }
 
 
-void handle_keydown(const SDL_Event &e, buffer_view &buffer, bool &done, int fw) {
+void handle_keydown(const SDL_Event &e, buffer_view &buffer, bool &done) {
   auto keysym = e.key.keysym;
   auto key = keysym.sym;
 
@@ -193,19 +217,19 @@ void handle_keydown(const SDL_Event &e, buffer_view &buffer, bool &done, int fw)
     return;
 
   } else if(key == SDLK_UP) {
-    //move_cursor(buffer, i, j, i-1, j);
+    cursor_up(buffer);
     return;
 
   } else if(key == SDLK_DOWN) {
-    next_line(buffer, fw);
+    cursor_down(buffer);
     return;
 
   } else if(key == SDLK_LEFT) {
-    //move_cursor(buffer, i, j, i, j-1);
+    cursor_left(buffer);
     return;
 
   } else if(key == SDLK_RIGHT) {
-    //move_cursor(buffer, i, j, i, j+1);
+    cursor_right(buffer);
     return;
   }
 
@@ -254,7 +278,7 @@ void handle_mousemotion(const SDL_Event &e, buffer_view &buffer, ScrollBar*& act
 }
 
 
-void handle_mousebuttondown(const SDL_Event &e, ScrollBar &bar, int fw, ScrollBar*& active) {
+void handle_mousebuttondown(const SDL_Event &e, ScrollBar &bar, ScrollBar*& active) {
   auto &button = e.button;
   auto &b_type = button.button; 
   auto &b_click = button.clicks;

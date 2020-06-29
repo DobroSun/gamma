@@ -10,6 +10,10 @@ char numrows() {
   return (Height - TextUpperBound - TextBottomBound) / (ptsize+blines);
 }
 
+int buffer_width() {
+  return Width-TextLeftBound-25; // @Temporary: 25 is scroll_bar.width.
+}
+
 std::string read_args(int argc, char **argv) {
   return (argc < 2)? "": argv[1];
 }
@@ -77,10 +81,6 @@ bool save(const buffer_t &b, const std::string &filename) {
   return true;
 }
 
-void go_to_line(buffer_view &b, Cursor &c, int nline) {
-  auto j = c.j;
-  move_cursor(b, c.i, j, nline, j);
-}
 /*
 void delete_line(buffer_view &b, Cursor &c) {
 }
