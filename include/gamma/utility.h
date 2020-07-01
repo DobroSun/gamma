@@ -2,8 +2,6 @@
 #define GAMMA_UTILITY_H
 #include "gamma/fwd_decl.h"
 
-#define for_each(c_array) for(auto it = c_array; *it != '\0'; it++)
-  
 
 char numrows();
 int buffer_width();
@@ -18,6 +16,13 @@ SDL_Texture *load_courier(SDL_Renderer *, TTF_Font *, const std::string &, const
 
 // Editor commands.
 bool save(const buffer_t &b, const std::string &);
+
+
+#define for_each(c_array) for(auto it = c_array; *it != '\0'; it++)
+#define printi(A) do { printf("%i\n", (A)); } while(0)
+#define printu(A) do { printf("%u\n", (A)); } while(0)
+#define printd(A) do { printf("%f\n", (A)); } while(0)
+#define printb(A) do { if((A)) puts("true"); else puts("false"); } while(0)
 
 
 template<class T, class C>

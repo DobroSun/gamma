@@ -41,8 +41,8 @@ int main(int argc, char **argv) {
   SDL_TimerID cursor_timer = StartTimer(300);
   (void)cursor_timer;
   SDL_SetWindowMinimumSize(win, 300, 300); // Bug; sets only width == height.
-
-
+//
+//
   // Got size of font in fw, fh.
   TTF_SizeText(gfont, "G", &fw, &fh);
   assert(fw); assert(fh);

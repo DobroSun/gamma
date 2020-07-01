@@ -32,25 +32,40 @@ void cursor_down_detail(buffer_view &buffer, bool (*last_line)(int, int, int)) {
   }
 
   const int max_line = buffer_width() / fw;
-  const auto current_line_arity = buffer[i].size()/max_line;
-	const auto next_line_arity = buffer[i+1].size()/max_line;
-  const auto first_line_arity = buffer[start].size()/max_line;
+  auto first_line_arity = buffer[start].size()/max_line;
+  auto current_line_arity = buffer[i].size()/max_line;
+	auto next_line_arity = buffer[i+1].size()/max_line;
 
   if(!last_line(i, start, current_line_arity)) {
    // Just go to the next line inside buffer.
    // so start and offset don't change.
 
   } else {
-    if(next_line_arity >= first_line_arity) {
-      start += next_line_arity + 1;
-      offset += next_line_arity;
+    int diff = next_line_arity - first_line_arity;
+
+    if(diff > 0) {
+      while(diff > 0) { // @Wrong. @Incomplete.
+        start++;
+        offset++;
+        first_line_arity = buffer[start].size()/max_line;
+        diff -= first_line_arity + 1;
+      }
+      start++;
+
+    } else if(diff < 0) {
+      int count = 1;
+      while(diff < 0) {
+        start++;
+        count++;
+        next_line_arity = buffer[i+count].size()/max_line;
+        diff += next_line_arity + 1;
+      }
 
     } else {
-      assert(next_line_arity < first_line_arity);
-      start += first_line_arity;
+      assert(next_line_arity == first_line_arity);
+      offset += next_line_arity;
+      start += next_line_arity + 1;
     }
-
-    offset -= first_line_arity;
   }
 
   buffer.move_right();
