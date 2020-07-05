@@ -44,7 +44,8 @@ void cursor_down_detail(buffer_view &buffer, bool (*last_line)(int, int, int)) {
     int diff = next_line_arity - first_line_arity;
 
     if(diff > 0) {
-      while(diff > 0) { // @Wrong. @Incomplete.
+      // @Incomplete.
+      while(diff > 0) { 
         start++;
         offset++;
         first_line_arity = buffer[start].size()/max_line;
@@ -53,10 +54,12 @@ void cursor_down_detail(buffer_view &buffer, bool (*last_line)(int, int, int)) {
       start++;
 
     } else if(diff < 0) {
+      // @Incomplete.
       int count = 1;
       while(diff < 0) {
         start++;
         count++;
+        offset--;
         next_line_arity = buffer[i+count].size()/max_line;
         diff += next_line_arity + 1;
       }
@@ -79,9 +82,6 @@ static void cursor_down(buffer_view &buffer) {
   cursor_down_detail(buffer, is_last_line);
 }
 
-
-static void cursor_up(buffer_view &buffer) {
-}
 
 static void cursor_right(buffer_view &buffer) {
   auto &cursor = buffer.cursor;
@@ -232,7 +232,7 @@ void handle_keydown(const SDL_Event &e, buffer_view &buffer, bool &done) {
     return;
 
   } else if(key == SDLK_UP) {
-    cursor_up(buffer);
+    //cursor_up(buffer);
     return;
 
   } else if(key == SDLK_DOWN) {
@@ -293,11 +293,11 @@ void handle_mousemotion(const SDL_Event &e, buffer_view &buffer, ScrollBar*& act
 }
 
 
-void handle_mousebuttondown(const SDL_Event &e, ScrollBar &bar, ScrollBar*& active) {
+void handle_mousebuttondown(const SDL_Event &e, buffer_view &buffer, ScrollBar &bar, ScrollBar*& active) {
   auto &button = e.button;
   auto &b_type = button.button; 
   auto &b_click = button.clicks;
-  auto x = button.x; auto y = button.y;
+  int x = button.x; int y = button.y;
 
   if(clicked_small(bar, x, y)) {
     got_clicked(bar, x, y);
@@ -307,13 +307,14 @@ void handle_mousebuttondown(const SDL_Event &e, ScrollBar &bar, ScrollBar*& acti
 
   } else if(in_buffer(x, y)) {
     if(b_type == SDL_BUTTON_LEFT && b_click == 3) {
-      std::cout << "Triple click!" << std::endl;
+      puts("Triple click!");
 
     } else if(b_type == SDL_BUTTON_LEFT && b_click == 2) {
-      std::cout << "Double click!" << std::endl;
+      puts("Double click!");
 
     } else if(b_type == SDL_BUTTON_LEFT) {
-      std::cout << "Click!" << std::endl;
+      puts("Click");
+      get_pos(buffer, x, y);
     }
   }
 }

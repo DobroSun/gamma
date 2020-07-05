@@ -70,7 +70,7 @@ int main(int argc, char **argv) {
         } break;
 
         case SDL_MOUSEBUTTONDOWN: {
-          handle_mousebuttondown(e, scroll_bar, active_bar);
+          handle_mousebuttondown(e, b_view, scroll_bar, active_bar);
         } break;
 
         case SDL_MOUSEBUTTONUP: {

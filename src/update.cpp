@@ -17,7 +17,7 @@ static bool is_end(int i, int offset) {
 }
 
 
-// @Note: Originally I have representation 1 index -- 1 line.
+// @Note: Originally I had representation 1 index -- 1 line.
 // But with big lines, this won't work.
 // So I have to explicitly break from loop if there is no
 // place to draw new line.
@@ -55,7 +55,7 @@ void update(SDL_Renderer *renderer, const buffer_view &b_view, const ScrollBar &
 
       // If char is cursor, update cursor.
       // @Temporary: When array of offsets will be done.
-      // This must be updated after update method.
+      // This must be called outside o} update method.
       if(line == cursor.i && (int)j == cursor.j) {
         char c = b_view[cursor.i][cursor.j];
         auto cursor_texture = selected[c];

@@ -7,4 +7,5 @@ struct Cursor {
 };
 
 void fix_gap(buffer_view &);
+void get_pos(buffer_view &, int, int);
 #endif
