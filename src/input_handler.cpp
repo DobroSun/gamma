@@ -7,23 +7,15 @@
 #include "gamma/view.h"
 
 
-static int offset = 0; // Needs to be inside buffer_view as another data member.
-
-
 
 static bool in_buffer(double x, double y) {
   return y >= TextUpperBound && x >= TextLeftBound && y < Height - TextBottomBound;
 }
 
-static bool is_last_line(int index, int start, int cur_length) {
-  return index-start >= numrows()-1-offset-cur_length;
-}
 
-
-void cursor_down_detail(buffer_view &buffer, bool (*last_line)(int, int, int)) {
+static void cursor_down(buffer_view &buffer) {
   auto &start = buffer.start;
   auto &i = buffer.cursor.i;
-
   const int max_size = buffer.size()-1;
 
   if(i == max_size) {
@@ -31,73 +23,59 @@ void cursor_down_detail(buffer_view &buffer, bool (*last_line)(int, int, int)) {
     return;
   }
 
-  const int max_line = buffer_width() / fw;
-  auto first_line_arity = buffer[start].size()/max_line;
-  auto current_line_arity = buffer[i].size()/max_line;
-	auto next_line_arity = buffer[i+1].size()/max_line;
-
-  if(!last_line(i, start, current_line_arity)) {
-   // Just go to the next line inside buffer.
-   // so start and offset don't change.
-
-  } else {
-    int diff = next_line_arity - first_line_arity;
-
-    if(diff > 0) {
-      // @Incomplete.
-      while(diff > 0) { 
-        start++;
-        offset++;
-        first_line_arity = buffer[start].size()/max_line;
-        diff -= first_line_arity + 1;
-      }
-      start++;
-
-    } else if(diff < 0) {
-      // @Incomplete.
-      int count = 1;
-      while(diff < 0) {
-        start++;
-        count++;
-        offset--;
-        next_line_arity = buffer[i+count].size()/max_line;
-        diff += next_line_arity + 1;
-      }
-
-    } else {
-      assert(next_line_arity == first_line_arity);
-      offset += next_line_arity;
-      start += next_line_arity + 1;
-    }
+  if((int)(i-start) == numrows()-1) {
+    start++;
   }
-
-  buffer.move_right();
+  buffer.move_left();
   i++;
   fix_gap(buffer);
 }
 
+static void cursor_up(buffer_view &buffer) {
+  auto &start = buffer.start;
+  auto &i = buffer.cursor.i;
 
+  if(i == 0) {
+    // On the first line of file.
+    return;
+  }
 
-static void cursor_down(buffer_view &buffer) {
-  cursor_down_detail(buffer, is_last_line);
+  if((int)(i-start) <= 0) {
+    start--;
+  }
+  buffer.move_left();
+  i--;
+  fix_gap(buffer);
 }
-
 
 static void cursor_right(buffer_view &buffer) {
   auto &cursor = buffer.cursor;
+  auto &start_j = buffer.start_j;
   auto &i = cursor.i; auto &j = cursor.j;
   auto &buffer_i = buffer[i];
+
+  const int max_line = (start_j+1) * buffer_width() / fw;
+  if(j == max_line-1) {
+    start_j++;
+  }
 
   if(j < (int)buffer_i.size()-1) {
     buffer_i.move_right();
     j++;
   }
+
 }
 
 static void cursor_left(buffer_view &buffer) {
   auto &cursor = buffer.cursor;
+  auto &start_j = buffer.start_j;
   auto &i = cursor.i; auto &j = cursor.j;
   auto &buffer_i = buffer[i];
+
+  const int max_line = start_j * buffer_width() / fw;
+  if(j && j == max_line) {
+    start_j--;
+  }
 
   if(j > (int)0) {
     buffer_i.move_left();
@@ -232,7 +210,7 @@ void handle_keydown(const SDL_Event &e, buffer_view &buffer, bool &done) {
     return;
 
   } else if(key == SDLK_UP) {
-    //cursor_up(buffer);
+    cursor_up(buffer);
     return;
 
   } else if(key == SDLK_DOWN) {

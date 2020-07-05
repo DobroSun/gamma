@@ -14,6 +14,7 @@ int buffer_width() {
   return Width-TextLeftBound-25; // @Temporary: 25 is scroll_bar.width.
 }
 
+
 std::string read_args(int argc, char **argv) {
   return (argc < 2)? "": argv[1];
 }
