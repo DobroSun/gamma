@@ -12,43 +12,7 @@ static bool in_buffer(double x, double y) {
   return y >= TextUpperBound && x >= TextLeftBound && y < Height - TextBottomBound;
 }
 
-
-static void cursor_down(buffer_view &buffer) {
-  auto &start = buffer.start;
-  auto &i = buffer.cursor.i;
-  const int max_size = buffer.size()-1;
-
-  if(i == max_size) {
-    // On the last line of file.
-    return;
-  }
-
-  if((int)(i-start) == numrows()-1) {
-    start++;
-  }
-  buffer.move_left();
-  i++;
-  fix_gap(buffer);
-}
-
-static void cursor_up(buffer_view &buffer) {
-  auto &start = buffer.start;
-  auto &i = buffer.cursor.i;
-
-  if(i == 0) {
-    // On the first line of file.
-    return;
-  }
-
-  if((int)(i-start) <= 0) {
-    start--;
-  }
-  buffer.move_left();
-  i--;
-  fix_gap(buffer);
-}
-
-static void cursor_right(buffer_view &buffer) {
+static void cursor_right_detail(buffer_view &buffer) {
   auto &cursor = buffer.cursor;
   auto &start_j = buffer.start_j;
   auto &i = cursor.i; auto &j = cursor.j;
@@ -63,10 +27,14 @@ static void cursor_right(buffer_view &buffer) {
     buffer_i.move_right();
     j++;
   }
-
 }
 
-static void cursor_left(buffer_view &buffer) {
+static void cursor_right(buffer_view &buffer) {
+  cursor_right_detail(buffer);
+  buffer.saved_j = buffer.cursor.j;
+}
+
+static void cursor_left_detail(buffer_view &buffer) {
   auto &cursor = buffer.cursor;
   auto &start_j = buffer.start_j;
   auto &i = cursor.i; auto &j = cursor.j;
@@ -80,6 +48,123 @@ static void cursor_left(buffer_view &buffer) {
   if(j > (int)0) {
     buffer_i.move_left();
     j--;
+  }
+}
+
+static void cursor_left(buffer_view &buffer) {
+  cursor_left_detail(buffer);
+  buffer.saved_j = buffer.cursor.j;
+}
+
+static void cursor_to(buffer_view &buffer, int to_i, int to_j) {
+  auto &cursor = buffer.cursor;
+  auto &i = cursor.i; auto &j = cursor.j;
+  if(to_i == i) {
+    int diff = to_j - j;
+    while(diff > 0) {
+      cursor_right_detail(buffer);
+      diff--;
+    } 
+    while(diff < 0) {
+      cursor_left_detail(buffer);
+      diff++;
+    } 
+    assert(to_j == j);
+  }
+}
+
+
+static void cursor_down(buffer_view &buffer) {
+  auto &start = buffer.start;
+  auto &cursor = buffer.cursor;
+  auto &i = cursor.i;
+  const int max_size = buffer.size()-1;
+
+  if(i == max_size) { // On the last line of file.  
+    return;
+  } 
+  
+  if((int)(i-start) == numrows()-1) { // On the last line of page.  
+    start++;
+  }
+
+  buffer.move_right();
+  i++;
+  cursor_to(buffer, i, std::min(buffer.saved_j, buffer[i].size()-1));
+  fix_gap(buffer);
+}
+
+
+static void cursor_up(buffer_view &buffer) {
+  auto &start = buffer.start;
+  auto &cursor = buffer.cursor;
+  auto &i = cursor.i; //auto &j = cursor.j;
+
+  if(i == 0) { // On the first line of file.  
+    return;
+  }
+
+  if((int)(i-start) == 0) { // On the firtst line of page.
+    start--;
+  }
+
+
+  buffer.move_left();
+  i--;
+  cursor_to(buffer, i, std::min(buffer.saved_j, buffer[i].size()-1));
+  fix_gap(buffer);
+}
+
+static void return_key(buffer_view &buffer) {
+  auto &start = buffer.start;
+  auto &cursor = buffer.cursor;
+  auto &i = cursor.i; auto &j = cursor.j;
+  auto buf_i = buffer[i];
+
+  gap_buffer<char> to_end;
+  gap_buffer<char> from_start;
+
+  for(auto k = 0; k < j; k++) {
+    from_start.insert(buf_i[k]);
+  }
+  from_start.insert(' '); // add extra space.
+  for(unsigned k = j; k < buf_i.size(); k++) {
+    to_end.insert(buf_i[k]);
+  }
+  buffer.add(from_start);
+
+  if((int)(i-start) == numrows()-1) {
+    start++;
+  }
+
+  buffer[++i] = to_end;
+  cursor_to(buffer, i, 0);
+  fix_gap(buffer);
+}
+
+static void backspace_key(buffer_view &buffer) {
+  auto &cursor = buffer.cursor;
+  auto &i = cursor.i; auto &j = cursor.j;
+  if(buffer[i].pre_len > 0) {
+    j--;
+    buffer[i].backspace();
+  } else {
+    if(!i) return;
+    assert(j == 0);
+    
+    auto size = buffer[i-1].size()-1;
+    for(unsigned k = 0; k < buffer[i].size(); k++) {
+      if(k == 0) { // overwriting trailing space.
+        assert(buffer[i-1][size] == ' ');
+        buffer[i-1][size] = buffer[i][k];
+      } else {     // inserting to the end.
+        buffer[i-1].insert(buffer[i][k]);
+      }
+    }
+    i--;
+    buffer.del();
+    cursor_to(buffer, i, size);
+    fix_gap(buffer);
   }
 }
 
@@ -115,7 +200,7 @@ void handle_scroll_up(buffer_view &buffer) {
   i += (diff < scroll_speed)? diff: scroll_speed;
 
   auto start_change = (start < scroll_speed)? start: scroll_speed;
-  buffer.decrease_start_by(start_change);
+  buffer.decrease_start_by(start_change); // Why start? gap must correlate to cursor and not to start.
 }
 
 void handle_scroll_down(buffer_view &buffer) {
@@ -128,7 +213,7 @@ void handle_scroll_down(buffer_view &buffer) {
   int speed = (ts < scroll_speed)? ts: scroll_speed;
   auto start_change = (start == total)? 0: speed;
 
-  buffer.increase_start_by(start_change);
+  buffer.increase_start_by(start_change); // The same as above;
 }
 
 
@@ -149,10 +234,15 @@ void handle_mousewheel(const SDL_Event &e, buffer_view &buffer, ScrollBar &bar) 
 }
 
 
-void handle_resize(const SDL_Event &e, SDL_Window *win, ScrollBar &bar, const buffer_view &buffer) {
+void handle_resize(const SDL_Event &e, SDL_Window *win, ScrollBar &bar, buffer_view &buffer) {
   if(e.window.event == SDL_WINDOWEVENT_RESIZED) {
     SDL_GetWindowSize(win, &Width, &Height);
     reinit_bar(bar, buffer);
+
+    auto &start = buffer.start;
+    if((int)(buffer.cursor.i-start) == numrows()) {
+      start++;
+    }
   }
 }
 
@@ -172,40 +262,14 @@ void handle_keydown(const SDL_Event &e, buffer_view &buffer, bool &done) {
     return;
 
   } else if(key == SDLK_BACKSPACE) {
-    if(buffer[i].pre_len > 0) {
-      j--;
-      buffer[i].backspace();
-    } else {
-      buffer[i].backspace();
-    }
+    backspace_key(buffer);
 
   } else if(key == SDLK_DELETE) {
     buffer[i].del();
     return;
 
   } else if(key == SDLK_RETURN) {
-    gap_buffer<char> to_end;
-    gap_buffer<char> from_start;
-
-    auto buf_i = buffer[i];
-    for(auto k = 0; k < j; k++) {
-      from_start.insert(buf_i[k]);
-    }
-    from_start.insert(' '); // add extra space.
-    for(unsigned k = j; k < buf_i.size(); k++) {
-      to_end.insert(buf_i[k]);
-    }
-    buffer.add(from_start);
-    
-
-    if(i < numrows()-1) {
-      buffer[++i] = to_end;
-
-    } else {
-      buffer.start++;
-      buffer[i] = to_end;
-    }
-    j = 0;
+    return_key(buffer);
 
     return;
 
@@ -292,7 +356,7 @@ void handle_mousebuttondown(const SDL_Event &e, buffer_view &buffer, ScrollBar &
 
     } else if(b_type == SDL_BUTTON_LEFT) {
       puts("Click");
-      get_pos(buffer, x, y);
+      //get_pos(buffer, x, y);
     }
   }
 }

@@ -9,7 +9,7 @@ void handle_scroll_up(buffer_view &);
 void handle_scroll_down(buffer_view &);
 
 void handle_mousewheel(const SDL_Event &, buffer_view &, ScrollBar &);
-void handle_resize(const SDL_Event &, SDL_Window *, ScrollBar &, const buffer_view &);
+void handle_resize(const SDL_Event &, SDL_Window *, ScrollBar &, buffer_view &);
 void handle_keydown(const SDL_Event &, buffer_view &, bool &);
 void handle_mousemotion(const SDL_Event &, buffer_view &, ScrollBar*&);
 void handle_mousebuttondown(const SDL_Event &, buffer_view &, ScrollBar &, ScrollBar*&);

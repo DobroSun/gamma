@@ -19,8 +19,8 @@ struct string_view {
 
 struct buffer_view {
   buffer_t &v;
-  unsigned start{0}, start_j{0};
-  Cursor cursor{0,0};
+  unsigned start{0}, start_j{0}, saved_j{0};
+  Cursor cursor{0,0}; // @Note: This might be just a vector2 of ints.
 
 
   buffer_view(buffer_t &);

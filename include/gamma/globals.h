@@ -105,5 +105,4 @@ static const SDL_Keycode key_lookup[69] = {
   (SDL_Keycode)'~',
 };
 
-using String = std::vector<std::string>;
 #endif

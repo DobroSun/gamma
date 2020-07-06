@@ -27,6 +27,7 @@ void fix_gap(buffer_view &buffer) {
 }
 
 // Copy&Paste from update.cpp
+/*
 static bool end(int i, int offset) {
   if(numrows() - i - offset) {
     return false;
@@ -70,3 +71,4 @@ void get_pos(buffer_view &buffer, int x, int y) {
     }
   }
 }
+*/

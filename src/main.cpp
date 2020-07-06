@@ -12,7 +12,6 @@
 
 
 
-
 int main(int argc, char **argv) {
   if(Init_SDL()) return 1;
   auto filename = read_args(argc, argv);
