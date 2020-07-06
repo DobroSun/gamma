@@ -3,8 +3,10 @@
 
 #include "gamma/utility.h"
 
+
 template<class T>
 class array;
+
 
 template<class T>
 void copy(T *p1, T *p2, unsigned size) {
@@ -454,21 +456,8 @@ struct array<char> {
   }
 
 };
-
 using string = array<char>;
 
-
-
-
-// array vs std::vector.
-// This impl beats std::vector on operations:
-// 1) push_back; 
-// 2) reserve+push_back;
-//      @Way faster on small types(int, double, etc).
-//      and little bit faster on big types.
-
-// Slower on: 
-// 1) resize+push_back; // for small types, and pretty equally on big.
 
 /*
 template<>

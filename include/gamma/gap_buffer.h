@@ -38,6 +38,13 @@ public:
     buf.push_back(std::move(val));
   }
 
+  void insert_many(const array<T> &other) {
+    for(unsigned i = 0; i < other.size(); i++) {
+      buf.push_back(other[i]);
+    }
+    buf.resize_with_no_init(buf.size());
+  }
+
   void move_right() {
     auto post_start = pre_len + gap_len;
     auto gap_start = pre_len;

@@ -131,19 +131,25 @@ static void return_key(buffer_view &buffer) {
   for(unsigned k = j; k < buf_i.size(); k++) {
     to_end.insert(buf_i[k]);
   }
+
+  buffer.del();
   buffer.add(from_start);
+  buffer.add(to_end);
 
   if((int)(i-start) == numrows()-1) {
     start++;
   }
 
-  buffer[++i] = to_end;
+  i++;
+  buffer.move_left();
   cursor_to(buffer, i, 0);
+  buffer.saved_j = j;
   fix_gap(buffer);
 }
 
 static void backspace_key(buffer_view &buffer) {
   auto &cursor = buffer.cursor;
+  auto &start = buffer.start;
   auto &i = cursor.i; auto &j = cursor.j;
   if(buffer[i].pre_len > 0) {
     j--;
@@ -152,19 +158,39 @@ static void backspace_key(buffer_view &buffer) {
     if(!i) return;
     assert(j == 0);
     
-    auto size = buffer[i-1].size()-1;
-    for(unsigned k = 0; k < buffer[i].size(); k++) {
+    auto &previous_line = buffer[i-1];
+    auto current_line = buffer[i];
+    auto size = previous_line.size()-1;
+    string s = "";
+    for(unsigned k = 0; k < current_line.size(); k++) {
       if(k == 0) { // overwriting trailing space.
-        assert(buffer[i-1][size] == ' ');
-        buffer[i-1][size] = buffer[i][k];
+        assert(previous_line[size] == ' ');
+        previous_line[size] = current_line[k];
       } else {     // inserting to the end.
-        buffer[i-1].insert(buffer[i][k]);
+        s.push_back(current_line[k]);
       }
     }
+    previous_line.insert_many(s);
+
+    if((int)(i-start) == 0) {
+      start--;
+    }
+
     i--;
     buffer.del();
+
+    buffer.move_left();
     cursor_to(buffer, i, size);
-    fix_gap(buffer);
+  }
+  buffer.saved_j = j;
+  fix_gap(buffer);
+}
+
+static void put_tab(buffer_view &buffer) {
+  auto &j = buffer.cursor.j;
+  for(char i = 0; i < tabstop; i++) {
+    buffer[buffer.cursor.i].add(' ');
+    j++;
   }
 }
 
@@ -260,6 +286,10 @@ void handle_keydown(const SDL_Event &e, buffer_view &buffer, bool &done) {
   } else if(key == SDLK_ESCAPE) {
     done = true;
     return;
+
+
+  } else if(key == SDLK_TAB) {
+    put_tab(buffer);
 
   } else if(key == SDLK_BACKSPACE) {
     backspace_key(buffer);

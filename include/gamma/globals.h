@@ -12,6 +12,7 @@ inline char TextBottomBound = 50;
 inline char ptsize = 25;
 inline char blines = 5;
 inline char fsize = ptsize+blines;
+inline char tabstop = 2;
 inline int  fw, fh;
 
 inline unsigned char scroll_speed = 3;
