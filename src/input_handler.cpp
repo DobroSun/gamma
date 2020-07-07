@@ -151,7 +151,8 @@ static void backspace_key(buffer_view &buffer) {
   auto &cursor = buffer.cursor;
   auto &start = buffer.start;
   auto &i = cursor.i; auto &j = cursor.j;
-  if(buffer[i].pre_len > 0) {
+
+  if(j != 0) {
     j--;
     buffer[i].backspace();
   } else {
@@ -179,6 +180,44 @@ static void backspace_key(buffer_view &buffer) {
     i--;
     buffer.del();
 
+    buffer.move_left();
+    cursor_to(buffer, i, size);
+  }
+  buffer.saved_j = j;
+  fix_gap(buffer);
+}
+
+static void delete_key(buffer_view &buffer) {
+  auto &cursor = buffer.cursor;
+  auto &start = buffer.start;
+  auto &i = cursor.i; auto &j = cursor.j;
+
+  if((unsigned)j != buffer[i].size()-1) {
+    buffer[i].del();
+  } else {
+    if((unsigned)i == buffer.size()-1) return;
+
+
+    auto next_line = buffer[i+1];
+    auto &current_line = buffer[i];
+    auto size = current_line.size()-1;
+    string s = "";
+    for(unsigned k = 0; k < next_line.size(); k++) {
+      if(k == 0) {
+        assert(current_line[size] == ' ');
+        current_line[size] = next_line[k];
+      } else {
+        s.push_back(next_line[k]);
+      }
+    }
+    current_line.insert_many(s);
+
+    if((int)(i-start) == numrows()-1) {
+      start++;
+    }
+
+    buffer.move_right();
+    buffer.del();
     buffer.move_left();
     cursor_to(buffer, i, size);
   }
@@ -287,20 +326,20 @@ void handle_keydown(const SDL_Event &e, buffer_view &buffer, bool &done) {
     done = true;
     return;
 
-
   } else if(key == SDLK_TAB) {
     put_tab(buffer);
+    return;
 
   } else if(key == SDLK_BACKSPACE) {
     backspace_key(buffer);
+    return;
 
   } else if(key == SDLK_DELETE) {
-    buffer[i].del();
+    delete_key(buffer);
     return;
 
   } else if(key == SDLK_RETURN) {
     return_key(buffer);
-
     return;
 
   } else if(key == SDLK_UP) {
