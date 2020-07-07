@@ -17,4 +17,10 @@ void handle_mousebuttonup(const SDL_Event &, ScrollBar*&);
 
 void cursor_down_detail(buffer_view &buffer, bool (*last_line)(int, int, int));
 
+enum EditorMode {
+  Editor,
+  Console,
+};
+
 #endif
+

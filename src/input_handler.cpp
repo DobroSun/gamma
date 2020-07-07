@@ -7,7 +7,7 @@
 #include "gamma/view.h"
 
 
-
+//static EditorMode Mode = Editor;
 static bool in_buffer(double x, double y) {
   return y >= TextUpperBound && x >= TextLeftBound && y < Height - TextBottomBound;
 }
@@ -232,6 +232,15 @@ static void put_tab(buffer_view &buffer) {
     j++;
   }
 }
+/*
+static void open_console() {
+  Mode = Console;
+}
+
+static void close_console() {
+  Mode = Editor;
+}
+*/
 
 
 bool LoadFile(buffer_t &buffer, const std::string &filename) {
@@ -318,6 +327,17 @@ void handle_keydown(const SDL_Event &e, buffer_view &buffer, bool &done) {
 
   auto &cursor = buffer.cursor;
   auto &i = cursor.i; auto &j = cursor.j;
+  /*
+  switch(Mode) {
+    case Editor: {
+      puts("Editor");
+    } break;
+
+    case Console: {
+      puts("Console");
+    } break;
+  }
+  */
   if(key == SDLK_LSHIFT || key == SDLK_RSHIFT) {
     SDL_SetModState((SDL_Keymod)KMOD_SHIFT);
     return;

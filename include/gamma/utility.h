@@ -24,7 +24,11 @@ bool save(const buffer_t &b, const std::string &);
 #define printd(A) do { printf("%f\n", (A)); } while(0)
 #define printc(A) do { printf("%c\n", (A)); } while(0)
 #define printb(A) do { if((A)) puts("true"); else puts("false"); } while(0)
-
+#define begin_clock auto begin = std::chrono::steady_clock::now()
+#define printFPS                               \
+  auto end = std::chrono::steady_clock::now(); \
+  std::cout << 1000000 / std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() << std::endl
+                 
 
 template<class T, class C>
 bool in(const T *x, C val) {
