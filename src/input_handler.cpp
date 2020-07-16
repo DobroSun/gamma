@@ -1,16 +1,17 @@
 #include "gamma/pch.h"
 #include "gamma/input_handler.h"
 #include "gamma/globals.h"
-#include "gamma/scroll_bar.h"
 #include "gamma/cursor.h"
 #include "gamma/gap_buffer.h"
 #include "gamma/view.h"
 
 
-//static EditorMode Mode = Editor;
-static bool in_buffer(double x, double y) {
-  return y >= TextUpperBound && x >= TextLeftBound && y < Height - TextBottomBound;
+static EditorMode Mode = Editor;
+
+EditorMode get_editor_mode() {
+  return Mode;
 }
+
 
 static void cursor_right_detail(buffer_view &buffer) {
   auto &cursor = buffer.cursor;
@@ -32,6 +33,20 @@ static void cursor_right_detail(buffer_view &buffer) {
 static void cursor_right(buffer_view &buffer) {
   cursor_right_detail(buffer);
   buffer.saved_j = buffer.cursor.j;
+}
+
+static void cursor_right_no_move(buffer_view &buffer) {
+  auto &cursor = buffer.cursor;
+  auto &start_j = buffer.start_j;
+  auto &j = cursor.j;
+
+  const int max_line = (start_j+1) * buffer_width() / fw;
+  if(j == max_line-1) {
+    start_j++;
+  }
+
+  j++;
+  buffer.saved_j = j;
 }
 
 static void cursor_left_detail(buffer_view &buffer) {
@@ -263,55 +278,9 @@ bool LoadFile(buffer_t &buffer, const std::string &filename) {
   return true;
 }
 
-
-void handle_scroll_up(buffer_view &buffer) {
-  auto &start = buffer.start;
-  if(start == 0) return;
-
-  auto &i = buffer.cursor.i;
-  int diff = numrows()-i-1;
-
-  i += (diff < scroll_speed)? diff: scroll_speed;
-
-  auto start_change = (start < scroll_speed)? start: scroll_speed;
-  buffer.decrease_start_by(start_change); // Why start? gap must correlate to cursor and not to start.
-}
-
-void handle_scroll_down(buffer_view &buffer) {
-  auto &start = buffer.start;
-  auto &i = buffer.cursor.i;
-
-  i -= (i < scroll_speed)? i: scroll_speed;
-
-  unsigned total = buffer.size()-1; int ts = total-start;
-  int speed = (ts < scroll_speed)? ts: scroll_speed;
-  auto start_change = (start == total)? 0: speed;
-
-  buffer.increase_start_by(start_change); // The same as above;
-}
-
-
-void handle_mousewheel(const SDL_Event &e, buffer_view &buffer, ScrollBar &bar) {
-  auto &wheel = e.wheel;
-  auto &start = buffer.start;
-
-  if(wheel.y > 0) {
-    handle_scroll_up(buffer);
-    start_to_bar(buffer, bar);
-
-    if(start == 0) return;
-
-  } else if(wheel.y < 0) {
-    handle_scroll_down(buffer);
-    start_to_bar(buffer, bar);
-  }
-}
-
-
-void handle_resize(const SDL_Event &e, SDL_Window *win, ScrollBar &bar, buffer_view &buffer) {
+void handle_resize(const SDL_Event &e, SDL_Window *win, buffer_view &buffer) {
   if(e.window.event == SDL_WINDOWEVENT_RESIZED) {
     SDL_GetWindowSize(win, &Width, &Height);
-    reinit_bar(bar, buffer);
 
     auto &start = buffer.start;
     if((int)(buffer.cursor.i-start) == numrows()) {
@@ -326,7 +295,7 @@ void handle_keydown(const SDL_Event &e, buffer_view &buffer, bool &done) {
   auto key = keysym.sym;
 
   auto &cursor = buffer.cursor;
-  auto &i = cursor.i; auto &j = cursor.j;
+  auto &i = cursor.i;
   /*
   switch(Mode) {
     case Editor: {
@@ -403,57 +372,8 @@ void handle_keydown(const SDL_Event &e, buffer_view &buffer, bool &done) {
       }
 
       buffer[i].add(push);
-      j++;
+      cursor_right_no_move(buffer);
       return;
     }
-  }
-}
-
-
-void handle_mousemotion(const SDL_Event &e, buffer_view &buffer, ScrollBar*& active) {
-  auto &motion = e.motion;
-  auto &x = motion.x; auto &y = motion.y;
-  (void)x;
-
-  if(active) {
-    auto yy = y-TextUpperBound;
-    if(yy <= active->h) {
-      bar_to_start(buffer, active, yy);
-    }
-  }
-}
-
-
-void handle_mousebuttondown(const SDL_Event &e, buffer_view &buffer, ScrollBar &bar, ScrollBar*& active) {
-  auto &button = e.button;
-  auto &b_type = button.button; 
-  auto &b_click = button.clicks;
-  int x = button.x; int y = button.y;
-
-  if(clicked_small(bar, x, y)) {
-    got_clicked(bar, x, y);
-    active = &bar;
-
-  } else if(clicked_bar(bar, x, y)) {
-
-  } else if(in_buffer(x, y)) {
-    if(b_type == SDL_BUTTON_LEFT && b_click == 3) {
-      puts("Triple click!");
-
-    } else if(b_type == SDL_BUTTON_LEFT && b_click == 2) {
-      puts("Double click!");
-
-    } else if(b_type == SDL_BUTTON_LEFT) {
-      puts("Click");
-      //get_pos(buffer, x, y);
-    }
-  }
-}
-
-
-void handle_mousebuttonup(const SDL_Event &e, ScrollBar*& active) {
-  auto &button = e.button;
-  if(button.button == SDL_BUTTON_LEFT) {
-    active = nullptr;
   }
 }

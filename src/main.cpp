@@ -4,11 +4,9 @@
 #include "gamma/utility.h"
 #include "gamma/timer.h"
 #include "gamma/cursor.h"
-#include "gamma/scroll_bar.h"
 #include "gamma/gap_buffer.h"
 #include "gamma/view.h"
 #include "gamma/update.h"
-
 
 
 
@@ -48,11 +46,6 @@ int main(int argc, char **argv) {
 
 
 
-  ScrollBar scroll_bar{buffer.size()};
-  ScrollBar* active_bar = nullptr;
-
-
-
   std::unordered_map<char, SDL_Texture *> alphabet;
   std::unordered_map<char, SDL_Texture *> selected;
   create_alphabet(renderer, gfont, alphabet, selected);
@@ -68,28 +61,12 @@ int main(int argc, char **argv) {
           done = true;
         } break;
 
-        case SDL_MOUSEBUTTONDOWN: {
-          handle_mousebuttondown(e, b_view, scroll_bar, active_bar);
-        } break;
-
-        case SDL_MOUSEBUTTONUP: {
-          handle_mousebuttonup(e, active_bar);
-        } break;
-
-        case SDL_MOUSEMOTION: {
-          handle_mousemotion(e, b_view, active_bar);
-        } break;
-
         case SDL_KEYDOWN: {
           handle_keydown(e, b_view, done);
         } break;
 
-        case SDL_MOUSEWHEEL: {
-          handle_mousewheel(e, b_view, scroll_bar);
-        } break;
-
         case SDL_WINDOWEVENT: {
-          handle_resize(e, win, scroll_bar, b_view);
+          handle_resize(e, win, b_view);
         } break;
       }
     }
@@ -98,9 +75,7 @@ int main(int argc, char **argv) {
     SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255); 
     SDL_RenderClear(renderer);
 
-    update(renderer, b_view, scroll_bar, alphabet, selected);
-
-    draw_bar(scroll_bar, renderer);
+    update(renderer, b_view, alphabet, selected);
     SDL_RenderPresent(renderer);
   }
   

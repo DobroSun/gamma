@@ -6,7 +6,6 @@ set(gamma_source
   timer.cpp
   cursor.cpp
   input_handler.cpp
-  scroll_bar.cpp
   view.cpp
   update.cpp
 )

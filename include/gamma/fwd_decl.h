@@ -6,7 +6,6 @@ struct SDL_Renderer;
 typedef uint32_t Uint32;
 struct SDL_Texture;
 struct Cursor;
-struct ScrollBar;
 struct buffer_view;
 
 template<class T>

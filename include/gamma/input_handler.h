@@ -5,22 +5,15 @@
 
 bool LoadFile(buffer_t &, const std::string &);
 
-void handle_scroll_up(buffer_view &);
-void handle_scroll_down(buffer_view &);
-
-void handle_mousewheel(const SDL_Event &, buffer_view &, ScrollBar &);
-void handle_resize(const SDL_Event &, SDL_Window *, ScrollBar &, buffer_view &);
+void handle_resize(const SDL_Event &, SDL_Window *, buffer_view &);
 void handle_keydown(const SDL_Event &, buffer_view &, bool &);
-void handle_mousemotion(const SDL_Event &, buffer_view &, ScrollBar*&);
-void handle_mousebuttondown(const SDL_Event &, buffer_view &, ScrollBar &, ScrollBar*&);
-void handle_mousebuttonup(const SDL_Event &, ScrollBar*&);
-
-void cursor_down_detail(buffer_view &buffer, bool (*last_line)(int, int, int));
 
 enum EditorMode {
   Editor,
   Console,
 };
+
+EditorMode get_editor_mode();
 
 #endif
 
