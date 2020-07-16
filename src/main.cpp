@@ -3,7 +3,6 @@
 #include "gamma/input_handler.h"
 #include "gamma/utility.h"
 #include "gamma/timer.h"
-#include "gamma/cursor.h"
 #include "gamma/gap_buffer.h"
 #include "gamma/view.h"
 #include "gamma/update.h"
@@ -70,10 +69,6 @@ int main(int argc, char **argv) {
         } break;
       }
     }
-
-    // Background color.
-    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255); 
-    SDL_RenderClear(renderer);
 
     update(renderer, b_view, alphabet, selected);
     SDL_RenderPresent(renderer);

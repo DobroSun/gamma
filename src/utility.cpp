@@ -3,7 +3,6 @@
 #include "gamma/globals.h"
 #include "gamma/view.h"
 #include "gamma/gap_buffer.h"
-#include "gamma/cursor.h"
 
 
 char numrows() {

@@ -1,7 +1,7 @@
 #ifndef GAMMA_VIEW_H
 #define GAMMA_VIEW_H
 #include "gamma/fwd_decl.h"
-#include "gamma/cursor.h"
+#include "gamma/gap_buffer.h"
 #include "gamma/globals.h"
 
 
@@ -19,6 +19,7 @@ struct string_view {
 
 struct buffer_view {
   buffer_t &v;
+  gap_buffer<char> console;
   unsigned start{0}, start_j{0}, saved_j{0};
   Cursor cursor{0,0}; // @Note: This might be just a vector2 of ints.
 

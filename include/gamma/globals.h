@@ -29,7 +29,7 @@ const SDL_Color BlackColor {0, 0, 0};
 
 inline const char *chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890!@#$%^&?*()\\/ -+_=~|\t`\"'.,:;{}[]<>\0";
 
-const char underlying = 28; // @Depends on size of key_lookup table.
+const char untouchable = 28; // @Depends on size of key_lookup table.
 const char key_offset = 21;
 static const SDL_Keycode key_lookup[69] = {
   SDLK_SPACE,

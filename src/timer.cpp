@@ -1,7 +1,6 @@
 #include "gamma/pch.h"
 #include "gamma/timer.h"
 #include "gamma/globals.h"
-#include "gamma/cursor.h"
 
 static int tw = 0, th = 0;
 static inline Uint32 f(Uint32 interval) {

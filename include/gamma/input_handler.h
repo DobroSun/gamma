@@ -3,6 +3,7 @@
 #include "gamma/globals.h"
 #include "gamma/fwd_decl.h"
 
+
 bool LoadFile(buffer_t &, const std::string &);
 
 void handle_resize(const SDL_Event &, SDL_Window *, buffer_view &);

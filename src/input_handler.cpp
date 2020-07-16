@@ -1,17 +1,61 @@
 #include "gamma/pch.h"
 #include "gamma/input_handler.h"
 #include "gamma/globals.h"
-#include "gamma/cursor.h"
 #include "gamma/gap_buffer.h"
 #include "gamma/view.h"
 
-
 static EditorMode Mode = Editor;
+static bool is_shift = false;
+static bool is_ctrl = false;
+
+
+
+
+
+bool LoadFile(buffer_t &buffer, const std::string &filename) {
+  std::fstream file{filename};
+  if(!file) {
+    return false;
+  }
+
+  std::string input; 
+  while(std::getline(file, input)) {
+    gap_buffer<char> g;
+
+    for(unsigned i = 0; i < input.size(); i++) {
+      g.insert(input[i]);
+    }
+
+    g.insert(' ');
+    buffer.insert(g);
+  }
+  return true;
+}
+
 
 EditorMode get_editor_mode() {
   return Mode;
 }
 
+static void fix_gap(buffer_view &buffer) {
+  auto &cursor = buffer.cursor;
+  auto &line = buffer[cursor.i];
+  int diff = cursor.j - line.pre_len;
+  if(diff > 0) {
+    // cursor.j is bigger than start of gap.
+    // so moving gap right.
+    line.move_right_by(diff);
+  
+  } else if(diff < 0) {
+    // cursor.j is less than start of gap.
+    line.move_left_by(-diff);
+
+  } else {
+    assert(!diff);
+    // There is no difference between cursor.j and start index of gap.
+    // do nothing.
+  } 
+}
 
 static void cursor_right_detail(buffer_view &buffer) {
   auto &cursor = buffer.cursor;
@@ -247,35 +291,13 @@ static void put_tab(buffer_view &buffer) {
     j++;
   }
 }
-/*
+
 static void open_console() {
   Mode = Console;
 }
 
 static void close_console() {
   Mode = Editor;
-}
-*/
-
-
-bool LoadFile(buffer_t &buffer, const std::string &filename) {
-  std::fstream file{filename};
-  if(!file) {
-    return false;
-  }
-
-  std::string input; 
-  while(std::getline(file, input)) {
-    gap_buffer<char> g;
-
-    for(unsigned i = 0; i < input.size(); i++) {
-      g.insert(input[i]);
-    }
-
-    g.insert(' ');
-    buffer.insert(g);
-  }
-  return true;
 }
 
 void handle_resize(const SDL_Event &e, SDL_Window *win, buffer_view &buffer) {
@@ -289,26 +311,79 @@ void handle_resize(const SDL_Event &e, SDL_Window *win, buffer_view &buffer) {
   }
 }
 
+static void put_character_console(const int key, gap_buffer<char> &buffer) {
+  auto shifted = slice(key_lookup, untouchable);
 
-void handle_keydown(const SDL_Event &e, buffer_view &buffer, bool &done) {
+  // @Note: Need to load settings from 
+  // file and generate keyscodes.
+  for_each(key_lookup) {
+    if(key == *it) {
+      char push;
+      if(is_shift && isalpha(key)) {
+        push = toupper(key);
+
+      } else if(is_shift && in(shifted, key)) {
+        const SDL_Keycode *sh = it;
+        sh += key_offset;
+        push = (char)*sh;
+
+      } else {
+        push = (char)key;
+      }
+
+      buffer.add(push);
+      return;
+    }
+  }
+}
+
+static void put_character_editor(const int key, buffer_view &buffer) {
+  // Copy&Paste.
+  auto shifted = slice(key_lookup, untouchable);
+
+  // @Note: Need to load settings from 
+  // file and generate keyscodes.
+  for_each(key_lookup) {
+    if(key == *it) {
+      char push;
+      if(is_shift && isalpha(key)) {
+        push = toupper(key);
+
+      } else if(is_shift && in(shifted, key)) {
+        const SDL_Keycode *sh = it;
+        sh += key_offset;
+        push = (char)*sh;
+
+      } else {
+        push = (char)key;
+      }
+
+      buffer[buffer.cursor.i].add(push);
+      cursor_right_no_move(buffer);
+      return;
+    }
+  }
+}
+
+#define bind(keysymbol, function) \
+  else if(key == keysymbol) {     \
+    function(buffer);             \
+    return;                       \
+  }
+
+static void handle_editor_keydown(const SDL_Event &e, buffer_view &buffer, bool &done) {
   auto keysym = e.key.keysym;
   auto key = keysym.sym;
+  auto mod = keysym.mod;
+  is_shift = (mod == KMOD_SHIFT); 
+  is_ctrl  = (mod == KMOD_CTRL);
 
-  auto &cursor = buffer.cursor;
-  auto &i = cursor.i;
-  /*
-  switch(Mode) {
-    case Editor: {
-      puts("Editor");
-    } break;
-
-    case Console: {
-      puts("Console");
-    } break;
-  }
-  */
   if(key == SDLK_LSHIFT || key == SDLK_RSHIFT) {
     SDL_SetModState((SDL_Keymod)KMOD_SHIFT);
+    return;
+
+  } else if(key == SDLK_LCTRL) {
+    SDL_SetModState((SDL_Keymod)KMOD_CTRL);
     return;
 
   } else if(key == SDLK_ESCAPE) {
@@ -346,34 +421,42 @@ void handle_keydown(const SDL_Event &e, buffer_view &buffer, bool &done) {
   } else if(key == SDLK_RIGHT) {
     cursor_right(buffer);
     return;
+
+  } else if(key == SDLK_r && is_ctrl) {
+    open_console();
+    return;
   }
 
+  put_character_editor(key, buffer);
+}
 
-  auto mod = keysym.mod;
-  bool is_shift = mod == KMOD_SHIFT;
-  auto shifted = slice(key_lookup, underlying);
+static void handle_console_keydown(const SDL_Event &e, gap_buffer<char> &console, bool &done) {
+  auto keysym = e.key.keysym;
+  auto key = keysym.sym;
+  is_shift = (keysym.mod == KMOD_SHIFT);
 
+  if(key == SDLK_LSHIFT || key == SDLK_RSHIFT) {
+    SDL_SetModState((SDL_Keymod)KMOD_SHIFT);
+    return;
 
-  // @Note: Need to load settings from 
-  // file and generate keyscodes.
-  for_each(key_lookup) {
-    if(key == *it) {
-      char push;
-      if(is_shift && isalpha(key)) {
-        push = toupper(key);
-
-      } else if(is_shift && in(shifted, key)) {
-        const SDL_Keycode *sh = it;
-        sh += key_offset;
-        push = (char)*sh;
-
-      } else {
-        push = (char)key;
-      }
-
-      buffer[i].add(push);
-      cursor_right_no_move(buffer);
-      return;
-    }
+  } else if(key == SDLK_ESCAPE) {
+    close_console();
+    return;
   }
+
+  put_character_console(key, console);
+}
+
+
+void handle_keydown(const SDL_Event &e, buffer_view &buffer, bool &done) {
+  switch(Mode) {
+    case Editor: {
+      handle_editor_keydown(e, buffer, done);
+    } break;
+
+    case Console: {
+      handle_console_keydown(e, buffer.console, done);
+    } break;
+  }
+ 
 }

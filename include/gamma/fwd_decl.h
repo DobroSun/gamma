@@ -5,7 +5,9 @@ typedef Uint32 (*callback)(Uint32, void*);
 struct SDL_Renderer;
 typedef uint32_t Uint32;
 struct SDL_Texture;
-struct Cursor;
+struct Cursor {
+  int i, j;
+};
 struct buffer_view;
 
 template<class T>
