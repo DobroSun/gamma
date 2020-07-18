@@ -1,7 +1,7 @@
 #ifndef GAMMA_ARRAY_H
 #define GAMMA_ARRAY_H
 
-#include "gamma/utility.h"
+#include "utility.h"
 
 
 template<class T>
@@ -32,6 +32,7 @@ void reserve_impl(unsigned size_to_alloc, T *&p, unsigned &__size, unsigned &__c
 
     __capacity = (!size_to_alloc)? original_capacity: size_to_alloc;
     p = new T[__capacity];
+    assert(p);
 
 
   } else {
@@ -40,6 +41,7 @@ void reserve_impl(unsigned size_to_alloc, T *&p, unsigned &__size, unsigned &__c
 
     __capacity = (!size_to_alloc)? __capacity*2: size_to_alloc;
     auto new_p = new T[__capacity];
+    assert(new_p);
 
     copy(p, new_p, __size);
     delete[] p;
@@ -66,6 +68,7 @@ void resize_impl(unsigned size_to_resize, T *&p, unsigned &__size, unsigned &__c
 
     __capacity = (!size_to_resize)? original_capacity: size_to_resize;
     p = new T[__capacity];
+    assert(p);
     init(p, 0, __capacity);
     __size = __capacity;
 
@@ -76,6 +79,7 @@ void resize_impl(unsigned size_to_resize, T *&p, unsigned &__size, unsigned &__c
 
     __capacity = (!size_to_resize)? __capacity*2: size_to_resize;
     auto new_p = new T[__capacity];
+    assert(new_p);
     init(new_p, 0, __capacity);
 
     copy(p, new_p, __size);
@@ -97,7 +101,7 @@ void resize_with_no_init_impl(unsigned size_to_resize, T *&p, unsigned &__size, 
 
 template<class T>
 void reserve_on_push_back_impl(T *&p, unsigned &__size, unsigned &__capacity, unsigned original_capacity) {
-  if(__size+1 > __capacity) {
+  if(__size == __capacity) {
     reserve_impl(0, p, __size, __capacity, original_capacity);
   }
 }
@@ -114,9 +118,10 @@ void push_back_impl(T &&val, T *&p, unsigned &__size, unsigned &__capacity, unsi
   p[__size++] = std::move(val);
 }
 
-void inline pop_back_impl(unsigned &__size) {
+template<class T>
+void pop_back_impl(T *&p, unsigned &__size) {
   assert(__size > 0);
-  --__size;
+  p[--__size] = '\0';
 }
 
 template<class T>
@@ -270,7 +275,7 @@ struct array {
   }
 
   void pop_back() {
-    pop_back_impl(__size);
+    pop_back_impl(p, __size);
   }
 
   T& front() {
@@ -341,6 +346,26 @@ bool operator==(const array<T> &a, const array<T> &b) {
   return true;
 }
 
+template<class T>
+array<T> operator+(const array<T> &a, const array<T> &b) {
+  array<T> ret;
+  auto b_size = b.size();
+  auto a_size = a.size();
+
+  ret.resize_with_no_init(a_size + b_size);
+
+  unsigned count = 0;
+  for(unsigned i = 0; i < a_size; i++) {
+    ret[count] = a[i];
+    count++;
+  }
+  for(unsigned i = 0; i < b_size; i++) {
+    ret[count] = b[i];
+    count++;
+  }
+  return ret;
+}
+
 
 template<>
 struct array<char> {
@@ -351,6 +376,10 @@ struct array<char> {
 
 
   array() = default;
+  array(char c) {
+    reserve(original_capacity);
+    p[__size++] = c;
+  }
   array(const char *c) {
     for_each(c) {
       push_back(*it);
@@ -400,7 +429,7 @@ struct array<char> {
   }
 
   void pop_back() {
-    pop_back_impl(__size);
+    pop_back_impl(p, __size);
   }
 
   char& front() {
@@ -455,338 +484,15 @@ struct array<char> {
     reserve_on_push_back_impl(p, __size, __capacity, original_capacity);
   }
 
-};
-using string = array<char>;
-
-
-/*
-template<>
-class array<char> {
-  char *p = nullptr;
-  unsigned __capacity = 0;
-  unsigned __size = 0;
-  bool __junk;
-
-  constexpr static unsigned original_capacity = 24;
-  constexpr static unsigned npos = -1;
-    
-
-public:
-  array() = default;
-  array(const char *c) {
-    unsigned c_size = strlen(c);
-    auto bytes = (unsigned char *)(this);
-    auto size_on_stack = sizeof(*this);
-
-    assert(original_capacity == size_on_stack);
-    auto last_byte_index = size_on_stack-1;
-    if(c_size < last_byte_index) { 
-      // Via SSO string can store 22 characters, + 1 size of string +
-      // 1 flag indicating whether this string is short or not.
-
-      bytes[last_byte_index] = 1; // string is short - SSO.
-      bytes[size_on_stack-2] = c_size;
-
-      for(unsigned i = 0; i < c_size; i++) {
-        bytes[i] = c[i];
-      }
-
-    } else {
-      assert(!p);
-      assert(!__size);
-      assert(!__capacity);
-      bytes[last_byte_index] = 0; // string is long - no SSO.
-
-      if(__capacity < c_size) {
-        reserve_long(c_size+1); // + 1 for null terminator.
-      }
-      __size = c_size;
-
-      for(unsigned i = 0; i < c_size; i++) {
-        p[i] = c[i];
-      }
-    }
-  }
-  ~array() {
-    auto bytes = (unsigned char *)(this);
-    auto size_on_stack = sizeof(*this);
-    auto is_short = bytes[size_on_stack-1];
-
-    if(is_short) {
-      // Nothing to do.
-    } else {
-      free(p);
-    }
+  char *c_str() const {
+    p[__size] = '\0'; // @Wrong: Invalid write if __size == __capacity
+    return p;
   }
 
-  void reserve(unsigned size_to_reserve=0) {
-    auto bytes = (unsigned char *)(this);
-    auto size_on_stack = sizeof(*this);
-    auto is_short = bytes[size_on_stack-1];
-
-    if(is_short) {
-      reserve_short(size_to_reserve);
-
-    } else {
-      reserve_long(size_to_reserve);
-    }
-  }
-
-  void reserve_short(unsigned size_to_reserve=0) {
-    auto bytes = (unsigned char *)(this);
-    auto size_on_stack = sizeof(*this);
-    auto last_byte_index = size_on_stack-1;
-    auto &is_short = bytes[last_byte_index];
-
-    assert(is_short == 1);
-
-    auto last_character_index = size_on_stack-2;
-    auto &new_size = bytes[last_character_index];
-    auto new_capacity = (!size_to_reserve)? new_size*2: size_to_reserve;
-    assert(new_size < new_capacity);
-
-    if(new_capacity < last_byte_index) {
-      // We are still in stack size's limit.
-
-      // Reserve doesn't change the size of string.
-      // it shall only allocate new space.
-      // and if it's new_capacity still < then current_capacity(sizeof(string)-2).
-      // we have nothing to do.
-
-    } else {
-      // Need to allocate new string.
-
-      auto new_p = (char *)malloc(sizeof(char) * new_capacity);
-      for(unsigned i = 0; i < last_character_index; i++) {
-        new_p[i] = bytes[i];
-      }
-
-      is_short = 0;
-      __size = new_size;
-      __capacity = new_capacity;
-      p = new_p;
-
-      assert(__size < __capacity);
-    }
-  }
-
-  void reserve_long(unsigned size_to_reserve=0) {
-    {
-      auto bytes = (unsigned char *)(this);
-      auto size_on_stack = sizeof(*this);
-      auto is_short = bytes[size_on_stack-1];
-      assert(is_short == 0);
-    }
-
-    // Copy&Paste: from array.
-    if(!p) {
-      assert(!__capacity);
-      assert(!__size);
-      __capacity = (!size_to_reserve)? original_capacity: size_to_reserve;
-      p = (char*)malloc(sizeof(char) * __capacity);
-
-    } else {
-      assert(__capacity);
-      assert(p);
-
-      __capacity = (!size_to_reserve)? __capacity*2: size_to_reserve;
-      auto new_p = (char*)malloc(sizeof(char) * __capacity);
-
-      copy(p, new_p, __size);
-      free(p);
-      p = new_p;
-    }
-    assert(__size < __capacity);
-  }
-
-  void resize(unsigned size_to_resize=0) {
-    auto bytes = (unsigned char *)(this);
-    auto size_on_stack = sizeof(*this);
-    auto last_byte_index = size_on_stack-1;
-    auto is_short = bytes[last_byte_index];
-
-    if(is_short) {
-      auto last_character_index = size_on_stack-2;
-      auto &new_size = bytes[last_character_index];
-      auto new_capacity = (!size_to_resize)? new_size*2: size_to_resize;
-      assert(new_size < new_capacity);
-
-      if(new_capacity < last_byte_index) {
-        init(bytes, new_size, last_character_index);
-        new_size = new_capacity;
-
-      } else {
-        
-        auto new_p = (char *)malloc(sizeof(char) * new_capacity);
-        for(unsigned i = 0; i < last_character_index; i++) {
-          new_p[i] = bytes[i];
-        }
-        init(bytes, new_size, new_capacity);
-
-        is_short = 0;
-        __size = new_capacity;
-        __capacity = new_capacity;
-        p = new_p;
-
-        assert(__size < __capacity);
-      }
-
-    } else {
-      // Copy&Paste: from array.
-      if(!p) {
-        assert(!__capacity);
-        assert(!__size);
-
-        __capacity = (!size_to_resize)? original_capacity: size_to_resize;
-        __size = __capacity;
-        p = (char*)malloc(sizeof(char) * __capacity);
-        init(p, 0, __size);
-
-        assert(__size < __capacity);
-
-      } else {
-        assert(__capacity);
-        assert(__capacity < size_to_resize);
-        assert(__size <= __capacity);
-
-        __capacity = (!size_to_resize)? __capacity*2: size_to_resize;
-        auto new_p = (char*)malloc(sizeof(char) * __capacity);
-
-        copy(p, new_p, __size);
-        init(new_p, __size, __capacity); // from old_size to new_size.
-        __size = __capacity;
-        free(p);
-        p = new_p;
-
-        assert(__size < __capacity);
-      }
-    }
-  }
-
-  unsigned size() const {
-    auto bytes = (unsigned char *)(this);
-    auto size_on_stack = sizeof(*this);
-    auto is_short = bytes[size_on_stack-1];
-    
-    if(is_short) {
-      return bytes[size_on_stack-2];
-    } else {
-      return __size;
-    }
-  }
-
-  unsigned capacity() const {
-    auto bytes = (unsigned char *)(this);
-    auto size_on_stack = sizeof(*this);
-    auto is_short = bytes[size_on_stack-1];
-    
-    if(is_short) {
-      return size_on_stack-2;
-    } else {
-      return __capacity;
-    }
-
-  }
-
-  char *data() {
-    auto bytes = (unsigned char *)(this);
-    auto size_on_stack = sizeof(*this);
-    auto is_short = bytes[size_on_stack-1];
-    
-    if(is_short) {
-      auto size = bytes[size_on_stack-2];
-      bytes[size] = '\0';
-      return (char*)bytes;
-
-    } else {
-      p[__size] = '\0';
-      return p;
-    }
-  }
-
-  const char *data() const {
-    auto bytes = (unsigned char *)(this);
-    auto size_on_stack = sizeof(*this);
-    auto is_short = bytes[size_on_stack-1];
-    
-    if(is_short) {
-      auto size = bytes[size_on_stack-2];
-      bytes[size] = '\0';
-      return (const char*)bytes;
-
-    } else {
-      p[__size] = '\0';
-      return p;
-    }
-  }
-
-  char *c_str() {
-    // Copy&Paste: same as data().
-    auto bytes = (unsigned char *)(this);
-    auto size_on_stack = sizeof(*this);
-    auto is_short = bytes[size_on_stack-1];
-    
-    if(is_short) {
-      auto size = bytes[size_on_stack-2];
-      bytes[size] = '\0';
-      return (char*)bytes;
-
-    } else {
-      p[__size] = '\0';
-      return p;
-    }
-  }
-
-  const char *c_str() const {
-    auto bytes = (unsigned char *)(this);
-    auto size_on_stack = sizeof(*this);
-    auto is_short = bytes[size_on_stack-1];
-    
-    if(is_short) {
-      auto size = bytes[size_on_stack-2];
-      bytes[size] = '\0';
-      return (const char*)bytes;
-
-    } else {
-      p[__size] = '\0';
-      return p;
-    }
-  }
-
-  char &operator[](unsigned i) {
-    auto bytes = (unsigned char *)(this);
-    auto size_on_stack = sizeof(*this);
-    auto is_short = bytes[size_on_stack-1];
-
-    if(is_short) {
-      assert(i >= 0 && i < size_on_stack-2);
-      return (char&)bytes[i];
-    } else {
-      assert(i >= 0 && i < __size);
-      return p[i];
-    }
-  }
-
-  const char &operator[](unsigned i) const {
-    auto bytes = (unsigned char *)(this);
-    auto size_on_stack = sizeof(*this);
-    auto is_short = bytes[size_on_stack-1];
-
-    if(is_short) {
-      assert(i >= 0 && i < size_on_stack-2);
-      return (char&)bytes[i];
-    } else {
-      assert(i >= 0 && i < __size);
-      return p[i];
-    }
-  }
-
-  bool is_short() const {
-    return (((unsigned char*)(this))[sizeof(*this)-1]) == 1;
+  char *data() const {
+    p[__size] = '\0'; // @Wrong: Invalid write if __size == __capacity
+    return p;
   }
 };
-*/
-
-
 
 #endif

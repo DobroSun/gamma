@@ -6,19 +6,19 @@
 #include "gamma/gap_buffer.h"
 #include "gamma/view.h"
 #include "gamma/update.h"
+#include "gamma/buffer.h"
 
 
 
 int main(int argc, char **argv) {
   if(Init_SDL()) return 1;
-  auto filename = read_args(argc, argv);
+  string filename = read_args(argc, argv);
 
 
   // Loading file in memory.
-  buffer_t buffer;
-  bool success = LoadFile(buffer, filename);
+  bool success = load_buffer_from_file(filename);
   if(!success) {
-    std::cerr << "Error opening file: " << filename << std::endl;
+    fprintf(stderr, "Error opening file: %s", filename.data());
     return 1;
   }
 
@@ -29,9 +29,8 @@ int main(int argc, char **argv) {
                          SDL_WINDOWPOS_CENTERED,
                          Width, Height,
                          SDL_WINDOW_RESIZABLE);
-  auto renderer = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
-  auto gfont = TTF_OpenFont((assets_fonts+courier).c_str(), ptsize);
-
+  auto renderer = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED); assert(renderer);
+  auto gfont = TTF_OpenFont((assets_fonts+courier).c_str(), ptsize);     assert(gfont);
 
   // Starts timer to update the cursor.
   SDL_TimerID cursor_timer = StartTimer(300);
@@ -44,13 +43,11 @@ int main(int argc, char **argv) {
   assert(fw); assert(fh);
 
 
-
-  std::unordered_map<char, SDL_Texture *> alphabet;
-  std::unordered_map<char, SDL_Texture *> selected;
+  texture_map alphabet;
+  texture_map selected;
   create_alphabet(renderer, gfont, alphabet, selected);
 
 
-  buffer_view b_view{buffer};
   bool done = false;
   while(!done) {
     SDL_Event e;
@@ -61,32 +58,32 @@ int main(int argc, char **argv) {
         } break;
 
         case SDL_KEYDOWN: {
-          handle_keydown(e, b_view, done);
+          handle_keydown(e, done);
         } break;
 
         case SDL_WINDOWEVENT: {
-          handle_resize(e, win, b_view);
+          handle_resize(e, win);
         } break;
       }
     }
 
-    update(renderer, b_view, alphabet, selected);
+    update(renderer, alphabet, selected);
     SDL_RenderPresent(renderer);
   }
   
-/*
   SDL_RemoveTimer(cursor_timer);
   for(auto &[key, texture]: alphabet) {
     SDL_DestroyTexture(texture);
+    (void)key;
   }
   for(auto &[key, texture]: selected) {
     SDL_DestroyTexture(texture);
+    (void)key;
   }
   SDL_DestroyRenderer(renderer);
   SDL_DestroyWindow(win);
   TTF_CloseFont(gfont);
   TTF_Quit();
   SDL_Quit();
-*/
   return 0;
 }

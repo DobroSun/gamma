@@ -4,10 +4,8 @@
 #include "gamma/fwd_decl.h"
 
 
-bool LoadFile(buffer_t &, const std::string &);
-
-void handle_resize(const SDL_Event &, SDL_Window *, buffer_view &);
-void handle_keydown(const SDL_Event &, buffer_view &, bool &);
+void handle_resize(const SDL_Event &, SDL_Window *);
+void handle_keydown(const SDL_Event &, bool &);
 
 enum EditorMode {
   Editor,

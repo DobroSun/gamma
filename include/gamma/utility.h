@@ -1,43 +1,20 @@
 #ifndef GAMMA_UTILITY_H
 #define GAMMA_UTILITY_H
-#include "gamma/fwd_decl.h"
-
+#include "fwd_decl.h"
 
 char numrows();
 int buffer_width();
-std::string read_args(int, char **);
-void create_alphabet(SDL_Renderer *, TTF_Font *, std::unordered_map<char, SDL_Texture *> &, std::unordered_map<char, SDL_Texture *> &);
+string read_args(int, char **);
+void create_alphabet(SDL_Renderer *, TTF_Font *, texture_map &, texture_map &);
 
 
 
-SDL_Texture *load_cursor(SDL_Renderer *, TTF_Font *, const std::string &, const SDL_Color &, const SDL_Color &);
-SDL_Texture *load_texture(SDL_Renderer*, const std::string &, const std::string &, int , const SDL_Color &);
-SDL_Texture *load_courier(SDL_Renderer *, TTF_Font *, const std::string &, const SDL_Color &);
+SDL_Texture *load_cursor(SDL_Renderer *, TTF_Font *, const string &, const SDL_Color &, const SDL_Color &);
+SDL_Texture *load_texture(SDL_Renderer*, const string &, const string &, int , const SDL_Color &);
+SDL_Texture *load_courier(SDL_Renderer *, TTF_Font *, const string &, const SDL_Color &);
 
 // Editor commands.
-bool save(const buffer_t &b, const std::string &);
-
-
-
-struct Junk {};
-#define defer auto ANONYMOUS_NAME = Junk{} + [&]()
-#define ANONYMOUS_NAME CONCAT(GAMMA, __LINE__)
-#define CONCAT(A, B) CONCAT_IMPL(A, B)
-#define CONCAT_IMPL(A, B) A##B
-
-template<class F>
-struct ScopeGuard {
-  F fun;
-  ScopeGuard(F &&f): fun{std::move(f)} {}
-  ~ScopeGuard() {
-    fun();
-  }
-};
-template<class F>
-ScopeGuard<F> operator+(Junk, F &&fun) {
-  return ScopeGuard<F>(std::move(fun));
-}
-
+//bool save(const buffer_t &b, const string &);
 
 
 #define for_each(c_array) for(auto it = c_array; *it != '\0'; it++)

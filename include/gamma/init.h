@@ -3,11 +3,11 @@
 
 int Init_SDL() {
   if(SDL_Init(SDL_INIT_EVENTS | SDL_INIT_TIMER)) {
-    std::cerr << "Error Initializing SDL: " << SDL_GetError() << std::endl;
+    fprintf(stderr, "%s: %s", "Error Initializing SDL", SDL_GetError());
     return 1;
   }
   if(TTF_Init()) {
-    std::cerr << "Error Initializing TTF: " << TTF_GetError() << std::endl;
+    fprintf(stderr, "%s: %s", "Error Initializing TTF", TTF_GetError());
     return 1;
   }
   return 0;

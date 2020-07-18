@@ -3,17 +3,18 @@
 #include "gamma/globals.h"
 #include "gamma/view.h"
 #include "gamma/utility.h"
-#include "gamma/gap_buffer.h"
+#include "gamma/buffer.h"
 #include "gamma/input_handler.h"
 #include "gamma/timer.h"
 
 
 static int tw = 0, th = 0;
-static void update_editor(SDL_Renderer *renderer, const buffer_view &b_view, std::unordered_map<char, SDL_Texture *> &alphabet, std::unordered_map<char, SDL_Texture *> &selected) {
+static void update_editor(SDL_Renderer *renderer, texture_map &alphabet, texture_map &selected) {
   // Set background color.
   SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255); 
   SDL_RenderClear(renderer);
 
+  const auto &b_view = get_buffer();
   auto &cursor = b_view.cursor;
   const unsigned offset = b_view.start_j;
   const unsigned max_size = buffer_width() / fw;
@@ -44,18 +45,21 @@ static void update_editor(SDL_Renderer *renderer, const buffer_view &b_view, std
   }
 }
 
-static void update_console(SDL_Renderer *renderer, const gap_buffer<char> &console, std::unordered_map<char, SDL_Texture *> &alphabet, std::unordered_map<char, SDL_Texture *> &selected) {
+static void update_console(SDL_Renderer *renderer, texture_map &alphabet, texture_map &selected) {
   // Nothing for now.
+  (void)renderer;
+  (void)alphabet;
+  (void)selected;
 }
 
-void update(SDL_Renderer *renderer, const buffer_view &b_view, std::unordered_map<char, SDL_Texture *> &alphabet, std::unordered_map<char, SDL_Texture *> &selected) {
+void update(SDL_Renderer *renderer, texture_map &alphabet, texture_map &selected) {
   switch(get_editor_mode()) {
     case Editor: {
-      update_editor(renderer, b_view, alphabet, selected);
+      update_editor(renderer, alphabet, selected);
     } break;
 
     case Console: {
-      update_console(renderer, b_view.console, alphabet, selected);
+      update_console(renderer, alphabet, selected);
     } break;
   }
 }

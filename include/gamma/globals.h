@@ -17,14 +17,14 @@ inline int  fw, fh;
 
 inline unsigned char scroll_speed = 3;
 
-const std::string assets_images = "../assets/images/";
-const std::string assets_fonts = "../assets/fonts/";
-const std::string quicksand = "QuickSand/Quicksand-Regular.ttf";
-const std::string courier = "Courier/Courier-Regular.ttf";
+const string assets_images = "../assets/images/";
+const string assets_fonts = "../assets/fonts/";
+const string quicksand = "QuickSand/Quicksand-Regular.ttf";
+const string courier = "Courier/Courier-Regular.ttf";
 
 
-const SDL_Color WhiteColor {255, 255, 255};
-const SDL_Color BlackColor {0, 0, 0};
+const SDL_Color WhiteColor {255, 255, 255, 0};
+const SDL_Color BlackColor {0, 0, 0, 0};
 
 
 inline const char *chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890!@#$%^&?*()\\/ -+_=~|\t`\"'.,:;{}[]<>\0";

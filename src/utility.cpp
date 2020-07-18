@@ -14,58 +14,55 @@ int buffer_width() {
 }
 
 
-std::string read_args(int argc, char **argv) {
+string read_args(int argc, char **argv) {
   return (argc < 2)? "": argv[1];
 }
 
-void create_alphabet(SDL_Renderer *renderer, TTF_Font *gfont, std::unordered_map<char, SDL_Texture *> &alphabet, std::unordered_map<char, SDL_Texture *> &selected) {
+void create_alphabet(SDL_Renderer *renderer, TTF_Font *gfont, texture_map &alphabet, texture_map &selected) {
   for_each(chars) {
     auto c = *it;
-    alphabet.insert(std::make_pair(c, load_courier(renderer, gfont, std::string{c}, BlackColor)));
-    selected.insert(std::make_pair(c, load_cursor(renderer, gfont, std::string{c}, WhiteColor, BlackColor)));
+    alphabet.insert(std::make_pair(c, load_courier(renderer, gfont, c, BlackColor)));
+    selected.insert(std::make_pair(c, load_cursor(renderer, gfont, c, WhiteColor, BlackColor)));
   }
 }
 
 
-SDL_Texture *load_texture(SDL_Renderer *renderer, const std::string &text, const std::string &path, int ptsize, const SDL_Color &color) {
-  TTF_Font *font = TTF_OpenFont((assets_fonts+path).c_str(), ptsize);
-  if(!font) {
-    std::cerr << "Error creating font from given path and size!" << std::endl;
-  }
-  SDL_Surface *surf = TTF_RenderText_Solid(font, text.c_str(), color);
+SDL_Texture *load_texture(SDL_Renderer *renderer, const string &text, const string &path, int ptsize, const SDL_Color &color) {
+  TTF_Font *font = TTF_OpenFont((assets_fonts+path).data(), ptsize);
+  assert(font);
+
+  SDL_Surface *surf = TTF_RenderText_Solid(font, text.data(), color);
+  assert(surf);
   TTF_CloseFont(font);
 
-  if(!surf) {
-    std::cerr << "Error rendering given text!" << std::endl;
-  }
-
-
   SDL_Texture *txt = SDL_CreateTextureFromSurface(renderer, surf);
+  assert(txt);
+
   SDL_FreeSurface(surf);
-  if(!txt) {
-    std::cerr << "Error creating texture from rendered surface!" << std::endl;
-  }
   return txt;
 }
 
-SDL_Texture *load_courier(SDL_Renderer *renderer, TTF_Font *font, const std::string &text, const SDL_Color &color) {
-  SDL_Surface *surf = TTF_RenderText_Solid(font, text.c_str(), color);
-
+SDL_Texture *load_courier(SDL_Renderer *renderer, TTF_Font *font, const string &text, const SDL_Color &color) {
+  SDL_Surface *surf = TTF_RenderText_Solid(font, text.data(), color);
+  assert(surf);
   SDL_Texture *txt = SDL_CreateTextureFromSurface(renderer, surf);
+  assert(txt);
   SDL_FreeSurface(surf);
   return txt;
 }
 
 
-SDL_Texture *load_cursor(SDL_Renderer *renderer, TTF_Font *gfont, const std::string &s, const SDL_Color &c1, const SDL_Color &c2) {
-  SDL_Surface *t = TTF_RenderText_Shaded(gfont, s.c_str(), c1, c2);
-  SDL_Texture *cc = SDL_CreateTextureFromSurface(renderer, t);
-  SDL_FreeSurface(t);
-  return cc;
+SDL_Texture *load_cursor(SDL_Renderer *renderer, TTF_Font *gfont, const string &s, const SDL_Color &c1, const SDL_Color &c2) {
+  SDL_Surface *surf = TTF_RenderText_Shaded(gfont, s.data(), c1, c2);
+  assert(surf);
+  SDL_Texture *txt = SDL_CreateTextureFromSurface(renderer, surf);
+  assert(txt);
+  SDL_FreeSurface(surf);
+  return txt;
 }
 
 // Editor commands.
-
+/*
 bool save(const buffer_t &b, const std::string &filename) {
   std::fstream file{filename};
   if(!file) {
@@ -80,7 +77,7 @@ bool save(const buffer_t &b, const std::string &filename) {
   }
   return true;
 }
-
+*/
 /*
 void delete_line(buffer_view &b, Cursor &c) {
 }

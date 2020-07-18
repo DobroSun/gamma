@@ -1,37 +1,14 @@
 #include "gamma/pch.h"
 #include "gamma/input_handler.h"
 #include "gamma/globals.h"
-#include "gamma/gap_buffer.h"
 #include "gamma/view.h"
+#include "gamma/buffer.h"
+
+
 
 static EditorMode Mode = Editor;
 static bool is_shift = false;
 static bool is_ctrl = false;
-
-
-
-
-
-bool LoadFile(buffer_t &buffer, const std::string &filename) {
-  std::fstream file{filename};
-  if(!file) {
-    return false;
-  }
-
-  std::string input; 
-  while(std::getline(file, input)) {
-    gap_buffer<char> g;
-
-    for(unsigned i = 0; i < input.size(); i++) {
-      g.insert(input[i]);
-    }
-
-    g.insert(' ');
-    buffer.insert(g);
-  }
-  return true;
-}
-
 
 EditorMode get_editor_mode() {
   return Mode;
@@ -300,7 +277,8 @@ static void close_console() {
   Mode = Editor;
 }
 
-void handle_resize(const SDL_Event &e, SDL_Window *win, buffer_view &buffer) {
+void handle_resize(const SDL_Event &e, SDL_Window *win) {
+  auto &buffer = get_buffer();
   if(e.window.event == SDL_WINDOWEVENT_RESIZED) {
     SDL_GetWindowSize(win, &Width, &Height);
 
@@ -430,7 +408,7 @@ static void handle_editor_keydown(const SDL_Event &e, buffer_view &buffer, bool 
   put_character_editor(key, buffer);
 }
 
-static void handle_console_keydown(const SDL_Event &e, gap_buffer<char> &console, bool &done) {
+static void handle_console_keydown(const SDL_Event &e, gap_buffer<char> &console) {
   auto keysym = e.key.keysym;
   auto key = keysym.sym;
   is_shift = (keysym.mod == KMOD_SHIFT);
@@ -447,16 +425,15 @@ static void handle_console_keydown(const SDL_Event &e, gap_buffer<char> &console
   put_character_console(key, console);
 }
 
-
-void handle_keydown(const SDL_Event &e, buffer_view &buffer, bool &done) {
+void handle_keydown(const SDL_Event &e, bool &done) {
+  auto &buffer = get_buffer();
   switch(Mode) {
     case Editor: {
       handle_editor_keydown(e, buffer, done);
     } break;
 
     case Console: {
-      handle_console_keydown(e, buffer.console, done);
+      handle_console_keydown(e, buffer.console);
     } break;
   }
- 
 }

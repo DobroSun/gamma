@@ -7,6 +7,7 @@ set(gamma_source
   input_handler.cpp
   view.cpp
   update.cpp
+  buffer.cpp
 )
 
 add_library(
@@ -14,11 +15,12 @@ add_library(
   ${gamma_source}
 )
 
+
 set(precompiled_header_name "pch.h")
 add_pch_target(
-    precompile_gamma_header
-    "${GAMMA_INCLUDE_FULL_DIR}/${precompiled_header_name}"
-    ""
+  precompile_gamma_header
+  "${GAMMA_INCLUDE_FULL_DIR}/${precompiled_header_name}"
+  ""
 )
 
 add_dependencies(libgamma precompile_gamma_header)

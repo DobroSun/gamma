@@ -12,19 +12,16 @@ struct string_view {
   string_view(const gap_buffer<char> &, unsigned);
 
   char operator[](unsigned);
-  const char operator[](unsigned) const;
 
   unsigned size() const;
 };
 
 struct buffer_view {
-  buffer_t &v;
+  buffer_t v;
   gap_buffer<char> console;
   unsigned start{0}, start_j{0}, saved_j{0};
-  Cursor cursor{0,0}; // @Note: This might be just a vector2 of ints.
+  Cursor cursor{0,0};
 
-
-  buffer_view(buffer_t &);
 
   void move_right();
   void move_left();
@@ -35,9 +32,6 @@ struct buffer_view {
   gap_buffer<char> &operator[](unsigned);
   const gap_buffer<char> &operator[](unsigned) const;
   const string_view get_view(unsigned) const;
-
-  void increase_start_by(int);
-  void decrease_start_by(int);
 
   unsigned size() const;
   unsigned pre_len() const;

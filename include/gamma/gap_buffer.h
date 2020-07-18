@@ -1,7 +1,5 @@
 #ifndef GAMMA_GAP_BUFFER_H
 #define GAMMA_GAP_BUFFER_H
-#include "gamma/array.h"
-
 
 // @Note:
 // Gap_buffer working correct only if 
