@@ -3,11 +3,11 @@
 
 int Init_SDL() {
   if(SDL_Init(SDL_INIT_EVENTS | SDL_INIT_TIMER)) {
-    fprintf(stderr, "%s: %s", "Error Initializing SDL", SDL_GetError());
+    fprintf(stderr, "%s: %s", "Error Initializing SDL\n", SDL_GetError());
     return 1;
   }
   if(TTF_Init()) {
-    fprintf(stderr, "%s: %s", "Error Initializing TTF", TTF_GetError());
+    fprintf(stderr, "%s: %s", "Error Initializing TTF\n", TTF_GetError());
     return 1;
   }
   return 0;

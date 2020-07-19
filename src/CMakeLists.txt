@@ -3,7 +3,6 @@ cmake_minimum_required(VERSION 3.5)
 
 set(gamma_source
   utility.cpp
-  timer.cpp
   input_handler.cpp
   view.cpp
   update.cpp

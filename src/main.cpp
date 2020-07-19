@@ -2,7 +2,6 @@
 #include "gamma/init.h"
 #include "gamma/input_handler.h"
 #include "gamma/utility.h"
-#include "gamma/timer.h"
 #include "gamma/gap_buffer.h"
 #include "gamma/view.h"
 #include "gamma/update.h"
@@ -32,14 +31,8 @@ int main(int argc, char **argv) {
   auto renderer = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED); assert(renderer);
   auto gfont = TTF_OpenFont((assets_fonts+courier).c_str(), ptsize);     assert(gfont);
 
-  // Starts timer to update the cursor.
-  SDL_TimerID cursor_timer = StartTimer(300);
-  (void)cursor_timer;
   SDL_SetWindowMinimumSize(win, 300, 300); // Bug; sets only width == height.
-
-
-  // Got size of font in fw, fh.
-  TTF_SizeText(gfont, "G", &fw, &fh);
+  TTF_SizeText(gfont, "G", &fw, &fh);      // Got size of font in fw, fh.
   assert(fw); assert(fh);
 
 
@@ -70,8 +63,7 @@ int main(int argc, char **argv) {
     update(renderer, alphabet, selected);
     SDL_RenderPresent(renderer);
   }
-  
-  SDL_RemoveTimer(cursor_timer);
+/*
   for(auto &[key, texture]: alphabet) {
     SDL_DestroyTexture(texture);
     (void)key;
@@ -85,5 +77,6 @@ int main(int argc, char **argv) {
   TTF_CloseFont(gfont);
   TTF_Quit();
   SDL_Quit();
+*/
   return 0;
 }

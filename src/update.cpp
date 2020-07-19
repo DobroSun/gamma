@@ -5,10 +5,15 @@
 #include "gamma/utility.h"
 #include "gamma/buffer.h"
 #include "gamma/input_handler.h"
-#include "gamma/timer.h"
 
 
 static int tw = 0, th = 0;
+static void copy_character_on_screen(SDL_Renderer *renderer, SDL_Texture *t, int i_pixels, int j_pixels) {
+  SDL_QueryTexture(t, nullptr, nullptr, &tw, &th);
+  SDL_Rect dst {TextLeftBound + j_pixels, TextUpperBound + i_pixels, tw, th};
+  SDL_RenderCopy(renderer, t, nullptr, &dst);
+}
+
 static void update_editor(SDL_Renderer *renderer, texture_map &alphabet, texture_map &selected) {
   // Set background color.
   SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255); 
@@ -31,15 +36,13 @@ static void update_editor(SDL_Renderer *renderer, texture_map &alphabet, texture
       int i_pixels = i * fsize;
 
       // Update character.
-      SDL_QueryTexture(char_texture, nullptr, nullptr, &tw, &th);
-      SDL_Rect dst {TextLeftBound+j_pixels, TextUpperBound+i_pixels, tw, th};
-      SDL_RenderCopy(renderer, char_texture, nullptr, &dst);
+      copy_character_on_screen(renderer, char_texture, i_pixels, j_pixels);
 
 
       // Update selected symbol.
       if(line == cursor.i && (int)j == cursor.j) {
         auto cursor_texture = selected[c];
-        update_cursor(renderer, cursor_texture, i_pixels, j_pixels);
+        copy_character_on_screen(renderer, cursor_texture, i_pixels, j_pixels);
       }
     }
   }
