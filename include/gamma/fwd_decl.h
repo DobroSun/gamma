@@ -21,7 +21,8 @@ class gap_buffer;
 template<class T>
 class array;
 
+class string;
+
 using buffer_t = gap_buffer<gap_buffer<char>>;
 using texture_map = std::unordered_map<char, SDL_Texture*>;
-using string = array<char>;
 #endif

@@ -9,221 +9,23 @@ class array;
 
 
 template<class T>
-void copy(T *p1, T *p2, unsigned size) {
+void copy(T *from, T *to, unsigned size) {
   for(unsigned i = 0; i < size; i++) {
-    p2[i] = p1[i];
+    to[i] = from[i];
   }
 }
 
 template<class T>
 void init(T *p, unsigned from, unsigned to) {
   for(unsigned i = from; i < to; i++) {
-    ::new (&p[i]) T{};
+    new (&p[i]) T{};
   }
 }
 
-// @Note: string must use malloc.
-template<class T>
-void reserve_impl(unsigned size_to_alloc, T *&p, unsigned &__size, unsigned &__capacity, unsigned original_capacity) {
-  assert(__size <= __capacity);
-  if(!p) {
-    assert(!__capacity);
-    assert(!__size);
-
-    __capacity = (!size_to_alloc)? original_capacity: size_to_alloc;
-    p = new T[__capacity];
-    assert(p);
-
-
-  } else {
-    assert(p);
-    assert(__capacity);
-
-    __capacity = (!size_to_alloc)? __capacity*2: size_to_alloc;
-    auto new_p = new T[__capacity];
-    assert(new_p);
-
-    copy(p, new_p, __size);
-    delete[] p;
-    p = new_p;
-
-  }
-  assert(__size <= __capacity);
-  assert(__capacity);
-  assert(p);
-}
-
-
-// @MayLeak:
-// resize on object that allocates in constructor will leak.
-// Cause it calls constructor on new, and then inside init().
-// But new T[__capacity] DO NOT constructs objects with default values(as it should).
-// That is why I need that additional init() function call.
-template<class T>
-void resize_impl(unsigned size_to_resize, T *&p, unsigned &__size, unsigned &__capacity, unsigned original_capacity) {
-  assert(__size <= __capacity);
-  if(!p) {
-    assert(!__capacity);
-    assert(!__size);
-
-    __capacity = (!size_to_resize)? original_capacity: size_to_resize;
-    p = new T[__capacity];
-    assert(p);
-    init(p, 0, __capacity);
-    __size = __capacity;
-
-  } else {
-    assert(__capacity);
-    assert(__capacity < size_to_resize);
-    assert(__size < size_to_resize);
-
-    __capacity = (!size_to_resize)? __capacity*2: size_to_resize;
-    auto new_p = new T[__capacity];
-    assert(new_p);
-    init(new_p, 0, __capacity);
-
-    copy(p, new_p, __size);
-    __size = __capacity;
-    delete[] p;
-    p = new_p;
-
-  }
-  assert(__capacity);
-  assert(__size == __capacity);
-  assert(p);
-}
 
 template<class T>
-void resize_with_no_init_impl(unsigned size_to_resize, T *&p, unsigned &__size, unsigned &__capacity, unsigned original_capacity) {
-  reserve_impl(size_to_resize, p, __size, __capacity, original_capacity);
-  __size = __capacity;
-}
-
-template<class T>
-void reserve_on_push_back_impl(T *&p, unsigned &__size, unsigned &__capacity, unsigned original_capacity) {
-  if(__size == __capacity) {
-    reserve_impl(0, p, __size, __capacity, original_capacity);
-  }
-}
-
-template<class T>
-void push_back_impl(const T &val, T *&p, unsigned &__size, unsigned &__capacity, unsigned original_capacity) {
-  reserve_on_push_back_impl(p, __size, __capacity, original_capacity);
-  p[__size++] = val;
-}
-
-template<class T>
-void push_back_impl(T &&val, T *&p, unsigned &__size, unsigned &__capacity, unsigned original_capacity) {
-  reserve_on_push_back_impl(p, __size, __capacity, original_capacity);
-  p[__size++] = std::move(val);
-}
-
-template<class T>
-void pop_back_impl(T *&p, unsigned &__size) {
-  assert(__size > 0);
-  p[--__size] = '\0';
-}
-
-template<class T>
-T &front_impl(T *p, unsigned &__size) {
-  assert(__size > 0);
-  return p[0];
-}
-
-template<class T>
-T &front_impl(T *p, const unsigned &__size) {
-  assert(__size > 0);
-  return p[0];
-}
-
-template<class T>
-T& back_impl(T *p, unsigned &__size) {
-  assert(__size > 0);
-  return p[__size-1];
-}
-
-template<class T>
-T& back_impl(T *p, const unsigned &__size) {
-  assert(__size > 0);
-  return p[__size-1];
-}
-
-void inline clear_impl(unsigned &__size) {
-  __size = 0;
-}
-
-template<class T>
-void swap_impl(array<T> &other, T *&p, unsigned &__size, unsigned &__capacity) {
-  auto tmp_capacity = other.__capacity;
-  auto tmp_size = other.__size;
-  auto *tmp_p = other.p;
-
-  other.__capacity = __capacity;
-  other.__size = __size;
-  other.p = p;
-
-  __capacity = tmp_capacity;
-  __size = tmp_size;
-  p = tmp_p;
-}
-
-
-unsigned inline size_impl(unsigned __size) {
-  return __size;
-}
-
-bool inline empty_impl(unsigned __size) {
-  return __size == 0;
-}
-
-unsigned inline capacity_impl(unsigned __capacity) {
-  return __capacity;
-}
-
-template<class T>
-T &at_impl(unsigned i, T *p, unsigned &__size) {
-  assert(i >= 0 && i < __size);
-  return p[i];
-}
-
-template<class T>
-T &at_impl(unsigned i, T *p, const unsigned &__size) {
-  assert(i >= 0 && i < __size);
-  return p[i];
-}
-
-
-
-template<class T>
-void on_copy_assign_impl(const array<T> &other, T *&p, unsigned &__size, unsigned &__capacity, unsigned original_capacity) {
-  auto other_size = other.__size;
-  if(other_size > __capacity) {
-    resize_with_no_init_impl(other_size, p, __size, __capacity, original_capacity);
-  } else {
-    __size = other_size;
-    __capacity = other_size;
-  }
-
-  for(unsigned i = 0; i < other_size; i++) {
-    p[i] = other.p[i];
-  }
-}
-
-template<class T>
-void on_move_assign_impl(array<T> &&other, T *&p, unsigned &__size, unsigned &__capacity) {
-  __size = other.__size;
-  __capacity = other.__capacity;
-  p = std::move(other.p);
-
-  other.__size = 0;
-  other.__capacity = 0;
-  other.p = nullptr;
-}
-
-
-
-template<class T>
-struct array {
+class array {
+public:
   T *p = nullptr;
   unsigned __capacity = 0;
   unsigned __size = 0;
@@ -231,87 +33,172 @@ struct array {
 
 
   array() = default;
-
   array(const array &other) {
-    on_copy_assign_impl(other, p, __size, __capacity, original_capacity);
+    on_copy_assign(other);
   }
 
   array &operator=(const array &other) {
-    on_copy_assign_impl(other, p, __size, __capacity, original_capacity);
+    on_copy_assign(other);
     return *this;
   }
 
   array(array &&other) {
-    on_move_assign_impl(std::move(other), p, __size, __capacity);
+    on_move_assign(std::move(other));
   }
 
   array &operator=(array &&other) {
-    on_move_assign_impl(std::move(other), p, __size, __capacity);
+    on_move_assign(std::move(other));
     return *this;
   }
 
   ~array() {
-    delete[] p;
+    free(p);
   }
 
   void reserve(unsigned size_to_reserve=0) {
-    reserve_impl(size_to_reserve, p, __size, __capacity, original_capacity);
+    assert(__size <= __capacity);
+    if(!p) {
+      assert(!__capacity);
+      assert(!__size);
+
+      __capacity = (!size_to_reserve)? original_capacity: size_to_reserve;
+      p = (T*)malloc(sizeof(T) * __capacity);
+      assert(p);
+
+
+    } else {
+      assert(p);
+      assert(__capacity);
+
+      __capacity = (!size_to_reserve)? __capacity*2: size_to_reserve;
+      auto new_p = (T*)malloc(sizeof(T) * __capacity);
+      assert(new_p);
+
+      copy(p, new_p, __size);
+      free(p);
+      p = new_p;
+
+    }
+    assert(__size <= __capacity);
+    assert(__capacity);
+    assert(p);
   }
 
   void resize(unsigned size_to_resize=0) {
-    resize_impl(size_to_resize, p, __size, __capacity, original_capacity);
+    assert(__size <= __capacity);
+    if(!p) {
+      assert(!__capacity);
+      assert(!__size);
+
+      __capacity = (!size_to_resize)? original_capacity: size_to_resize;
+      p = (T*)malloc(sizeof(T) * __capacity);
+      assert(p);
+      init(p, 0, __capacity);
+      __size = __capacity;
+
+    } else {
+      assert(__capacity);
+      assert(__capacity < size_to_resize);
+      assert(__size < size_to_resize);
+
+      __capacity = (!size_to_resize)? __capacity*2: size_to_resize;
+      auto new_p = (T*)malloc(sizeof(T) * __capacity);
+      assert(new_p);
+      init(new_p, __size, __capacity);
+
+      copy(p, new_p, __size);
+      __size = __capacity;
+      free(p);
+      p = new_p;
+
+    }
+    assert(__capacity);
+    assert(__size == __capacity);
+    assert(p);
   }
 
   void resize_with_no_init(unsigned size_to_resize=0) {
-    resize_with_no_init_impl(size_to_resize, p, __size, __capacity, original_capacity);
+    reserve(size_to_resize);
+    __size = __capacity;
   }
 
   void push_back(const T &val) {
-    push_back_impl(val, p, __size, __capacity, original_capacity);
+    reserve_on_push_back();
+    p[__size++] = val;
   }
 
   void push_back(T &&val) {
-    push_back_impl(std::move(val), p, __size, __capacity, original_capacity);
+    // Copy&Paste.
+    reserve_on_push_back();
+    p[__size++] = val;
+  }
+
+  void push_back_no_check(const T &val) {
+    assert(__size < __capacity);
+    p[__size++] = val;
+  }
+
+  void push_back_no_check(T &&val) {
+    // Copy&Paste.
+    assert(__size < __capacity);
+    p[__size++] = std::move(val);
   }
 
   void pop_back() {
-    pop_back_impl(p, __size);
+    assert(__size > 0);
+    --__size;
   }
 
   T& front() {
-    return front_impl(p, __size);
+    assert(__size > 0);
+    return p[0];
   }
 
   const T& front() const {
-    return front_impl(p, __size);
+    // Copy&Paste.
+    assert(__size > 0);
+    return p[0];
   }
 
   T& back() {
-    return back_impl(p, __size);
+    assert(__size > 0);
+    return p[__size-1];
   }
 
   const T& back() const {
-    return back_impl(p, __size);
+    // Copy&Paste.
+    assert(__size > 0);
+    return p[__size-1];
   }
 
   void clear() {
-    clear_impl(__size);
+    __size = 0;
   }
 
   void swap(array &other) {
-    swap_impl(other, p, __size, __capacity);
+    auto tmp_capacity = other.__capacity;
+    auto tmp_size = other.__size;
+    auto *tmp_p = other.p;
+
+    other.__capacity = __capacity;
+    other.__size = __size;
+    other.p = p;
+
+    __capacity = tmp_capacity;
+    __size = tmp_size;
+    p = tmp_p;
   }
 
   unsigned size() const {
-    return size_impl(__size);
+    return __size;
   }
 
   bool empty() const {
-    return empty_impl(__size);
+    return __size == 0;
   }
 
   unsigned capacity() const {
-    return capacity_impl(__capacity);
+    return __capacity;
   }
 
   unsigned maxsize() const {
@@ -319,17 +206,52 @@ struct array {
   }
 
   T &operator[](unsigned i) {
-    return at_impl(i, p, __size);
+    assert(i >= 0 && i < __size);
+    return p[i];
   }
 
   const T &operator[](unsigned i) const {
-    return at_impl(i, p, __size);
+    // Copy&Paste.
+    assert(i >= 0 && i < __size);
+    return p[i];
   }
 
   void reserve_on_push_back() {
-    reserve_on_push_back_impl(p, __size, __capacity, original_capacity);
+    if(__size == __capacity) {
+      reserve();
+    }
   }
 
+  T *data() {
+    return p;
+  }
+
+  const T *data() const {
+    return p;
+  }
+
+private:
+  void on_copy_assign(const array<T> &other) {
+    auto other_size = other.__size;
+    if(other_size > __capacity) {
+      resize_with_no_init(other_size);
+    } else {
+      __size = other_size;
+      __capacity = other_size;
+    }
+
+    copy(other.p, p, other_size);
+  }
+
+  void on_move_assign(array<T> &&other) {
+    __size = other.__size;
+    __capacity = other.__capacity;
+    p = std::move(other.p);
+
+    other.__size = 0;
+    other.__capacity = 0;
+    other.p = nullptr;
+  }
 };
 
 template<class T>
@@ -367,132 +289,54 @@ array<T> operator+(const array<T> &a, const array<T> &b) {
 }
 
 
-template<>
-struct array<char> {
-  char *p = nullptr;
-  unsigned __capacity = 0;
-  unsigned __size = 0;
-  constexpr static unsigned original_capacity = 8;
-
-
-  array() = default;
-  array(char c) {
-    reserve(original_capacity);
-    p[__size++] = c;
+class string: public array<char> {
+public:
+  string() = default;
+  string(char c) {
+    reserve();
+    push_back_no_check(c);
   }
-  array(const char *c) {
+
+  string(const char *c) {
+    reserve();
     for_each(c) {
       push_back(*it);
     }
   }
 
-  array(const array &other) {
-    on_copy_assign_impl(other, p, __size, __capacity, original_capacity);
-  }
-
-  array &operator=(const array &other) {
-    on_copy_assign_impl(other, p, __size, __capacity, original_capacity);
-    return *this;
-  }
-
-  array(array &&other) {
-    on_move_assign_impl(std::move(other), p, __size, __capacity);
-  }
-
-  array &operator=(array &&other) {
-    on_move_assign_impl(std::move(other), p, __size, __capacity);
-    return *this;
-  }
-
-  ~array() {
-    delete[] p;
-  }
-
-  void reserve(unsigned size_to_reserve=0) {
-    reserve_impl(size_to_reserve, p, __size, __capacity, original_capacity);
-  }
-
-  void resize(unsigned size_to_resize=0) {
-    resize_impl(size_to_resize, p, __size, __capacity, original_capacity);
-  }
-
-  void resize_with_no_init(unsigned size_to_resize=0) {
-    resize_with_no_init_impl(size_to_resize, p, __size, __capacity, original_capacity);
-  }
-
-  void push_back(const char &val) {
-    push_back_impl(val, p, __size, __capacity, original_capacity);
-  }
-
-  void push_back(char &&val) {
-    push_back_impl(std::move(val), p, __size, __capacity, original_capacity);
-  }
-
-  void pop_back() {
-    pop_back_impl(p, __size);
-  }
-
-  char& front() {
-    return front_impl(p, __size);
-  }
-
-  const char& front() const {
-    return front_impl(p, __size);
-  }
-
-  char& back() {
-    return back_impl(p, __size);
-  }
-
-  const char& back() const {
-    return back_impl(p, __size);
-  }
-
-  void clear() {
-    clear_impl(__size);
-  }
-
-  void swap(array &other) {
-    swap_impl(other, p, __size, __capacity);
-  }
-
-  unsigned size() const {
-    return size_impl(__size);
-  }
-
-  bool empty() const {
-    return empty_impl(__size);
-  }
-
-  unsigned capacity() const {
-    return capacity_impl(__capacity);
-  }
-
-  unsigned maxsize() const {
-    return -1;
-  }
-
-  char &operator[](unsigned i) {
-    return at_impl(i, p, __size);
-  }
-
-  const char &operator[](unsigned i) const {
-    return at_impl(i, p, __size);
-  }
-
-  void reserve_on_push_back() {
-    reserve_on_push_back_impl(p, __size, __capacity, original_capacity);
-  }
-
-  char *c_str() const {
-    p[__size] = '\0'; // @Wrong: Invalid write if __size == __capacity
+  char *c_str() {
+    p[__size] = '\0';
     return p;
   }
 
-  char *data() const {
-    p[__size] = '\0'; // @Wrong: Invalid write if __size == __capacity
+  const char *c_str() const {
+    p[__size] = '\0';
     return p;
+  }
+
+  char *data() {
+    return c_str();
+  }
+
+  const char *data() const {
+    return c_str();
   }
 };
+
+inline string operator+(const string &a, const string &b) {
+  string ret;
+  auto b_size = b.size();
+  auto a_size = a.size();
+
+  ret.reserve(a_size + b_size + 1);
+
+  for(unsigned i = 0; i < a_size; i++) {
+    ret.push_back_no_check(a[i]);
+  }
+  for(unsigned i = 0; i < b_size; i++) {
+    ret.push_back_no_check(b[i]);
+  }
+  return ret;
+}
 
 #endif

@@ -18,7 +18,7 @@ int main(int argc, char **argv) {
   // Loading file in memory.
   bool success = load_buffer_from_file(filename);
   if(!success) {
-    fprintf(stderr, "Error opening file: %s", filename.data());
+    fprintf(stderr, "Error opening file: %s.\n", filename.data());
     return 1;
   }
 
