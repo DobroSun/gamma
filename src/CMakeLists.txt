@@ -7,6 +7,7 @@ set(gamma_source
   view.cpp
   update.cpp
   buffer.cpp
+  interpreter.cpp
 )
 
 add_library(

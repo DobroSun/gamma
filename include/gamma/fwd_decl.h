@@ -25,4 +25,8 @@ class string;
 
 using buffer_t = gap_buffer<gap_buffer<char>>;
 using texture_map = std::unordered_map<char, SDL_Texture*>;
+
+// @Incomplete:
+// Use std::string here for now.
+using settings_map = std::unordered_map<std::string, int>;
 #endif

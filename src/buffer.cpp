@@ -2,6 +2,7 @@
 #include "gamma/buffer.h"
 #include "gamma/gap_buffer.h"
 #include "gamma/view.h"
+#include "gamma/interpreter.h"
 
 static buffer_view buffer;
 
@@ -307,6 +308,7 @@ static void open_console() {
 
 static void close_console() {
   Mode = Editor;
+  buffer.console.clear();
 }
 
 static void put_character_console(const int key) {
@@ -423,10 +425,7 @@ void handle_editor_keydown(const SDL_Event &e, bool &done) {
 }
 
 void exec_command() {
-  auto &console = buffer.console;
-  string command = to_string(console);
-
-  console.clear();
+  exec_command(to_string(buffer.console).c_str());
 }
 
 void handle_console_keydown(const SDL_Event &e) {
@@ -440,11 +439,11 @@ void handle_console_keydown(const SDL_Event &e) {
 
   } else if(key == SDLK_ESCAPE) {
     close_console();
-    buffer.console.clear();
     return;
 
   } else if(key == SDLK_RETURN) {
     exec_command();
+    close_console();
     return;
   }
   put_character_console(key);
