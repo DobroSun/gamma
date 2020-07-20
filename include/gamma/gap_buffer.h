@@ -1,12 +1,12 @@
 #ifndef GAMMA_GAP_BUFFER_H
 #define GAMMA_GAP_BUFFER_H
 
-// @Note:
+// @Note1:
 // Gap_buffer working correct only if 
 // buf.__size == buf.__capacity;
 // Don't know whether it's good or not.
 
-// @Note:
+// @Note2:
 // In text editor it's everywhere used
 // with an additional trailing space.
 // Helps to handle cursor positions/moves.
@@ -30,10 +30,13 @@ public:
 
   void insert(const T &val) {
     buf.push_back(val);
+    buf.resize_with_no_init(buf.size()); // @Hack see @Note1
   }
 
   void insert(T &&val) {
+    // Copy&Paste.
     buf.push_back(std::move(val));
+    buf.resize_with_no_init(buf.size()); // @Hack see @Note1
   }
 
   void insert_many(const array<T> &other) {
@@ -45,22 +48,18 @@ public:
 
   void move_right() {
     auto post_start = pre_len + gap_len;
-    auto gap_start = pre_len;
     if(buf.size() == post_start) {
       return;
     }
-    buf[gap_start] = buf[post_start];
-    pre_len++;
+    buf[pre_len++] = buf[post_start];
   }
 
   void move_left() {
     auto post_start = pre_len + gap_len;
-    auto gap_start = pre_len;
-    if(gap_start == 0) {
+    if(pre_len == 0) {
       return;
     }
-    buf[post_start-1] = buf[gap_start-1];
-    pre_len--;
+    buf[post_start-1] = buf[--pre_len];
   }
 
   void add(const T &val) {
@@ -116,6 +115,17 @@ public:
     auto post_len = buf.size() - pre_len - gap_len;
     if(post_len == 1) return; // also 1 extra space.
     gap_len++;
+  }
+
+  void clear() {
+    auto post_len = buf.size() - pre_len - gap_len;
+    while(post_len != 1) {
+      del();
+      post_len--;
+    }
+    while(pre_len) {
+      backspace(); // decreases pre_len by itself.
+    }
   }
 
   T &operator[](unsigned i) {
@@ -178,5 +188,13 @@ bool operator==(const gap_buffer<T> &t, const gap_buffer<T> &b) {
   return true;
 }
 
+inline string to_string(gap_buffer<char> &t) {
+  string ret;
+  ret.reserve(t.size()+1);
+  for(unsigned i = 0; i < t.size(); i++) {
+    ret.push_back_no_check(t[i]);
+  }
+  return ret;
+}
 
 #endif

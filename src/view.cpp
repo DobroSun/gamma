@@ -7,7 +7,7 @@ static gap_buffer<char> empty = space;
 string_view::string_view(const gap_buffer<char> &view, unsigned o): v{view}, offset{o} {}
 
 
-char string_view::operator[](unsigned i) {
+char string_view::operator[](unsigned i) const {
   if(i < v.size()) {
     return v[i];
   } else {
@@ -48,8 +48,8 @@ gap_buffer<char> &buffer_view::operator[](unsigned i) {
   }
 }
 
-// @Copy&Paste.
 const gap_buffer<char> &buffer_view::operator[](unsigned i) const {
+  // @Copy&Paste.
   if(i < v.size()) {
     return v[i];
   } else {
@@ -64,8 +64,3 @@ const string_view buffer_view::get_view(unsigned i) const {
 unsigned buffer_view::size() const {
   return v.size();
 }
-
-unsigned buffer_view::pre_len() const {
-  return v.pre_len;
-}
-

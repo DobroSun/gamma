@@ -8,11 +8,12 @@
 
 
 static int tw = 0, th = 0;
-static void copy_character_on_screen(SDL_Renderer *renderer, SDL_Texture *t, int i_pixels, int j_pixels) {
+static void copy_character_on_screen(SDL_Renderer *renderer, SDL_Texture *t, int x_pixels, int y_pixels) {
   SDL_QueryTexture(t, nullptr, nullptr, &tw, &th);
-  SDL_Rect dst {TextLeftBound + j_pixels, TextUpperBound + i_pixels, tw, th};
+  SDL_Rect dst {x_pixels, y_pixels, tw, th};
   SDL_RenderCopy(renderer, t, nullptr, &dst);
 }
+
 
 static void update_editor(SDL_Renderer *renderer, texture_map &alphabet, texture_map &selected) {
   // Set background color.
@@ -32,17 +33,17 @@ static void update_editor(SDL_Renderer *renderer, texture_map &alphabet, texture
       auto char_texture = alphabet[c];
       assert(char_texture);
 
-      int j_pixels = (j - offset*max_size) * fw ;
-      int i_pixels = i * fsize;
+      int x_pixels = TextLeftBound  + (j - offset*max_size) * fw ;
+      int y_pixels = TextUpperBound + i * fsize;
 
       // Update character.
-      copy_character_on_screen(renderer, char_texture, i_pixels, j_pixels);
+      copy_character_on_screen(renderer, char_texture, x_pixels, y_pixels);
 
 
       // Update selected symbol.
       if(line == cursor.i && (int)j == cursor.j) {
         auto cursor_texture = selected[c];
-        copy_character_on_screen(renderer, cursor_texture, i_pixels, j_pixels);
+        copy_character_on_screen(renderer, cursor_texture, x_pixels, y_pixels);
       }
     }
   }
@@ -50,8 +51,24 @@ static void update_editor(SDL_Renderer *renderer, texture_map &alphabet, texture
 
 static void update_console(SDL_Renderer *renderer, texture_map &alphabet, texture_map &selected) {
   // Nothing for now.
-  (void)renderer;
-  (void)alphabet;
+  SDL_SetRenderDrawColor(renderer, 200, 200, 200, 0); 
+  SDL_RenderClear(renderer);
+
+  const int y_pixels = TextUpperBound + (numrows()+1) * fsize;
+
+  auto &console = get_buffer().console;
+  for(unsigned i = 0; i < console.size()-1; i++) {
+    char c = console[i];
+    //printc(c);
+    auto char_texture = alphabet[c];
+    assert(char_texture);
+
+    int x_pixels = TextLeftBound + i * fw;
+    copy_character_on_screen(renderer, char_texture, x_pixels, y_pixels);
+  }
+
+  //(void)renderer;
+  //(void)alphabet;
   (void)selected;
 }
 

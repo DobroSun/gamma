@@ -52,7 +52,7 @@ public:
   }
 
   ~array() {
-    free(p);
+    delete[] p;
   }
 
   void reserve(unsigned size_to_reserve=0) {
@@ -62,7 +62,7 @@ public:
       assert(!__size);
 
       __capacity = (!size_to_reserve)? original_capacity: size_to_reserve;
-      p = (T*)malloc(sizeof(T) * __capacity);
+      p = new T[__capacity];
       assert(p);
 
 
@@ -71,11 +71,11 @@ public:
       assert(__capacity);
 
       __capacity = (!size_to_reserve)? __capacity*2: size_to_reserve;
-      auto new_p = (T*)malloc(sizeof(T) * __capacity);
+      auto new_p = new T[__capacity];
       assert(new_p);
 
       copy(p, new_p, __size);
-      free(p);
+      delete[] p;
       p = new_p;
 
     }
@@ -91,7 +91,7 @@ public:
       assert(!__size);
 
       __capacity = (!size_to_resize)? original_capacity: size_to_resize;
-      p = (T*)malloc(sizeof(T) * __capacity);
+      p = new T[__capacity];
       assert(p);
       init(p, 0, __capacity);
       __size = __capacity;
@@ -102,13 +102,13 @@ public:
       assert(__size < size_to_resize);
 
       __capacity = (!size_to_resize)? __capacity*2: size_to_resize;
-      auto new_p = (T*)malloc(sizeof(T) * __capacity);
+      auto new_p = new T[__capacity];
       assert(new_p);
       init(new_p, __size, __capacity);
 
       copy(p, new_p, __size);
       __size = __capacity;
-      free(p);
+      delete[] p;
       p = new_p;
 
     }
@@ -289,6 +289,9 @@ array<T> operator+(const array<T> &a, const array<T> &b) {
 }
 
 
+// @Incomplete: 
+// c_str and data for string work correct only if __size+1 == __capacity.
+// so I need to provide that in reserve & resize methods(that means always allocate 1 byte more).
 class string: public array<char> {
 public:
   string() = default;

@@ -11,8 +11,7 @@ struct string_view {
 
   string_view(const gap_buffer<char> &, unsigned);
 
-  char operator[](unsigned);
-
+  char operator[](unsigned) const;
   unsigned size() const;
 };
 
