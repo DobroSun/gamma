@@ -29,6 +29,7 @@ bool load_buffer_from_file(const string &filename) {
 
   unsigned buffer_length = 255;
   char tmp[buffer_length];
+
   while(fgets(tmp, buffer_length, source_file)) {
     gap_buffer<char> g;
 
@@ -37,13 +38,16 @@ bool load_buffer_from_file(const string &filename) {
       if(c == '\n') {
         break;
       }
-      g.insert(c);
+      g.add(c);
     }
 
-    g.insert(' ');
-    b.insert(g);
+    g.add(' ');
+    g.move_left_by(g.size()); // Moving gap to beginning of string.
+
+    b.add(g);
   }
-  buffer.console.insert(' ');
+  b.move_left_by(b.size());
+  buffer.console = from_string("");
 
   fclose(source_file);
   return true;
@@ -194,12 +198,14 @@ static void return_key() {
   gap_buffer<char> from_start;
 
   for(auto k = 0; k < j; k++) {
-    from_start.insert(buf_i[k]);
+    from_start.add(buf_i[k]);
   }
-  from_start.insert(' '); // add extra space.
+  from_start.add(' '); // add extra space.
   for(unsigned k = j; k < buf_i.size(); k++) {
-    to_end.insert(buf_i[k]);
+    to_end.add(buf_i[k]);
   }
+  from_start.move_left_by(from_start.size());
+  to_end.move_left_by(to_end.size());
 
   buffer.del();
   buffer.add(from_start);

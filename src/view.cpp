@@ -40,6 +40,16 @@ void buffer_view::del() {
   v.del();
 }
 
+void buffer_view::clear() {
+  for(unsigned i = 0; i < v.size(); i++) {
+    v[i].clear();
+  }
+  v.clear();
+  console.clear();
+  start = 0; start_j = 0; saved_j = 0;
+  cursor = {0,0};
+}
+
 gap_buffer<char> &buffer_view::operator[](unsigned i) {
   if(i < v.size()) {
     return v[i];

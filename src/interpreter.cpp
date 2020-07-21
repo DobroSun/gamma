@@ -1,20 +1,18 @@
 #include "gamma/pch.h"
 #include "gamma/interpreter.h"
 #include "gamma/globals.h"
-
-
-/*
-  The only handled expression by this programm is:
-  `set identifier = value`
-    where identifier already exists and value is constant of type `int`.
-*/
+#include "gamma/view.h"
+#include "gamma/buffer.h"
 
 
 enum TokenType {
-  Number,
-  Keyword_Set,
-  Identifier,
   Assign,
+
+  Number,
+  Identifier,
+
+  Keyword_Set,
+  Keyword_Open,
   End
 };
 
@@ -46,7 +44,6 @@ static int current_token = 0;
 static settings_map map = {
   pair(tabstop)
 };
-
 
 
 
@@ -86,6 +83,15 @@ static Token *peek_token(int times) {
   return &toks[current_token+times];
 }
 
+static int get_int(const char *&cursor) {
+  assert(isdigit(*cursor));
+  const char *copy = cursor;
+  while(isdigit(*cursor)) {
+    cursor++;
+  }
+  return atoi(copy);
+}
+
 static char *get_name(const char *&cursor) {
   assert(isalpha(*cursor));
   char *name = (char *)malloc(sizeof(char) * MAX_IDENTIFIER_NAME_SIZE);
@@ -110,10 +116,19 @@ static void free_ident_names() {
   current_token = 0;
 }
 
+static bool is_keyword(const char *keyword_name, int keyword_size, const char *cursor) {
+  for(int i = 0; i < keyword_size ; i++) {
+    if(cursor[i] != keyword_name[i]) {
+      return false;
+    }
+  }
+  return true;
+}
 
-static bool is_set_keyword(const char *c) {
-  assert(*c == 's');
-  return (c[1] == 'e') && (c[2] == 't');
+void advance(const char *&cursor, int t) {
+  for(int i = 0; i < t; i++) {
+    cursor++;
+  }
 }
 
 static void lex(const char *s) {
@@ -121,23 +136,19 @@ static void lex(const char *s) {
 
   while(*cursor != '\0') {
     if(isdigit(*cursor)) {
-      set_token(Number, atoi(cursor));
-      cursor++;
+      set_token(Number, get_int(cursor));
 
     } else if(*cursor == '=') {
       cursor++;
       set_token(Assign);
 
-    } else if(*cursor == 's') {
-      if(is_set_keyword(cursor)) {
-        set_token(Keyword_Set);
-        cursor++; // times strlen("set");
-        cursor++;
-        cursor++;
+    } else if(is_keyword("set", sizeof("set")-1, cursor)) {
+      set_token(Keyword_Set);
+      advance(cursor, sizeof("set")-1);
 
-      } else {
-        set_token(Identifier, get_name(cursor));
-      }
+    } else if(is_keyword("open", sizeof("open")-1, cursor)) {
+      set_token(Keyword_Open);
+      advance(cursor, sizeof("open")-1);
 
     } else if(isalpha(*cursor)) {
       set_token(Identifier, get_name(cursor));
@@ -149,52 +160,71 @@ static void lex(const char *s) {
   set_end_token();
 }
 
-static bool is_expression(Token *tok) {
-  // Expression of type: 
-  //   set identifier = value;
-  if(tok->type != Keyword_Set) {
-    report_error("Error: Expression doesn't start with keyword `set`\n");
-    return false;
+static Token *is_expression(Token *tok) {
+  Token *copy = tok;
+  if(tok->type == Keyword_Set) {
+    tok = peek_token(0);
+    if(tok->type != Identifier) {
+      report_error("Error: Expected identifier after `set` keyword\n");
+      return NULL;
+    }
+    assert(tok->type == Identifier);
+    tok = peek_token(1);
+    if(tok->type != Assign) {
+      report_error("Error: Expected `=` after indentifier\n");
+      return NULL;
+    }
+    assert(tok->type == Assign);
+    tok = peek_token(2);
+    if(tok->type != Number) {
+      report_error("Error: Expected constant in assign expression\n");
+      return NULL;
+    }
+    assert(tok->type == Number);
+    return copy;
+
+  } else if(tok->type == Keyword_Open) {
+    tok = peek_token(0);
+    if(tok->type != Identifier) {
+      report_error("Error: Expected identifier after `open` keyword\n");
+      return NULL;
+    }
+    assert(tok->type == Identifier);
+    return copy;
+
+  } else {
+    report_error("Error: Expression doesn't start with keyword `set` | `open`\n");
+    return NULL;
   }
-  assert(tok->type == Keyword_Set);
-  tok = peek_token(0);
-  if(tok->type != Identifier) {
-    report_error("Error: Expected identifier after `set` keyword\n");
-    return false;
-  }
-  assert(tok->type == Identifier);
-  tok = peek_token(1);
-  if(tok->type != Assign) {
-    report_error("Error: Expected `=` after indentifier\n");
-    return false;
-  }
-  assert(tok->type == Assign);
-  tok = peek_token(2);
-  if(tok->type != Number) {
-    report_error("Error: Expected constant in assign expression\n");
-    return false;
-  }
-  assert(tok->type == Number);
-  return true;
 }
 
 static void parse() {
   Token *tok = get_next_token();
 
-  bool success = is_expression(tok);
-  if(!success) {
+  tok = is_expression(tok);
+  if(!tok) {
     report_error("Parsing failed, Aborting.\n");
     exit(0);
   }
 
-  // Here we know that next n_tokens_to_next_expression tokens could
-  // be grouped up to struct Ast_Assign.
-  // But, we will just use them to put into `map`.
+  // Interpret tokens.
+  if(tok->type == Keyword_Set) {
+    Token *variable = peek_token(0);
+    Token *value    = peek_token(2);
+    map[variable->identifier_name] = value->integer_value;
 
-  Token *ident = peek_token(0);
-  Token *value = peek_token(2);
+  } else if(tok->type == Keyword_Open) {
+    auto &buffer = get_buffer();
+    Token *file = peek_token(0);
 
-  map[ident->identifier_name] = value->integer_value;
+    buffer.clear();
+    bool success = load_buffer_from_file(file->identifier_name);
+    if(!success) {
+      fprintf(stderr, "Error opening file: \"%s\".\n", file->identifier_name);
+    }
+
+  } else {
+  }
 }
 
 #define set_interpreted(variable_name) variable_name = map[#variable_name]

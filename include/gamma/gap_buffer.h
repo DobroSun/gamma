@@ -4,7 +4,6 @@
 // @Note1:
 // Gap_buffer working correct only if 
 // buf.__size == buf.__capacity;
-// Don't know whether it's good or not.
 
 // @Note2:
 // In text editor it's everywhere used
@@ -24,19 +23,9 @@ public:
     buf.resize_with_no_init(pre_len+gap_len);
   }
 
-  gap_buffer(T val): gap_buffer{} {
-    insert(val);
-  }
-
-  void insert(const T &val) {
-    buf.push_back(val);
-    buf.resize_with_no_init(buf.size()); // @Hack see @Note1
-  }
-
-  void insert(T &&val) {
-    // Copy&Paste.
-    buf.push_back(std::move(val));
-    buf.resize_with_no_init(buf.size()); // @Hack see @Note1
+  gap_buffer(const T &val): gap_buffer{} {
+    add(val);
+    move_left();
   }
 
   void insert_many(const array<T> &other) {
@@ -63,8 +52,6 @@ public:
   }
 
   void add(const T &val) {
-    auto &gap_start = pre_len;
-
     if(gap_len == 0)  {
     /*
       Allocate array with new gap.
@@ -90,14 +77,14 @@ public:
       pre_len = size;
       gap_len = size;
 
-      buf.resize_with_no_init();
+      assert(buf.capacity() == size);
+      buf.resize_with_no_init(size*2);
       for(unsigned i = 0; i < post_len; i++) {
         move_left();
       }
     }
 
-    buf[gap_start] = val;
-    pre_len++;
+    buf[pre_len++] = val;
     gap_len--;
   }
 
@@ -126,6 +113,7 @@ public:
     while(pre_len) {
       backspace(); // decreases pre_len by itself.
     }
+    assert(!pre_len);
   }
 
   T &operator[](unsigned i) {
@@ -197,4 +185,14 @@ inline string to_string(gap_buffer<char> &t) {
   return ret;
 }
 
+inline gap_buffer<char> from_string(const string &s) {
+  gap_buffer<char> ret;
+
+  for(unsigned i = 0; i < s.size(); i++) {
+    ret.add(s[i]);
+  }
+  ret.add(' ');
+  ret.move_left_by(ret.size());
+  return ret;
+}
 #endif

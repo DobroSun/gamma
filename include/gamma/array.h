@@ -55,6 +55,8 @@ public:
     delete[] p;
   }
 
+  // @Incomplete:
+  // It leaks somehow.
   void reserve(unsigned size_to_reserve=0) {
     assert(__size <= __capacity);
     if(!p) {
@@ -84,6 +86,8 @@ public:
     assert(p);
   }
 
+  // @Incomplete:
+  // It leaks somehow.
   void resize(unsigned size_to_resize=0) {
     assert(__size <= __capacity);
     if(!p) {

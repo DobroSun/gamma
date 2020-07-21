@@ -27,6 +27,7 @@ struct buffer_view {
   void add(const gap_buffer<char> &);
   void backspace();
   void del();
+  void clear();
 
   gap_buffer<char> &operator[](unsigned);
   const gap_buffer<char> &operator[](unsigned) const;
