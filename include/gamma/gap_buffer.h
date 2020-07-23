@@ -13,13 +13,11 @@
 template<class T>
 struct gap_buffer {
   array<T> buf;
-  unsigned pre_len;
-  unsigned gap_len;
+  unsigned pre_len{0};
+  unsigned gap_len{12}; //  TODO: Check on the fastest default value for gap_len.
 
 public:
-  gap_buffer(unsigned __pre=0)
-    : pre_len{__pre}, gap_len{12} //  TODO: Check on the fastest default value for gap_len.
-    {
+  gap_buffer() {
     buf.resize_with_no_init(pre_len+gap_len);
   }
 
@@ -72,8 +70,8 @@ public:
       // [1, 2, [' ', ' ', ' ', ' ', ' '], 3, 4, 5]
       //         moving gap(3 times left).
     */
-      auto size = buf.size();
-      auto post_len = size - pre_len;
+      unsigned size = buf.size();
+      unsigned post_len = size - pre_len;
       pre_len = size;
       gap_len = size;
 
@@ -106,7 +104,7 @@ public:
 
   void clear() {
     auto post_len = buf.size() - pre_len - gap_len;
-    while(post_len != 1) {
+    while(post_len > 1) {
       del();
       post_len--;
     }
@@ -174,25 +172,5 @@ bool operator==(const gap_buffer<T> &t, const gap_buffer<T> &b) {
     }
   }
   return true;
-}
-
-inline string to_string(gap_buffer<char> &t) {
-  string ret;
-  ret.reserve(t.size()+1);
-  for(unsigned i = 0; i < t.size(); i++) {
-    ret.push_back_no_check(t[i]);
-  }
-  return ret;
-}
-
-inline gap_buffer<char> from_string(const string &s) {
-  gap_buffer<char> ret;
-
-  for(unsigned i = 0; i < s.size(); i++) {
-    ret.add(s[i]);
-  }
-  ret.add(' ');
-  ret.move_left_by(ret.size());
-  return ret;
 }
 #endif

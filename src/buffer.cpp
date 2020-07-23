@@ -19,10 +19,13 @@ buffer_view &get_buffer() {
   return buffer;
 }
 
-bool load_buffer_from_file(const string &filename) {
+bool load_buffer_from_file(const char *filename) {
+  if(!filename) {
+    return false;
+  }
   auto &b = buffer.v;
 
-  auto source_file = fopen(filename.c_str(), "r");
+  auto source_file = fopen(filename, "r");
   if(!source_file) {
     return false;
   }
@@ -47,7 +50,11 @@ bool load_buffer_from_file(const string &filename) {
     b.add(g);
   }
   b.move_left_by(b.size());
-  buffer.console = from_string("");
+
+  auto &console = buffer.console;
+  console.add(' ');
+  console.move_left();
+  console.clear();
 
   fclose(source_file);
   return true;
@@ -431,7 +438,7 @@ void handle_editor_keydown(const SDL_Event &e, bool &done) {
 }
 
 void exec_command() {
-  exec_command(to_string(buffer.console).c_str());
+  exec_command(buffer.console);
 }
 
 void handle_console_keydown(const SDL_Event &e) {

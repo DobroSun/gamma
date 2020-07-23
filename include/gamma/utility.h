@@ -4,7 +4,7 @@
 
 char numrows();
 int buffer_width();
-string read_args(int, char **);
+char *read_args(int, char **);
 void create_alphabet(SDL_Renderer *, TTF_Font *, texture_map &, texture_map &);
 
 
@@ -36,6 +36,7 @@ const T *slice(const T *x, unsigned index) {
 
 #define printi(A) do { printf("%i\n", (A)); } while(0)
 #define printu(A) do { printf("%u\n", (A)); } while(0)
+#define printl(A) do { printf("%lu\n", (A)); } while(0)
 #define printd(A) do { printf("%f\n", (A)); } while(0)
 #define printc(A) do { printf("%c\n", (A)); } while(0)
 #define printb(A) do { if((A)) puts("true"); else puts("false"); } while(0)

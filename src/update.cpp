@@ -59,7 +59,7 @@ static void update_console(SDL_Renderer *renderer, texture_map &alphabet, textur
   auto &console = get_buffer().console;
   for(unsigned i = 0; i < console.size()-1; i++) {
     char c = console[i];
-    //printc(c);
+
     auto char_texture = alphabet[c];
     assert(char_texture);
 

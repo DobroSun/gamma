@@ -12,15 +12,13 @@
 
 int main(int argc, char **argv) {
   if(Init_SDL()) return 1;
-  string filename = read_args(argc, argv);
-
+  char *filename = read_args(argc, argv);
 
   bool success = load_buffer_from_file(filename);
   if(!success) {
-    fprintf(stderr, "Error opening file: \"%s\".\n", filename.c_str());
+    fprintf(stderr, "Error opening file: \"%s\".\n", filename);
     return 1;
   }
-
 
 
   SDL_Window *win = SDL_CreateWindow("Gamma",
@@ -30,7 +28,6 @@ int main(int argc, char **argv) {
                          SDL_WINDOW_RESIZABLE);
   SDL_Renderer *renderer = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED); assert(renderer);
   TTF_Font *gfont        = TTF_OpenFont((assets_fonts+courier).c_str(), ptsize);  assert(gfont);
-
   SDL_SetWindowMinimumSize(win, 300, 300); // @Bug: sets only width == height.
   TTF_SizeText(gfont, "G", &fw, &fh);      // Got size of font in fw, fh.
   assert(fw); assert(fh);
@@ -68,6 +65,7 @@ int main(int argc, char **argv) {
       buffer_has_been_changed = false;
     }
     SDL_RenderPresent(renderer);
+
   }
 
   for(auto &pair: alphabet) {

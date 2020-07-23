@@ -1,8 +1,9 @@
 
 void inline gap_buffer_from_string(gap_buffer<char> &g, const std::string &s) {
     for(unsigned i = 0; i < s.size(); i++) {
-      g.insert(s[i]); 
+      g.add(s[i]); 
     }
+    g.move_left_by(g.size());
 }
 
 void inline buffer_from_file(buffer_t &b, const std::string &s) {
@@ -15,6 +16,7 @@ void inline buffer_from_file(buffer_t &b, const std::string &s) {
   while(std::getline(file, input)) {
     gap_buffer<char> tmp;
     gap_buffer_from_string(tmp, input);
-    b.insert(tmp);
+    b.add(tmp);
   }
+  b.move_left_by(b.size());
 }

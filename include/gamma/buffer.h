@@ -7,7 +7,7 @@ enum EditorMode {
   Console,
 };
 
-bool load_buffer_from_file(const string &filename);
+bool load_buffer_from_file(const char *filename);
 void handle_console_keydown(const SDL_Event &e);
 void handle_editor_keydown(const SDL_Event &e, bool &done);
 

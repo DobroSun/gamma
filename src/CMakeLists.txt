@@ -11,7 +11,7 @@ set(gamma_source
 )
 
 add_library(
-  libgamma STATIC
+  libgamma SHARED
   ${gamma_source}
 )
 

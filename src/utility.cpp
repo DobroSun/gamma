@@ -10,12 +10,18 @@ char numrows() {
 }
 
 int buffer_width() {
-  return Width-TextLeftBound-25; // @Temporary: 25 is scroll_bar.width.
+  return Width-TextLeftBound;
 }
 
 
-string read_args(int argc, char **argv) {
-  return (argc < 2)? "": argv[1];
+char *read_args(int argc, char **argv) {
+  char *ret;
+  if(argc < 2) {
+    ret = NULL;
+  } else {
+    ret = argv[1];
+  }
+  return ret;
 }
 
 void create_alphabet(SDL_Renderer *renderer, TTF_Font *gfont, texture_map &alphabet, texture_map &selected) {

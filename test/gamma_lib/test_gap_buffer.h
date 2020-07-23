@@ -2,8 +2,9 @@
 template<class T>
 void init(gap_buffer<T> &buffer, const T *c) {
   for_each(c) {
-    buffer.insert(*it);
+    buffer.add(*it);
   }
+  buffer.move_left_by(buffer.size());
 }
 
 template<class T>
@@ -27,8 +28,9 @@ TEST_CASE("Test gap_buffer_insert") {
   auto c_len = strlen(c);
 
   for(unsigned i = 0; i < c_len; i++) {
-    buffer.insert(c[i]);
+    buffer.add(c[i]);
   }
+  buffer.move_left_by(buffer.size());
 
 
   auto arr = buffer.buf;
@@ -162,8 +164,10 @@ TEST_CASE("Test gap_buffer[]") {
   int a[size] = {1, 2, 3, 4, 5, 6};
 
   for(unsigned i = 0; i < size; i++) {
-    buffer.insert(a[i]);
+    buffer.add(a[i]);
   }
+  buffer.move_left_by(buffer.size());
+
 
 
   for(unsigned i = 0; i < size; i++) {
@@ -223,26 +227,29 @@ TEST_CASE("Test gap_buffer[]") {
 
 TEST_CASE("Test gap_buffer_init") {
   gap_buffer<gap_buffer<int>> b;
-///*
 
   gap_buffer<int> d;
   gap_buffer<int> e;
   gap_buffer<int> c;
   unsigned size = 6;
   for(unsigned i = 0; i < size; i++) {
-    d.insert(i);
-    e.insert(i);
-    c.insert(i);
+    d.add(i);
+    e.add(i);
+    c.add(i);
   }
+  d.move_left_by(d.size());
+  e.move_left_by(e.size());
+  c.move_left_by(c.size());
 
   d.move_right();
   e.move_right();
   e.move_right();
   e.move_left();
 
-  b.insert(d);
-  b.insert(e);
-  b.insert(c);
+  b.add(d);
+  b.add(e);
+  b.add(c);
+  b.move_left_by(b.size());
 
   CHECK(b.size() == 3);
 
@@ -263,5 +270,23 @@ TEST_CASE("Test gap_buffer_init") {
       CHECK(b[i][j] == j);
     }
   }
-//*/
+}
+
+TEST_CASE("Test gap_buffer_clear") {
+  gap_buffer<gap_buffer<char>> b;
+
+  gap_buffer<char> e;
+  const char *c1 = "Hello world\n";
+  init(e, c1);
+
+  gap_buffer<char> d;
+  const char *c2 = "Hello world";
+  init(d, c2);
+
+  
+  b.add(e);
+  b.add(d);
+  b.move_left_by(b.size());
+
+  b.clear();
 }

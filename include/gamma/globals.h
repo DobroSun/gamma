@@ -17,17 +17,18 @@ inline int  fw, fh;
 
 inline unsigned char scroll_speed = 3;
 
-const string assets_images = "../assets/images/";
+// @CleanUp.
 const string assets_fonts = "../assets/fonts/";
 const string quicksand = "QuickSand/Quicksand-Regular.ttf";
 const string courier = "Courier/Courier-Regular.ttf";
+inline const char *settings_path = "../assets/settings/settings.txt";
 
 
 const SDL_Color WhiteColor {255, 255, 255, 0};
 const SDL_Color BlackColor {0, 0, 0, 0};
 
 
-inline const char *chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890!@#$%^&?*()\\/ -+_=~|\t`\"'.,:;{}[]<>\0";
+inline const char *chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890!@#$%^&?*()\\/ -+_=~|\t`\"'.,:;{}[]<>";
 
 const char untouchable = 28; // @Depends on size of key_lookup table.
 const char key_offset = 21;
