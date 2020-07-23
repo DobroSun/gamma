@@ -1,17 +1,8 @@
 #ifndef GAMMA_INIT_H
 #define GAMMA_INIT_H
+#include "gamma/fwd_decl.h"
 
-int Init_SDL() {
-  if(SDL_Init(SDL_INIT_EVENTS | SDL_INIT_TIMER)) {
-    fprintf(stderr, "%s: %s", "Error Initializing SDL\n", SDL_GetError());
-    return 1;
-  }
-  if(TTF_Init()) {
-    fprintf(stderr, "%s: %s", "Error Initializing TTF\n", TTF_GetError());
-    return 1;
-  }
-  return 0;
-}
+int Init_SDL();
 
-
+SDL_Window *get_win();
 #endif

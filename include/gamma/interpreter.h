@@ -2,6 +2,8 @@
 #define GAMMA_INTERPRETER_H
 #include "gamma/fwd_decl.h"
 
-void exec_command(gap_buffer<char> &);
+void exec_command(const char *);
+
+void interp_settings();
 
 #endif

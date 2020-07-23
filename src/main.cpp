@@ -6,6 +6,7 @@
 #include "gamma/view.h"
 #include "gamma/update.h"
 #include "gamma/buffer.h"
+#include "gamma/interpreter.h"
 
 
 
@@ -21,11 +22,7 @@ int main(int argc, char **argv) {
   }
 
 
-  SDL_Window *win = SDL_CreateWindow("Gamma",
-                         SDL_WINDOWPOS_CENTERED,
-                         SDL_WINDOWPOS_CENTERED,
-                         Width, Height,
-                         SDL_WINDOW_RESIZABLE);
+  SDL_Window *win = get_win();
   SDL_Renderer *renderer = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED); assert(renderer);
   TTF_Font *gfont        = TTF_OpenFont((assets_fonts+courier).c_str(), ptsize);  assert(gfont);
   SDL_SetWindowMinimumSize(win, 300, 300); // @Bug: sets only width == height.
@@ -54,11 +51,12 @@ int main(int argc, char **argv) {
         } break;
 
         case SDL_WINDOWEVENT: {
-          handle_resize(e, win);
+          handle_resize(e);
           buffer_has_been_changed = true;
         } break;
       }
     }
+    interp_settings();
 
     if(buffer_has_been_changed) {
       update(renderer, alphabet, selected);

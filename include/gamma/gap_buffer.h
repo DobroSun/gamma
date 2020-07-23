@@ -173,4 +173,14 @@ bool operator==(const gap_buffer<T> &t, const gap_buffer<T> &b) {
   }
   return true;
 }
+
+inline char *to_c_string(gap_buffer<char> &t) {
+	char *ret = (char *)malloc(sizeof(char) * t.size() + 1);
+	unsigned i = 0;
+  for(; i < t.size(); i++) {
+    ret[i] = t[i];
+  }
+	ret[i] = '\0';
+  return ret;
+}
 #endif

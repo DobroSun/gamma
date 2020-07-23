@@ -3,12 +3,14 @@
 #include "gamma/globals.h"
 #include "gamma/view.h"
 #include "gamma/buffer.h"
+#include "gamma/init.h"
 
 
-void handle_resize(const SDL_Event &e, SDL_Window *win) {
+void handle_resize(const SDL_Event &e) {
   auto &buffer = get_buffer();
+
   if(e.window.event == SDL_WINDOWEVENT_RESIZED) {
-    SDL_GetWindowSize(win, &Width, &Height);
+    SDL_GetWindowSize(get_win(), &Width, &Height);
 
     auto &start = buffer.start;
     if((int)(buffer.cursor.i-start) == numrows()) {

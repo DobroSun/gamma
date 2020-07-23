@@ -25,12 +25,12 @@ bool load_buffer_from_file(const char *filename) {
   }
   auto &b = buffer.v;
 
-  auto source_file = fopen(filename, "r");
+  FILE *source_file = fopen(filename, "r");
   if(!source_file) {
     return false;
   }
 
-  unsigned buffer_length = 255;
+  unsigned buffer_length = 256;
   char tmp[buffer_length];
 
   while(fgets(tmp, buffer_length, source_file)) {
@@ -438,7 +438,9 @@ void handle_editor_keydown(const SDL_Event &e, bool &done) {
 }
 
 void exec_command() {
-  exec_command(buffer.console);
+  char *c = to_c_string(buffer.console);
+  exec_command(c);
+  free(c);
 }
 
 void handle_console_keydown(const SDL_Event &e) {
