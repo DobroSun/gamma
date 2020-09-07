@@ -1,20 +1,41 @@
 #ifndef GAMMA_UTILITY_H
 #define GAMMA_UTILITY_H
-#include "fwd_decl.h"
 
-char numrows();
-int buffer_width();
-char *read_args(int, char **);
-void create_alphabet(SDL_Renderer *, TTF_Font *, texture_map &, texture_map &);
+inline char *concat(const char *a, const char *b) {
+  char *ret;
+  auto s1 = strlen(a);
+  auto s2 = strlen(b);
 
+  ret = (char *)malloc(sizeof(char) * (s1 + s2 + 1));
+  assert(ret);
 
+  memcpy(ret, a, sizeof(char) * s1);
+  memcpy(ret + s1, b, sizeof(char) * s2);
 
-SDL_Texture *load_cursor(SDL_Renderer *, TTF_Font *, const string &, const SDL_Color &, const SDL_Color &);
-SDL_Texture *load_texture(SDL_Renderer*, const string &, const string &, int , const SDL_Color &);
-SDL_Texture *load_courier(SDL_Renderer *, TTF_Font *, const string &, const SDL_Color &);
+  return ret;
+}
 
-// Editor commands.
-//bool save(const buffer_t &b, const string &);
+struct Junk {};
+#define defer auto ANONYMOUS_NAME = Junk{} + [&]()
+#define ANONYMOUS_NAME CONCAT(GAMMA, __LINE__)
+#define CONCAT(A, B) CONCAT_IMPL(A, B)
+#define CONCAT_IMPL(A, B) A##B
+
+template<class F>
+class ScopeGuard {
+  F fun;
+
+public:
+  ScopeGuard(F &&f): fun{std::move(f)} {}
+  ~ScopeGuard() {
+      fun();
+  }
+};
+
+template<class F>
+ScopeGuard<F> operator+(Junk, F &&fun) {
+  return ScopeGuard<F>(std::move(fun));
+}
 
 
 #define for_each(c_array) for(auto it = c_array; *it != '\0'; it++)
@@ -34,15 +55,29 @@ const T *slice(const T *x, unsigned index) {
   return tmp;
 }
 
+template<unsigned N1, unsigned N2>
+char *concat(const char (&a)[N1], const char (&b)[N2]) {
+  char *ret = (char *)malloc(sizeof(char) * (N1+N2+1));
+  
+  memcpy(ret, a, sizeof(char)*N1);
+  memcpy(ret + N1, b, sizeof(char)*N2);
+  ret[N1+N2] = '\0';
+
+  return ret;
+}
+
+
 #define printi(A) do { printf("%i\n", (A)); } while(0)
 #define printu(A) do { printf("%u\n", (A)); } while(0)
 #define printl(A) do { printf("%lu\n", (A)); } while(0)
 #define printd(A) do { printf("%f\n", (A)); } while(0)
 #define printc(A) do { printf("%c\n", (A)); } while(0)
 #define printb(A) do { if((A)) puts("true"); else puts("false"); } while(0)
-#define begin_clock auto begin = std::chrono::steady_clock::now()
-#define printFPS                               \
-  auto end = std::chrono::steady_clock::now(); \
-  std::cout << 1000000 / std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() << std::endl
+#define printFPS                                 \
+  auto begin = std::chrono::steady_clock::now(); \
+  defer {                                        \
+    auto end = std::chrono::steady_clock::now(); \
+    std::cout << 1000000000 / std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin).count() << std::endl; \
+  }
 
 #endif

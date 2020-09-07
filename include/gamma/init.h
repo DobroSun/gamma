@@ -1,8 +1,14 @@
 #ifndef GAMMA_INIT_H
 #define GAMMA_INIT_H
-#include "gamma/fwd_decl.h"
 
-int Init_SDL();
+enum class EditorMode {
+  Editor,
+  Console,
+};
+
+bool Init_SDL();
 
 SDL_Window *get_win();
+SDL_Renderer *get_renderer();
+EditorMode get_editor_mode();
 #endif

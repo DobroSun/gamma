@@ -2,13 +2,11 @@ cmake_minimum_required(VERSION 3.5)
 
 
 set(gamma_source
-  utility.cpp
-  input_handler.cpp
-  view.cpp
+  input.cpp
   update.cpp
   buffer.cpp
-  interpreter.cpp
   init.cpp
+  font.cpp
 )
 
 add_library(

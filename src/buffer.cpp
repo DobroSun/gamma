@@ -1,65 +1,157 @@
 #include "gamma/pch.h"
 #include "gamma/buffer.h"
-#include "gamma/gap_buffer.h"
-#include "gamma/view.h"
-#include "gamma/interpreter.h"
-
-static buffer_view buffer;
-
-static EditorMode Mode = Editor;
-static bool is_shift = false;
-static bool is_ctrl = false;
+#include "gamma/init.h"
+#include "gamma/font.h"
 
 
-EditorMode get_editor_mode() {
-  return Mode;
+static editor_t editor;
+
+tab_buffer_t &get_current_tab() {
+  assert(editor.active_tab);
+  return *editor.active_tab;
 }
 
-buffer_view &get_buffer() {
-  return buffer;
+static char *read_args(int argc, char **argv) {
+  if(argc > 1) {
+    return argv[1];
+  } else {
+    assert(0);
+    return argv[0];
+  }
 }
 
-bool load_buffer_from_file(const char *filename) {
-  if(!filename) {
-    return false;
+static buffer_t read_entire_file(const char *filename) {
+  buffer_t ret;
+
+  FILE* f = fopen(filename, "r");
+  defer { if(f) fclose(f); };
+  if(!f) {
+    fprintf(stderr, "Error opening file: \"%s\".\n", filename);
+    assert(0);
+    return ret;
   }
-  auto &b = buffer.v;
 
-  FILE *source_file = fopen(filename, "r");
-  if(!source_file) {
-    return false;
+  fseek(f, 0, SEEK_END);
+  size_t size = ftell(f);
+
+  auto &array = ret.buffer.array;
+  auto gap_len = ret.buffer.gap_len;
+
+  {
+  auto size_with_gap = size + gap_len;
+	array.data = (char*)malloc(sizeof(char) * size_with_gap);
+	array.capacity = size_with_gap;
+	array.size = size_with_gap;
   }
 
-  unsigned buffer_length = 256;
-  char tmp[buffer_length];
+  rewind(f);
+  auto res = fread(array.data + gap_len, sizeof(char), size, f);
 
-  while(fgets(tmp, buffer_length, source_file)) {
-    gap_buffer<char> g;
+  if(res != size) {
+    fprintf(stderr, "@Incomplete\n");
+  }
 
-    for(unsigned i = 0; i < buffer_length; i++) {
-      char c = tmp[i];
-      if(c == '\n') {
-        break;
-      }
-      g.add(c);
+  return ret;
+}
+
+static buffer_t create_buffer_from_file(const char *filename) {
+  // if(filename `path doesn't exist`) {
+  //   open_empty_file();
+  // }
+  return read_entire_file(filename);
+}
+
+static tab_buffer_t create_tab_from_file(const char *filename) {
+  tab_buffer_t tab;
+  tab.buffers.push(create_buffer_from_file(filename));
+  assert(tab.buffers.size == 1);
+  return tab;
+}
+
+
+void tab_buffer_t::draw() {
+  for(auto i = 0u; i < buffers.size; i++) {
+    buffers[i].draw();
+  }
+}
+
+
+static int tw, th;
+void copy_texture(SDL_Texture *t, int px, int py) {
+  SDL_QueryTexture(t, nullptr, nullptr, &tw, &th);
+  SDL_Rect dst {px, py, tw, th};
+  SDL_RenderCopy(get_renderer(), t, nullptr, &dst);
+}
+
+void buffer_t::draw() {
+  int offset_x = 0, offset_y = 0;
+
+  // update buffer.
+  for(auto i = 0u; i < buffer.size(); i++) {
+    int px = start_x + font_width * offset_x;
+    int py = start_y + (font_height+pixels_between_lines) * offset_y;
+
+    char c = buffer[i];
+    if(c == '\n') {
+      offset_x = 0;
+      offset_y++;
+      continue;
     }
 
-    g.add(' ');
-    g.move_left_by(g.size()); // Moving gap to beginning of string.
+    auto t = get_alphabet()[c];
+    assert(t);
 
-    b.add(g);
+    if(px > width) {
+      // @Incomplete:
+      // handle big lines.
+      continue;
+    }
+
+    if(py > height) {
+      break;
+    }
+    
+    copy_texture(t, px, py);
+    offset_x++;
   }
-  b.move_left_by(b.size());
 
-  auto &console = buffer.console;
-  console.add(' ');
-  console.move_left();
-  console.clear();
-
-  fclose(source_file);
-  return true;
+  // update cursor.
+  char c = buffer[cursor];
+  draw_text_shaded(get_font(), &c, WhiteColor, BlackColor, start_x, start_y); // nochecking.
 }
 
+void buffer_t::act_on_resize(int prev_width, int prev_height, int new_width, int new_height) {
+  start_x = new_width * start_x / prev_width;
+  start_y = new_height * start_y / prev_height;
+  width   = new_width * width / prev_width;
+  height  = new_height * height / prev_height;
+}
+
+
+void init(int argc, char **argv) {
+  const char *filename = read_args(argc, argv);
+
+  editor.tabs.push(create_tab_from_file(filename));
+  editor.active_tab = &editor.tabs[0];
+  assert(editor.tabs.size == 1);
+
+  auto &font = get_font();
+  font = load_font("Courier-Regular.ttf", 25);
+  TTF_SizeText(font, "G", &font_width, &font_height);
+
+  fill_alphabet(BlackColor);
+}
+
+void update() {
+  SDL_SetRenderDrawColor(get_renderer(), 255, 255, 255, 255); 
+  SDL_RenderClear(get_renderer());
+
+  get_current_tab().draw();
+
+  SDL_RenderPresent(get_renderer());
+}
+
+#if 0
 static void fix_gap() {
   auto &cursor = buffer.cursor;
   auto &line = buffer[cursor.i];
@@ -314,7 +406,9 @@ static void put_tab() {
     j++;
   }
 }
+#endif
 
+#if 0
 static void open_console() {
   Mode = Console;
 }
@@ -323,7 +417,9 @@ static void close_console() {
   Mode = Editor;
   buffer.console.clear();
 }
+#endif
 
+#if 0
 static void put_character_console(const int key) {
   auto shifted = slice(key_lookup, untouchable);
   auto &console = buffer.console;
@@ -378,8 +474,10 @@ static void put_character_editor(const int key) {
     }
   }
 }
+#endif
 
-void handle_editor_keydown(const SDL_Event &e, bool &done) {
+void handle_editor_keydown(const SDL_Event &e) {
+#if 0
   auto keysym = e.key.keysym;
   auto key = keysym.sym;
   auto mod = keysym.mod;
@@ -395,7 +493,7 @@ void handle_editor_keydown(const SDL_Event &e, bool &done) {
     return;
 
   } else if(key == SDLK_ESCAPE) {
-    done = true;
+    should_quit = true;
     return;
 
   } else if(key == SDLK_TAB) {
@@ -435,15 +533,19 @@ void handle_editor_keydown(const SDL_Event &e, bool &done) {
     return;
   }
   put_character_editor(key);
+#endif
 }
 
 void exec_command() {
+#if 0
   char *c = to_c_string(buffer.console);
   exec_command(c);
   free(c);
+#endif
 }
 
 void handle_console_keydown(const SDL_Event &e) {
+#if 0
   auto keysym = e.key.keysym;
   auto key = keysym.sym;
   is_shift = (keysym.mod == KMOD_SHIFT);
@@ -462,4 +564,5 @@ void handle_console_keydown(const SDL_Event &e) {
     return;
   }
   put_character_console(key);
+#endif
 }

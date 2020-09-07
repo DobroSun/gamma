@@ -2,31 +2,28 @@
 #define GAMMA_GLOBALS_H
 
 const int MaxHeight = 1025;
+inline bool should_quit = false;
 
 inline int Width = 1200;
 inline int Height = 800;
+
+inline int font_width;
+inline int font_height;
+inline char pixels_between_lines = 5;
+
 inline char TextUpperBound = 100;
 inline char TextLeftBound = 50;
 inline char TextBottomBound = 50;
 
-inline char ptsize = 25;
-inline char blines = 5;
-inline char fsize = ptsize+blines;
 inline char tabstop = 2;
-inline int  fw, fh;
 
-inline unsigned char scroll_speed = 3;
 
 // @CleanUp.
-const string assets_fonts = "../assets/fonts/";
-const string quicksand = "QuickSand/Quicksand-Regular.ttf";
-const string courier = "Courier/Courier-Regular.ttf";
-inline const char *settings_path = "../assets/settings/settings.txt";
+inline const char *assets_fonts = "../assets/fonts/";
 
 
 const SDL_Color WhiteColor {255, 255, 255, 0};
 const SDL_Color BlackColor {0, 0, 0, 0};
-
 
 inline const char *chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890!@#$%^&?*()\\/ -+_=~|\t`\"'.,:;{}[]<>";
 
@@ -106,5 +103,4 @@ static const SDL_Keycode key_lookup[69] = {
   (SDL_Keycode)'}',
   (SDL_Keycode)'~',
 };
-
 #endif

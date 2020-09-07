@@ -1,16 +1,34 @@
 #ifndef GAMMA_BUFFER_H
 #define GAMMA_BUFFER_H
-#include "gamma/fwd_decl.h"
 
-enum EditorMode {
-  Editor,
-  Console,
+struct editor_t {
+  dyn_array<tab_buffer_t> tabs;
+  tab_buffer_t *active_tab = nullptr;
 };
 
-bool load_buffer_from_file(const char *filename);
-void handle_console_keydown(const SDL_Event &e);
-void handle_editor_keydown(const SDL_Event &e, bool &done);
+struct tab_buffer_t {
+  dyn_array<buffer_t> buffers;
 
-buffer_view &get_buffer();
-EditorMode get_editor_mode();
+  void draw();
+};
+
+
+
+struct buffer_t {
+  gap_buffer buffer;
+
+  // Position on the window.
+  int start_x = 0, start_y = 0;
+  int width = Width, height = Height;
+  unsigned cursor = 0;
+
+
+  void draw();
+  void act_on_resize(int,int,int,int);
+};
+
+tab_buffer_t &get_current_tab();
+void init(int, char**);
+void update();
+
 #endif

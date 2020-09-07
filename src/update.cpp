@@ -1,12 +1,10 @@
 #include "gamma/pch.h"
 #include "gamma/update.h"
-#include "gamma/globals.h"
-#include "gamma/view.h"
-#include "gamma/utility.h"
+#include "gamma/init.h"
 #include "gamma/buffer.h"
-#include "gamma/input_handler.h"
+#include "gamma/input.h"
 
-
+#if 0
 static int tw = 0, th = 0;
 static void copy_character_on_screen(SDL_Renderer *renderer, SDL_Texture *t, int x_pixels, int y_pixels) {
   SDL_QueryTexture(t, nullptr, nullptr, &tw, &th);
@@ -14,7 +12,9 @@ static void copy_character_on_screen(SDL_Renderer *renderer, SDL_Texture *t, int
   SDL_RenderCopy(renderer, t, nullptr, &dst);
 }
 
+#endif
 
+#if 0
 static void update_editor(SDL_Renderer *renderer, texture_map &alphabet, texture_map &selected) {
   // Set background color.
   SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255); 
@@ -71,8 +71,10 @@ static void update_console(SDL_Renderer *renderer, texture_map &alphabet, textur
   //(void)alphabet;
   (void)selected;
 }
-
-void update(SDL_Renderer *renderer, texture_map &alphabet, texture_map &selected) {
+#endif
+void update(texture_map &alphabet, texture_map &selected) {
+  
+#if 0
   switch(get_editor_mode()) {
     case Editor: {
       update_editor(renderer, alphabet, selected);
@@ -82,4 +84,5 @@ void update(SDL_Renderer *renderer, texture_map &alphabet, texture_map &selected
       update_console(renderer, alphabet, selected);
     } break;
   }
+#endif
 }
