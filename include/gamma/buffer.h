@@ -8,10 +8,10 @@ struct editor_t {
 
 struct tab_buffer_t {
   dyn_array<buffer_t> buffers;
+  buffer_t *active_buffer = nullptr;
 
   void draw();
 };
-
 
 
 struct buffer_t {
@@ -20,14 +20,18 @@ struct buffer_t {
   // Position on the window.
   int start_x = 0, start_y = 0;
   int width = Width, height = Height;
-  unsigned cursor = 0;
+  unsigned cursor = 0, offset_from_beginning = 0;
 
 
   void draw();
   void act_on_resize(int,int,int,int);
+  void scroll_down();
+  void scroll_up();
 };
 
 tab_buffer_t &get_current_tab();
+buffer_t &get_current_buffer();
+
 void init(int, char**);
 void update();
 

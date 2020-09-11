@@ -12,6 +12,9 @@ void draw_text_shaded(TTF_Font *, const char *, SDL_Color, SDL_Color, int, int);
 TTF_Font *&get_font();
 texture_map &get_alphabet();
 
-void fill_alphabet(SDL_Color color);
+void make_alphabet(SDL_Color color);
 void clear_alphabet();
+
+void clear_font();
+void make_font();
 #endif

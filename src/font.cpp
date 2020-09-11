@@ -71,7 +71,7 @@ texture_map &get_alphabet() {
   return alphabet;
 }
 
-void fill_alphabet(SDL_Color color) {
+void make_alphabet(SDL_Color color) {
   assert(active_font);
   for_each(chars) {
     char c = *it;
@@ -81,4 +81,19 @@ void fill_alphabet(SDL_Color color) {
 
 void clear_alphabet() {
   alphabet.clear();
+}
+
+void clear_font() {
+  assert(active_font);
+  active_font = nullptr;
+  font_width = 0, font_height = 0;
+}
+
+void make_font() {
+  active_font = load_font("Courier-Regular.ttf", 25);
+  assert(active_font);
+
+  TTF_SizeText(active_font, "G", &font_width, &font_height);
+
+  make_alphabet(BlackColor);
 }

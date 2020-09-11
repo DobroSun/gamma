@@ -11,6 +11,12 @@ tab_buffer_t &get_current_tab() {
   return *editor.active_tab;
 }
 
+buffer_t &get_current_buffer() {
+  auto &tab = get_current_tab();
+  assert(tab.active_buffer);
+  return *tab.active_buffer;
+}
+
 static char *read_args(int argc, char **argv) {
   if(argc > 1) {
     return argv[1];
@@ -64,6 +70,7 @@ static buffer_t create_buffer_from_file(const char *filename) {
 static tab_buffer_t create_tab_from_file(const char *filename) {
   tab_buffer_t tab;
   tab.buffers.push(create_buffer_from_file(filename));
+  tab.active_buffer = &tab.buffers[0];
   assert(tab.buffers.size == 1);
   return tab;
 }
@@ -76,8 +83,9 @@ void tab_buffer_t::draw() {
 }
 
 
+// @CleanUp.
 static int tw, th;
-void copy_texture(SDL_Texture *t, int px, int py) {
+static void copy_texture(SDL_Texture *t, int px, int py) {
   SDL_QueryTexture(t, nullptr, nullptr, &tw, &th);
   SDL_Rect dst {px, py, tw, th};
   SDL_RenderCopy(get_renderer(), t, nullptr, &dst);
@@ -87,7 +95,7 @@ void buffer_t::draw() {
   int offset_x = 0, offset_y = 0;
 
   // update buffer.
-  for(auto i = 0u; i < buffer.size(); i++) {
+  for(auto i = offset_from_beginning; i < buffer.size(); i++) {
     int px = start_x + font_width * offset_x;
     int py = start_y + (font_height+pixels_between_lines) * offset_y;
 
@@ -116,8 +124,10 @@ void buffer_t::draw() {
   }
 
   // update cursor.
+  /*
   char c = buffer[cursor];
   draw_text_shaded(get_font(), &c, WhiteColor, BlackColor, start_x, start_y); // nochecking.
+  */
 }
 
 void buffer_t::act_on_resize(int prev_width, int prev_height, int new_width, int new_height) {
@@ -125,6 +135,28 @@ void buffer_t::act_on_resize(int prev_width, int prev_height, int new_width, int
   start_y = new_height * start_y / prev_height;
   width   = new_width * width / prev_width;
   height  = new_height * height / prev_height;
+}
+
+void buffer_t::scroll_down() {
+  if(offset_from_beginning >= buffer.size()) return;
+  auto count = 0u;
+  for(auto i = offset_from_beginning; buffer[i] != '\n'; i++) {
+    count++;
+  }
+  count++; // '\n'.
+  offset_from_beginning += count;
+}
+
+void buffer_t::scroll_up() {
+  if(offset_from_beginning == 0) return;
+
+  auto count = 0u;
+  for(auto i = offset_from_beginning-2; buffer[i] != '\n'; i--) {
+    count++;
+    if(i == 0) break;
+  }
+  count++;
+  offset_from_beginning -= count;
 }
 
 
@@ -135,11 +167,7 @@ void init(int argc, char **argv) {
   editor.active_tab = &editor.tabs[0];
   assert(editor.tabs.size == 1);
 
-  auto &font = get_font();
-  font = load_font("Courier-Regular.ttf", 25);
-  TTF_SizeText(font, "G", &font_width, &font_height);
-
-  fill_alphabet(BlackColor);
+  make_font();
 }
 
 void update() {

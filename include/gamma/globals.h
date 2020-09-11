@@ -16,6 +16,7 @@ inline char TextLeftBound = 50;
 inline char TextBottomBound = 50;
 
 inline char tabstop = 2;
+inline char dt_scroll = 3;
 
 
 // @CleanUp.
