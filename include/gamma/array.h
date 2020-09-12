@@ -81,6 +81,8 @@ struct dyn_array {
         memcpy(new_data, data, sizeof(T) * size);
       }
       capacity = new_cap;
+
+      delete[] data;
       data = new_data;
     }
   }

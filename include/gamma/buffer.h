@@ -28,8 +28,18 @@ struct buffer_t {
   void scroll_down();
   void scroll_up();
 
+  void go_down();
+  void go_left();
+  void go_right();
+  void put_backspace();
+  void put_return();
+  void put_delete();
+  void put_key(char);
+
 private:
   void draw_cursor(int, int, SDL_Color, SDL_Color) const;
+  bool is_last_line() const;
+  bool cursor_on_last_line() const;
 };
 
 tab_buffer_t &get_current_tab();

@@ -81,4 +81,5 @@ const T *slice(const T *x, unsigned index) {
     } \
   } while(0)
 
+
 #endif
