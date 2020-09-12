@@ -3,7 +3,6 @@ cmake_minimum_required(VERSION 3.5)
 
 set(gamma_source
   input.cpp
-  update.cpp
   buffer.cpp
   init.cpp
   font.cpp

@@ -45,7 +45,7 @@ static buffer_t read_entire_file(const char *filename) {
 
   {
   auto size_with_gap = size + gap_len;
-	array.data = (char*)malloc(sizeof(char) * size_with_gap);
+	array.data = new char[size_with_gap];
 	array.capacity = size_with_gap;
 	array.size = size_with_gap;
   }
@@ -76,7 +76,7 @@ static tab_buffer_t create_tab_from_file(const char *filename) {
 }
 
 
-void tab_buffer_t::draw() {
+void tab_buffer_t::draw() const {
   for(auto i = 0u; i < buffers.size; i++) {
     buffers[i].draw();
   }
@@ -91,7 +91,7 @@ static void copy_texture(SDL_Texture *t, int px, int py) {
   SDL_RenderCopy(get_renderer(), t, nullptr, &dst);
 }
 
-void buffer_t::draw() {
+void buffer_t::draw() const {
   int offset_x = 0, offset_y = 0;
 
   // update buffer.
@@ -109,6 +109,12 @@ void buffer_t::draw() {
     auto t = get_alphabet()[c];
     assert(t);
 
+    if(i == cursor) {
+      draw_cursor(px, py, WhiteColor, BlackColor);
+      offset_x++;
+      continue;
+    }
+
     if(px > width) {
       // @Incomplete:
       // handle big lines.
@@ -122,12 +128,11 @@ void buffer_t::draw() {
     copy_texture(t, px, py);
     offset_x++;
   }
+}
 
-  // update cursor.
-  /*
+void buffer_t::draw_cursor(int px, int py, SDL_Color color1, SDL_Color color2) const {
   char c = buffer[cursor];
-  draw_text_shaded(get_font(), &c, WhiteColor, BlackColor, start_x, start_y); // nochecking.
-  */
+  draw_text_shaded(get_font(), &c, color1, color2, px, py);
 }
 
 void buffer_t::act_on_resize(int prev_width, int prev_height, int new_width, int new_height) {
@@ -139,11 +144,41 @@ void buffer_t::act_on_resize(int prev_width, int prev_height, int new_width, int
 
 void buffer_t::scroll_down() {
   if(offset_from_beginning >= buffer.size()) return;
+
   auto count = 0u;
+  bool cursor_should_go_down = false;
   for(auto i = offset_from_beginning; buffer[i] != '\n'; i++) {
     count++;
+    
+    cursor_should_go_down = cursor_should_go_down || cursor == i;
+    if(i == buffer.size()-2) return;
   }
   count++; // '\n'.
+
+
+  if(cursor_should_go_down) {
+    assert(cursor >= offset_from_beginning);
+    auto cursor_position = cursor - offset_from_beginning;
+
+    if(!cursor_position) {
+      cursor += count;
+      do_times(count, buffer.move_right);
+
+    } else {
+#if 0
+      auto till_return = 0u;
+      for(auto i = 0u; buffer[i+offset_from_beginning+count] != '\n'; i++) {  
+        till_return++;
+        if(i == cursor_position) break;
+      }
+
+      auto diff = count - cursor_position + till_return;
+      cursor += diff;
+      do_times(diff, buffer.move_right);
+#endif
+    }
+  }
+
   offset_from_beginning += count;
 }
 
@@ -157,6 +192,10 @@ void buffer_t::scroll_up() {
   }
   count++;
   offset_from_beginning -= count;
+#if 0
+  cursor                -= count;
+  do_times(count, buffer.move_left);
+#endif
 }
 
 
@@ -502,10 +541,8 @@ static void put_character_editor(const int key) {
     }
   }
 }
-#endif
 
 void handle_editor_keydown(const SDL_Event &e) {
-#if 0
   auto keysym = e.key.keysym;
   auto key = keysym.sym;
   auto mod = keysym.mod;
@@ -561,19 +598,15 @@ void handle_editor_keydown(const SDL_Event &e) {
     return;
   }
   put_character_editor(key);
-#endif
 }
 
 void exec_command() {
-#if 0
   char *c = to_c_string(buffer.console);
   exec_command(c);
   free(c);
-#endif
 }
 
 void handle_console_keydown(const SDL_Event &e) {
-#if 0
   auto keysym = e.key.keysym;
   auto key = keysym.sym;
   is_shift = (keysym.mod == KMOD_SHIFT);
@@ -592,5 +625,5 @@ void handle_console_keydown(const SDL_Event &e) {
     return;
   }
   put_character_console(key);
-#endif
 }
+#endif

@@ -4,7 +4,6 @@
 
 static SDL_Window *win = nullptr;
 static SDL_Renderer *renderer = nullptr;
-static int fw = 0, fh = 0;
 
 static EditorMode mode = EditorMode::Editor;
 

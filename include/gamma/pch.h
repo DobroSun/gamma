@@ -5,6 +5,11 @@
 #include <cstring>
 #include <unordered_map> // @Temporary.
 
+// To print FPS.
+#include <iostream>
+#include <chrono>
+// .
+
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_ttf.h>
 

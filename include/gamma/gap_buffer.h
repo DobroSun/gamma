@@ -125,20 +125,6 @@ struct gap_buffer {
   unsigned size() const {
     return array.size - gap_len;
   }
-
-  void move_right_by(unsigned i) {
-    while(i) {
-      move_right();
-      i--;
-    }
-  }
-
-  void move_left_by(unsigned i) {
-    while(i) {
-      move_left();
-      i--;
-    }
-  }
 };
 
 

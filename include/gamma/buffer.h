@@ -10,7 +10,7 @@ struct tab_buffer_t {
   dyn_array<buffer_t> buffers;
   buffer_t *active_buffer = nullptr;
 
-  void draw();
+  void draw() const;
 };
 
 
@@ -23,10 +23,13 @@ struct buffer_t {
   unsigned cursor = 0, offset_from_beginning = 0;
 
 
-  void draw();
+  void draw() const;
   void act_on_resize(int,int,int,int);
   void scroll_down();
   void scroll_up();
+
+private:
+  void draw_cursor(int, int, SDL_Color, SDL_Color) const;
 };
 
 tab_buffer_t &get_current_tab();
