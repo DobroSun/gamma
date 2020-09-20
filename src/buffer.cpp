@@ -92,19 +92,17 @@ static void copy_texture(SDL_Texture *t, int px, int py) {
 }
 
 void buffer_t::draw() const {
-  int offset_x = 0, offset_y = 0;
+  int offset_x = -offset_on_line, offset_y = 0;
 
   for(auto i = offset_from_beginning; i < buffer.size(); i++) {
-    int px = start_x + font_width * offset_x;
-    int py = start_y + (font_height+pixels_between_lines) * offset_y;
+    int px = get_relative_pos_x(offset_x);
+    int py = get_relative_pos_y(offset_y);
+
+    defer { if(i == cursor) draw_cursor(px, py, WhiteColor, BlackColor); };
 
     char c = buffer[i];
-
     if(c == '\n') {
-      if(i == cursor) {
-        draw_cursor(px, py, WhiteColor, BlackColor);
-      }
-      offset_x = 0;
+      offset_x = -offset_on_line;
       offset_y++;
       continue;
 
@@ -115,16 +113,7 @@ void buffer_t::draw() const {
     auto t = get_alphabet()[c];
     assert(t);
 
-    if(i == cursor) {
-      draw_cursor(px, py, WhiteColor, BlackColor);
-      offset_x++;
-      continue;
-    }
-
-
-    if(px > width) {
-      // @Incomplete:
-      // handle big lines.
+    if(px > width-font_width) {
       continue;
     }
 
@@ -137,6 +126,14 @@ void buffer_t::draw() const {
   }
 }
 
+int buffer_t::get_relative_pos_x(int n_place) const {
+  return start_x + font_width * n_place;
+}
+
+int buffer_t::get_relative_pos_y(int n_place) const {
+  return start_y + font_height * n_place;
+}
+
 void buffer_t::draw_cursor(int px, int py, SDL_Color color1, SDL_Color color2) const {
   char c = (buffer[cursor] == '\n')? ' ': buffer[cursor];
   draw_text_shaded(get_font(), &c, color1, color2, px, py);
@@ -147,12 +144,27 @@ void buffer_t::act_on_resize(int prev_width, int prev_height, int new_width, int
   start_y = new_height * start_y / prev_height;
   width   = new_width * width / prev_width;
   height  = new_height * height / prev_height;
+  assert(start_x <= width);
+  assert(start_y <= height);
 }
 
 bool buffer_t::is_last_line() const {
   for(auto i = offset_from_beginning; buffer[i] != '\n'; i++) {
     if(i == buffer.size()-2) return true;
   }
+  return false;
+}
+
+bool buffer_t::is_first_line() const {
+  return offset_from_beginning == 0;
+}
+
+bool buffer_t::cursor_on_first_line() const {
+  auto i = 0u;
+  for( ; buffer[i] != '\n'; i++) {
+    if(i == cursor) return true;
+  }
+  if(i == cursor) return true;
   return false;
 }
 
@@ -163,21 +175,95 @@ bool buffer_t::cursor_on_last_line() const {
   return false;
 }
 
+unsigned buffer_t::get_cursor_pos_x() const {
+  if(cursor == 0) return 0;
+
+  auto tmp = cursor-1;
+  auto ret = 0u;
+  while(buffer[tmp] != '\n') {
+    ret++;
+
+    if(tmp == 0) {
+      break;
+    } else {
+      tmp--;
+    }
+  }
+  return ret;
+}
+
+void buffer_t::inc_cursor() {
+  if(cursor == buffer.size()-1) {
+    // Do nothing.
+  } else {
+    if(buffer[cursor] == '\n') {
+      n_character = 0;
+      n_line++;
+    } else {
+      n_character++;
+    }
+
+    cursor++;
+  }
+}
+
+
+void buffer_t::dec_cursor() {
+  if(cursor == 0) {
+    assert(n_character == 0);
+    assert(n_line == 0);
+    // Do nothing.
+
+  } else {
+    cursor--;
+    if(buffer[cursor] == '\n') {
+      n_character = get_cursor_pos_x();
+      n_line--;
+    } else {
+      n_character--;
+    }
+  }
+}
+
+void buffer_t::inc_start(int n) {
+  offset_from_beginning += n;
+  start_pos++;
+}
+
+void buffer_t::dec_start(int n) {
+  offset_from_beginning -= n;
+  start_pos--;
+}
+
 void buffer_t::go_right() {
   buffer.move_right();
-  if(cursor == buffer.size()-1) {
-    // @Incomplete:
-  } else {
-    cursor++;
+  inc_cursor();
+  
+  if(get_relative_pos_x(n_character) > width-font_width) {
+    offset_on_line++;
+  }
+
+  if(buffer[cursor-1] == '\n') {
+    offset_on_line = 0;
   }
 }
 
 void buffer_t::go_left() {
   buffer.move_left();
-  if(cursor == 0) {
-    // Do nothing.
-  } else {
-    cursor--;
+  dec_cursor();
+
+  if(n_character < offset_on_line) {
+    offset_on_line--;
+  }
+
+  if(buffer[cursor] == '\n') {
+    while(get_relative_pos_x(n_character) > width-font_width) {
+      dec_cursor();
+    }
+
+    while(buffer[cursor] != '\n') {
+      go_right();
+    }
   }
 }
 
@@ -207,87 +293,71 @@ void buffer_t::put_key(char c) {
 void buffer_t::go_down() {
   if(cursor_on_last_line()) return;
 
-  unsigned cursor_offset = 0u;;
-  if(cursor == 0 || buffer[cursor-1] == '\n') {
-    // It's the beginning of line.
-
-  } else {
-    for(auto i = cursor-1; buffer[i] != '\n'; i--) {
-      cursor_offset++;
-      if(i == 0) break;
-    }
-  }
+  auto prev_character_pos = n_character;
 
   for(auto i = cursor; buffer[i] != '\n'; i++) {
     go_right();
   }
   go_right();
-
-  for(auto i = 0u; i < cursor_offset; i++) {
+  
+  for(auto i = 0u; i < prev_character_pos; i++) {
     if(buffer[cursor] == '\n') break;
     go_right();
+  }
+}
+
+void buffer_t::go_up() {
+  if(cursor_on_first_line()) return;
+
+  auto prev_character_pos = n_character;
+  for(auto i = 0u; i < prev_character_pos; i++) {
+    go_left();
+  }
+  go_left();
+
+  while(n_character > prev_character_pos) {
+    go_left();
+    if(buffer[cursor] == '\n') break;
   }
 }
 
 void buffer_t::scroll_down() {
   if(is_last_line()) return;
 
-  unsigned count = 0u;
-  bool cursor_should_go_down = false;
-  {
-    unsigned i;
-    for(i = offset_from_beginning; buffer[i] != '\n'; i++) {
-      count++;
-
-      cursor_should_go_down = cursor_should_go_down || cursor == i;
-    }
-    count++; // '\n'.
-    cursor_should_go_down = cursor_should_go_down || cursor == i;
-
-    if(buffer[offset_from_beginning] == '\n') {
-      // It's an empty line.
-      cursor_should_go_down = cursor == offset_from_beginning;
-    }
+  auto count = 0u;
+  for(auto i = offset_from_beginning; buffer[i] != '\n'; i++) {
+    count++;
   }
+  count++; // '\n'.
 
+  bool cursor_should_go_down = start_pos == n_line;
   if(cursor_should_go_down) {
-    assert(cursor >= offset_from_beginning);
-    auto cursor_position = cursor - offset_from_beginning;
-
-    if(!cursor_position) {
-      cursor += count;
-      do_times(count, buffer.move_right);
-
-    } else {
-      auto till_return = 0u;
-      for(auto i = 0u; buffer[i+offset_from_beginning+count] != '\n'; i++) {  
-        if(i == cursor_position) break;
-        till_return++;
-      }
-
-      auto diff = count - cursor_position + till_return;
-      cursor += diff;
-      do_times(diff, buffer.move_right);
-    }
+    go_down();
   }
 
-  offset_from_beginning += count;
+  inc_start(count);
 }
 
 void buffer_t::scroll_up() {
-  if(offset_from_beginning == 0) return;
+  if(is_first_line()) return;
 
   auto count = 0u;
-  for(auto i = offset_from_beginning-2; buffer[i] != '\n'; i--) {
+  if(offset_from_beginning < 2) {
     count++;
-    if(i == 0) break;
+
+  } else {
+    for(auto i = offset_from_beginning-2; buffer[i] != '\n'; i--) {
+      count++;
+      if(i == 0) break;
+    }
+    count++;
   }
-  count++;
-  offset_from_beginning -= count;
-#if 0
-  cursor                -= count;
-  do_times(count, buffer.move_left);
-#endif
+
+  bool cursor_should_go_up = (height / font_height) + start_pos - 1 == n_line;
+  if(cursor_should_go_up) {
+    go_up();
+  }
+  dec_start(count);
 }
 
 

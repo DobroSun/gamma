@@ -50,8 +50,10 @@ static void handle_editor_keydown(SDL_Event e) {
   
   } else if(key == SDLK_DOWN) {
     get_current_buffer().go_down();
+  
+  } else if(key == SDLK_UP) {
+    get_current_buffer().go_up();
   }
-
 }
 
 static void handle_text_input(SDL_Event e) {
