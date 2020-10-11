@@ -17,6 +17,7 @@
     SDL_Quit(); \
   }
 
+
 int main(int argc, char **argv) {
   if(Init_SDL()) return 1;
   init(argc, argv);

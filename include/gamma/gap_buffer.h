@@ -1,16 +1,6 @@
 #ifndef GAMMA_GAP_BUFFER_H
 #define GAMMA_GAP_BUFFER_H
 
-// @Note1:
-// Gap_bufer working correct only if 
-// array.size == array.capacity;
-
-// @Note2:
-// In a text editor it's everywhere used
-// with an additional trailing space.
-// Helps to handle cursor positions/moves.
-
-
 struct gap_buffer {
   dyn_array<char> array;
   unsigned pre_len = 0;
@@ -87,12 +77,13 @@ struct gap_buffer {
     // [1, 2, [' ', ' '], 3, 4, 5]
     // [1, 2, [' ', ' ', ' '], 4, 5] // delete.
     auto post_len = array.size - pre_len - gap_len;
-    if(post_len == 1) return; // also 1 extra space.
+    if(post_len == 0) return;
     gap_len++;
   }
 
   void clear() {
     auto post_len = array.size - pre_len - gap_len;
+    del();
     while(post_len > 1) {
       del();
       post_len--;
@@ -101,6 +92,7 @@ struct gap_buffer {
       backspace(); // decreases pre_len by itself.
     }
     assert(!pre_len);
+    assert(size() == 0);
   }
 
   char &operator[](unsigned i) {
@@ -125,18 +117,15 @@ struct gap_buffer {
   unsigned size() const {
     return array.size - gap_len;
   }
+
+  void to_string(char *dst, unsigned s) {
+    unsigned i = 0;
+    for( ; i < size(); i++) {
+      if(i == s) break;
+      dst[i] = (*this)[i];
+    }
+    dst[i] = '\0';
+  }
 };
-
-
-inline gap_buffer from_string(char *s, int length) {
-  gap_buffer ret;
-
-  ret.array.data = s;
-  ret.array.size = length;
-  ret.array.capacity = length;
-
-  return ret;
-}
-
 
 #endif

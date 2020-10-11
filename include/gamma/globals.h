@@ -18,13 +18,22 @@ inline char TextBottomBound = 50;
 inline char tabstop = 2;
 inline char dt_scroll = 3;
 
+inline const int MAX_CONSOLE_COMMAND_SIZE = 512;
+
 
 // @CleanUp.
 inline const char *assets_fonts = "../assets/fonts/";
 
 
-const SDL_Color WhiteColor {255, 255, 255, 0};
-const SDL_Color BlackColor {0, 0, 0, 0};
+const SDL_Color WhiteColor {255, 255, 255, 255};
+const SDL_Color BlackColor {0, 0, 0, 255};
 
 inline const char *chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890!@#$%^&?*()\\/ -+_=~|\t`\"'.,:;{}[]<>";
+
+enum class EditorMode {
+  Editor,
+  Console,
+};
+
+
 #endif

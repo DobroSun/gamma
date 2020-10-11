@@ -5,8 +5,6 @@
 static SDL_Window *win = nullptr;
 static SDL_Renderer *renderer = nullptr;
 
-static EditorMode mode = EditorMode::Editor;
-
 
 bool Init_SDL() {
   bool failed = false;
@@ -38,16 +36,16 @@ bool Init_SDL() {
     return failed;
   }
 
-  SDL_SetWindowMinimumSize(win, 300, 300); // @Bug: sets only width == height.
-
 
   renderer = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
+
   defer { if(failed) SDL_DestroyRenderer(renderer); };
   if(!renderer) {
     fprintf(stderr, "%s: %s", "Error Creating SDL_Renderer.\n", SDL_GetError());
     failed = true;
     return failed;
   }
+  SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
   return failed;
 }
 
@@ -58,8 +56,4 @@ SDL_Window *get_win() {
 
 SDL_Renderer *get_renderer() {
   return renderer;
-}
-
-EditorMode get_editor_mode() {
-  return mode;
 }

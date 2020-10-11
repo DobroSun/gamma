@@ -6,6 +6,8 @@ set(gamma_source
   buffer.cpp
   init.cpp
   font.cpp
+  console.cpp
+  interp.cpp
 )
 
 add_library(

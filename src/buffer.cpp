@@ -2,7 +2,10 @@
 #include "gamma/buffer.h"
 #include "gamma/init.h"
 #include "gamma/font.h"
+#include "gamma/input.h"
+#include "gamma/console.h"
 
+#include <fcntl.h>
 
 static editor_t editor;
 
@@ -17,25 +20,9 @@ buffer_t &get_current_buffer() {
   return *tab.active_buffer;
 }
 
-static char *read_args(int argc, char **argv) {
-  if(argc > 1) {
-    return argv[1];
-  } else {
-    assert(0);
-    return argv[0];
-  }
-}
-
-static buffer_t read_entire_file(const char *filename) {
+static buffer_t read_entire_file(FILE *f) {
+  assert(f);
   buffer_t ret;
-
-  FILE* f = fopen(filename, "r");
-  defer { if(f) fclose(f); };
-  if(!f) {
-    fprintf(stderr, "Error opening file: \"%s\".\n", filename);
-    assert(0);
-    return ret;
-  }
 
   fseek(f, 0, SEEK_END);
   size_t size = ftell(f);
@@ -43,12 +30,7 @@ static buffer_t read_entire_file(const char *filename) {
   auto &array = ret.buffer.array;
   auto gap_len = ret.buffer.gap_len;
 
-  {
-  auto size_with_gap = size + gap_len;
-	array.data = new char[size_with_gap];
-	array.capacity = size_with_gap;
-	array.size = size_with_gap;
-  }
+  array.resize(size+gap_len);
 
   rewind(f);
   auto res = fread(array.data + gap_len, sizeof(char), size, f);
@@ -60,11 +42,58 @@ static buffer_t read_entire_file(const char *filename) {
   return ret;
 }
 
+static FILE *get_file_handle(const char *filename, const char *mods) {
+  FILE *ret = fopen(filename, mods);
+  if(!ret) {
+    return nullptr;
+  } else {
+    return ret;
+  }
+}
+
+static FILE *get_file_or_create(const char *filename, const char *mods) {
+  FILE *ret = get_file_handle(filename, mods);
+  if(!ret) {
+    int fd = open(filename, O_RDWR | O_CREAT, 0);
+    if(!fd) {
+      // @Temporary.
+    }
+    assert(fd);
+    return fopen(filename, mods);
+
+  } else {
+    return ret;
+  }
+}
+
+static void close_file(FILE *f) {
+  fclose(f);
+}
+
+static buffer_t create_buffer_with_name(const char *name) {
+  buffer_t ret;
+  ret.filename = name;
+  return ret;
+}
+
+static buffer_t create_buffer_with_no_name() {
+  return create_buffer_with_name(nullptr);
+}
+
 static buffer_t create_buffer_from_file(const char *filename) {
-  // if(filename `path doesn't exist`) {
-  //   open_empty_file();
-  // }
-  return read_entire_file(filename);
+  if(!filename) {
+    return create_buffer_with_no_name();
+    
+  } else {
+    FILE *file = get_file_handle(filename, "r");
+    defer { if(file) close_file(file); };
+
+    if(file) {
+      return read_entire_file(file);
+    } else {
+      return create_buffer_with_name(filename);
+    }
+  }
 }
 
 static tab_buffer_t create_tab_from_file(const char *filename) {
@@ -75,39 +104,61 @@ static tab_buffer_t create_tab_from_file(const char *filename) {
   return tab;
 }
 
-
 void tab_buffer_t::draw() const {
   for(auto i = 0u; i < buffers.size; i++) {
     buffers[i].draw();
   }
+  console_draw();
+}
+
+void tab_buffer_t::on_resize(int n_width, int n_height) {
+  console_on_resize(n_height);
+
+  for(auto i = 0u; i < buffers.size; i++) {
+    buffers[i].on_resize(buffers[i].width, buffers[i].height, n_width, get_console()->bottom_y);
+  }
 }
 
 
-// @CleanUp.
-static int tw, th;
-static void copy_texture(SDL_Texture *t, int px, int py) {
-  SDL_QueryTexture(t, nullptr, nullptr, &tw, &th);
-  SDL_Rect dst {px, py, tw, th};
-  SDL_RenderCopy(get_renderer(), t, nullptr, &dst);
+bool buffer_t::is_end_of_line(char c) const {
+  return c == '\n';
+}
+
+void buffer_t::act_on_non_text_character(int &offset_x, int &offset_y, char c) const {
+  if(c == '\n') {
+    offset_x = -offset_on_line;
+    offset_y++;
+
+  } else if(c == '\t') {
+    // @Incomplete:
+  }
 }
 
 void buffer_t::draw() const {
+  // @Hack: with negative numbers, it just works, do I need to change it?
   int offset_x = -offset_on_line, offset_y = 0;
+  //print(total_lines);
 
-  for(auto i = offset_from_beginning; i < buffer.size(); i++) {
+  unsigned i;
+  for(i = offset_from_beginning; i < buffer.size(); i++) {
     int px = get_relative_pos_x(offset_x);
     int py = get_relative_pos_y(offset_y);
 
-    defer { if(i == cursor) draw_cursor(px, py, WhiteColor, BlackColor); };
+    defer { 
+      if(i == cursor) {
+        char s = buffer[cursor];
+        if(is_end_of_line(s)) {
+          s = ' ';
+        }
+        
+        draw_cursor(s, px, py, WhiteColor, BlackColor);
+      }
+    };
 
     char c = buffer[i];
-    if(c == '\n') {
-      offset_x = -offset_on_line;
-      offset_y++;
+    act_on_non_text_character(offset_x, offset_y, c);
+    if(is_end_of_line(c)) {
       continue;
-
-    } else if(c == '\t') {
-      // @Incomplete:
     }
 
     auto t = get_alphabet()[c];
@@ -116,13 +167,22 @@ void buffer_t::draw() const {
     if(px > width-font_width) {
       continue;
     }
-
-    if(py > height) {
+    if(py >= get_console()->bottom_y - font_height) {
       break;
     }
-    
+
     copy_texture(t, px, py);
     offset_x++;
+  }
+
+  if(cursor == buffer.size()) {
+    // Cursor is at the end of file.
+    
+    int px = get_relative_pos_x(offset_x);
+    int py = get_relative_pos_y(offset_y);
+
+    char c = ' ';
+    draw_cursor(c, px, py, WhiteColor, BlackColor);
   }
 }
 
@@ -134,18 +194,21 @@ int buffer_t::get_relative_pos_y(int n_place) const {
   return start_y + font_height * n_place;
 }
 
-void buffer_t::draw_cursor(int px, int py, SDL_Color color1, SDL_Color color2) const {
-  char c = (buffer[cursor] == '\n')? ' ': buffer[cursor];
-  draw_text_shaded(get_font(), &c, color1, color2, px, py);
+int buffer_t::get_offset_from_relative_x(int window_x) const {
+  return (window_x - start_y) / font_width;
 }
 
-void buffer_t::act_on_resize(int prev_width, int prev_height, int new_width, int new_height) {
+void buffer_t::draw_cursor(char c, int px, int py, SDL_Color color1, SDL_Color color2) const {
+  const char b[2] = {c, '\0'};
+  draw_text_shaded(get_font(), reinterpret_cast<const char *>(&b), color1, color2, px, py);
+}
+
+
+void buffer_t::on_resize(int prev_width, int prev_height, int new_width, int new_height) {
   start_x = new_width * start_x / prev_width;
   start_y = new_height * start_y / prev_height;
   width   = new_width * width / prev_width;
   height  = new_height * height / prev_height;
-  assert(start_x <= width);
-  assert(start_y <= height);
 }
 
 bool buffer_t::is_last_line() const {
@@ -193,7 +256,7 @@ unsigned buffer_t::get_cursor_pos_x() const {
 }
 
 void buffer_t::inc_cursor() {
-  if(cursor == buffer.size()-1) {
+  if(cursor == buffer.size()) {
     // Do nothing.
   } else {
     if(buffer[cursor] == '\n') {
@@ -202,7 +265,6 @@ void buffer_t::inc_cursor() {
     } else {
       n_character++;
     }
-
     cursor++;
   }
 }
@@ -213,7 +275,6 @@ void buffer_t::dec_cursor() {
     assert(n_character == 0);
     assert(n_line == 0);
     // Do nothing.
-
   } else {
     cursor--;
     if(buffer[cursor] == '\n') {
@@ -239,17 +300,30 @@ void buffer_t::go_right() {
   buffer.move_right();
   inc_cursor();
   
-  if(get_relative_pos_x(n_character) > width-font_width) {
+  if(get_relative_pos_x(n_character-offset_on_line) > width-font_width) {
     offset_on_line++;
   }
 
   if(buffer[cursor-1] == '\n') {
     offset_on_line = 0;
   }
+
+
+  if((height / font_height) + start_pos == n_line) {
+    // @CleanUp. @Copy&Paste from scroll down.
+    auto count = 0u;
+    for(auto i = offset_from_beginning; buffer[i] != '\n'; i++) {
+      count++;
+    }
+    count++; // '\n'.
+    // end.
+
+    inc_start(count);
+  }
+
 }
 
-void buffer_t::go_left() {
-  buffer.move_left();
+void buffer_t::move_left() {
   dec_cursor();
 
   if(n_character < offset_on_line) {
@@ -257,37 +331,70 @@ void buffer_t::go_left() {
   }
 
   if(buffer[cursor] == '\n') {
-    while(get_relative_pos_x(n_character) > width-font_width) {
-      dec_cursor();
-    }
-
-    while(buffer[cursor] != '\n') {
-      go_right();
+    assert(offset_on_line == 0);
+    if(get_relative_pos_x(n_character) > width-font_width) {
+      unsigned offset = get_offset_from_relative_x(width-font_width);
+      assert(n_character > offset);
+      offset_on_line = n_character - offset_on_line - offset;
     }
   }
+
+  // @CleanUp.
+  if(start_pos-1 == n_line && start_pos != 0) {
+    // @CleanUp. @Copy&Paste from scroll_up.
+    auto count = 0u;
+    if(offset_from_beginning < 2) {
+      count++;
+
+    } else {
+      for(auto i = offset_from_beginning-2; buffer[i] != '\n'; i--) {
+        count++;
+        if(i == 0) break;
+      }
+      count++;
+    }
+
+    dec_start(count);
+  }
+}
+
+void buffer_t::go_left() {
+  buffer.move_left();
+  move_left();
 }
 
 void buffer_t::put_backspace() {
-  buffer.backspace();
   if(cursor == 0) {
     // Do nothing.
   } else {
-    cursor--;
+    if(buffer[cursor-1] == '\n') total_lines--;
+
+    move_left();
   }
+  buffer.backspace();
 }
 
 void buffer_t::put_delete() {
+  if(buffer[cursor] == '\n') total_lines--;
   buffer.del();
 }
 
 void buffer_t::put_return() {
   buffer.add('\n');
-  cursor++;
+  inc_cursor();
+
+  offset_on_line = 0;
+  total_lines++;
 }
 
-void buffer_t::put_key(char c) {
+void buffer_t::put(char c) {
   buffer.add(c);
-  cursor++;
+
+  inc_cursor();
+
+  if(get_relative_pos_x(n_character-offset_on_line) > width-font_width) {
+    offset_on_line++;
+  }
 }
 
 void buffer_t::go_down() {
@@ -360,432 +467,99 @@ void buffer_t::scroll_up() {
   dec_start(count);
 }
 
+void buffer_t::init(const char *f, int x, int y, int w, int h) {
+  filename = f; start_x = x; start_y = y; width = w; height = h;
+
+  auto count = 0u;
+  for(auto i = 0u; i < buffer.size(); i++) {
+    if(buffer[i] == '\n') {
+      count++;
+    }
+  }
+  total_lines = count;
+}
+
+void buffer_t::save() const {
+  if(!filename) {
+    console_put_text("File has no name.");
+
+  } else {
+    assert(filename);
+    FILE *f = get_file_or_create(filename, "w");
+    defer { close_file(f); };
+    
+
+    if(!f) {
+      // @Incomplete.
+      print("No file for me (:");
+    }
+
+    for(auto i = 0u; i < buffer.size(); i++) {
+      fprintf(f, "%c", buffer[i]);
+    }
+    fflush(f);
+
+    console_put_text("File saved.");
+  }
+}
 
 void init(int argc, char **argv) {
-  const char *filename = read_args(argc, argv);
+  const char *filename = nullptr;
+  if(argc > 1) {
+    filename = argv[1];
+  } else {
+    // No positional arguments provided.
+    // filename == nullptr.
+  }
 
+  assert(editor.tabs.size == 0);
   editor.tabs.push(create_tab_from_file(filename));
   editor.active_tab = &editor.tabs[0];
   assert(editor.tabs.size == 1);
 
   make_font();
+
+  console_init(Height);
+  get_current_buffer().init(filename, 0, 0, Width, get_console()->bottom_y);
 }
 
-void update() {
-  SDL_SetRenderDrawColor(get_renderer(), 255, 255, 255, 255); 
-  SDL_RenderClear(get_renderer());
+static void update_editor() {
+  auto renderer = get_renderer();
+  SDL_SetRenderDrawColor(renderer, WhiteColor.r, WhiteColor.g, WhiteColor.b, WhiteColor.a); 
+  SDL_RenderClear(renderer);
 
   get_current_tab().draw();
+
+  SDL_RenderPresent(renderer);
+}
+
+static void update_console() {
+  draw_rect(0, get_console()->bottom_y, Width, font_height, WhiteColor);
+  console_draw();
 
   SDL_RenderPresent(get_renderer());
 }
 
-#if 0
-static void fix_gap() {
-  auto &cursor = buffer.cursor;
-  auto &line = buffer[cursor.i];
-  int diff = cursor.j - line.pre_len;
-  if(diff > 0) {
-    // cursor.j is bigger than start of gap.
-    // so moving gap right.
-    line.move_right_by(diff);
-  
-  } else if(diff < 0) {
-    // cursor.j is less than start of gap.
-    line.move_left_by(-diff);
+void update() {
+  switch(*get_editor_mode()) {
+    case EditorMode::Editor: {
+      update_editor();
+    } break;
 
-  } else {
-    assert(!diff);
-    // There is no difference between cursor.j and start index of gap.
-    // do nothing.
-  } 
-}
-
-static void cursor_right_detail() {
-  auto &cursor = buffer.cursor;
-  auto &start_j = buffer.start_j;
-  auto &i = cursor.i; auto &j = cursor.j;
-  auto &buffer_i = buffer[i];
-
-  const int max_line = (start_j+1) * buffer_width() / fw;
-  if(j == max_line-1) {
-    start_j++;
-  }
-
-  if(j < (int)buffer_i.size()-1) {
-    buffer_i.move_right();
-    j++;
+    case EditorMode::Console: {
+      update_console();
+    } break;
   }
 }
 
-static void cursor_right() {
-  cursor_right_detail();
-  buffer.saved_j = buffer.cursor.j;
-}
-
-static void cursor_right_no_move() {
-  auto &cursor = buffer.cursor;
-  auto &start_j = buffer.start_j;
-  auto &j = cursor.j;
-
-  const int max_line = (start_j+1) * buffer_width() / fw;
-  if(j == max_line-1) {
-    start_j++;
+void go_to_line(unsigned line) {
+  auto &buffer = get_current_buffer();
+  if(line > buffer.total_lines) {
+    line = buffer.total_lines;
+  } else if(line == 0) {
+    line++;
   }
 
-  j++;
-  buffer.saved_j = j;
+  while(line > buffer.n_line+1) buffer.go_down();
+  while(line < buffer.n_line+1) buffer.go_up();
 }
-
-static void cursor_left_detail() {
-  auto &cursor = buffer.cursor;
-  auto &start_j = buffer.start_j;
-  auto &i = cursor.i; auto &j = cursor.j;
-  auto &buffer_i = buffer[i];
-
-  const int max_line = start_j * buffer_width() / fw;
-  if(j && j == max_line) {
-    start_j--;
-  }
-
-  if(j > (int)0) {
-    buffer_i.move_left();
-    j--;
-  }
-}
-
-static void cursor_left() {
-  cursor_left_detail();
-  buffer.saved_j = buffer.cursor.j;
-}
-
-static void cursor_to(int to_i, int to_j) {
-  auto &cursor = buffer.cursor;
-  auto &i = cursor.i; auto &j = cursor.j;
-  if(to_i == i) {
-    int diff = to_j - j;
-    while(diff > 0) {
-      cursor_right_detail();
-      diff--;
-    } 
-    while(diff < 0) {
-      cursor_left_detail();
-      diff++;
-    } 
-    assert(to_j == j);
-  }
-}
-
-static void cursor_down() {
-  auto &start = buffer.start;
-  auto &cursor = buffer.cursor;
-  auto &i = cursor.i;
-  const int max_size = buffer.size()-1;
-
-  if(i == max_size) { // On the last line of file.  
-    return;
-  } 
-  
-  if((int)(i-start) == numrows()-1) { // On the last line of page.  
-    start++;
-  }
-
-  buffer.move_right();
-  i++;
-  cursor_to(i, std::min(buffer.saved_j, buffer[i].size()-1));
-  fix_gap();
-}
-
-static void cursor_up() {
-  auto &start = buffer.start;
-  auto &cursor = buffer.cursor;
-  auto &i = cursor.i; //auto &j = cursor.j;
-
-  if(i == 0) { // On the first line of file.  
-    return;
-  }
-
-  if((int)(i-start) == 0) { // On the firtst line of page.
-    start--;
-  }
-
-
-  buffer.move_left();
-  i--;
-  cursor_to(i, std::min(buffer.saved_j, buffer[i].size()-1));
-  fix_gap();
-}
-
-static void return_key() {
-  auto &start = buffer.start;
-  auto &cursor = buffer.cursor;
-  auto &i = cursor.i; auto &j = cursor.j;
-  auto buf_i = buffer[i];
-
-  gap_buffer<char> to_end;
-  gap_buffer<char> from_start;
-
-  for(auto k = 0; k < j; k++) {
-    from_start.add(buf_i[k]);
-  }
-  from_start.add(' '); // add extra space.
-  for(unsigned k = j; k < buf_i.size(); k++) {
-    to_end.add(buf_i[k]);
-  }
-  from_start.move_left_by(from_start.size());
-  to_end.move_left_by(to_end.size());
-
-  buffer.del();
-  buffer.add(from_start);
-  buffer.add(to_end);
-
-  if((int)(i-start) == numrows()-1) {
-    start++;
-  }
-
-  i++;
-  buffer.move_left();
-  cursor_to(i, 0);
-  buffer.saved_j = j;
-  fix_gap();
-}
-
-static void backspace_key() {
-  auto &cursor = buffer.cursor;
-  auto &start = buffer.start;
-  auto &i = cursor.i; auto &j = cursor.j;
-
-  if(j != 0) {
-    j--;
-    buffer[i].backspace();
-  } else {
-    if(!i) return;
-    assert(j == 0);
-    
-    auto &previous_line = buffer[i-1];
-    auto current_line = buffer[i];
-    auto size = previous_line.size()-1;
-    string s = "";
-    for(unsigned k = 0; k < current_line.size(); k++) {
-      if(k == 0) { // overwriting trailing space.
-        assert(previous_line[size] == ' ');
-        previous_line[size] = current_line[k];
-      } else {     // inserting to the end.
-        s.push_back(current_line[k]);
-      }
-    }
-    previous_line.insert_many(s);
-
-    if((int)(i-start) == 0) {
-      start--;
-    }
-
-    i--;
-    buffer.del();
-
-    buffer.move_left();
-    cursor_to(i, size);
-  }
-  buffer.saved_j = j;
-  fix_gap();
-}
-
-static void delete_key() {
-  auto &cursor = buffer.cursor;
-  auto &start = buffer.start;
-  auto &i = cursor.i; auto &j = cursor.j;
-
-  if((unsigned)j != buffer[i].size()-1) {
-    buffer[i].del();
-  } else {
-    if((unsigned)i == buffer.size()-1) return;
-
-
-    auto next_line = buffer[i+1];
-    auto &current_line = buffer[i];
-    auto size = current_line.size()-1;
-    string s = "";
-    for(unsigned k = 0; k < next_line.size(); k++) {
-      if(k == 0) {
-        assert(current_line[size] == ' ');
-        current_line[size] = next_line[k];
-      } else {
-        s.push_back(next_line[k]);
-      }
-    }
-    current_line.insert_many(s);
-
-    if((int)(i-start) == numrows()-1) {
-      start++;
-    }
-
-    buffer.move_right();
-    buffer.del();
-    buffer.move_left();
-    cursor_to(i, size);
-  }
-  buffer.saved_j = j;
-  fix_gap();
-}
-
-static void put_tab() {
-  auto &j = buffer.cursor.j;
-  for(char i = 0; i < tabstop; i++) {
-    buffer[buffer.cursor.i].add(' ');
-    j++;
-  }
-}
-#endif
-
-#if 0
-static void open_console() {
-  Mode = Console;
-}
-
-static void close_console() {
-  Mode = Editor;
-  buffer.console.clear();
-}
-#endif
-
-#if 0
-static void put_character_console(const int key) {
-  auto shifted = slice(key_lookup, untouchable);
-  auto &console = buffer.console;
-
-  // @Note: Need to load settings from 
-  // file and generate keyscodes.
-  for_each(key_lookup) {
-    if(key == *it) {
-      char push;
-      if(is_shift && isalpha(key)) {
-        push = toupper(key);
-
-      } else if(is_shift && in(shifted, key)) {
-        const SDL_Keycode *sh = it;
-        sh += key_offset;
-        push = (char)*sh;
-
-      } else {
-        push = (char)key;
-      }
-
-      console.add(push);
-      return;
-    }
-  }
-}
-
-static void put_character_editor(const int key) {
-  // Copy&Paste.
-  auto shifted = slice(key_lookup, untouchable);
-
-  // @Note: Need to load settings from 
-  // file and generate keyscodes.
-  for_each(key_lookup) {
-    if(key == *it) {
-      char push;
-      if(is_shift && isalpha(key)) {
-        push = toupper(key);
-
-      } else if(is_shift && in(shifted, key)) {
-        const SDL_Keycode *sh = it;
-        sh += key_offset;
-        push = (char)*sh;
-
-      } else {
-        push = (char)key;
-      }
-
-      buffer[buffer.cursor.i].add(push);
-      cursor_right_no_move();
-      return;
-    }
-  }
-}
-
-void handle_editor_keydown(const SDL_Event &e) {
-  auto keysym = e.key.keysym;
-  auto key = keysym.sym;
-  auto mod = keysym.mod;
-  is_shift = (mod == KMOD_SHIFT); 
-  is_ctrl  = (mod == KMOD_CTRL);
-
-  if(key == SDLK_LSHIFT || key == SDLK_RSHIFT) {
-    SDL_SetModState((SDL_Keymod)KMOD_SHIFT);
-    return;
-
-  } else if(key == SDLK_LCTRL) {
-    SDL_SetModState((SDL_Keymod)KMOD_CTRL);
-    return;
-
-  } else if(key == SDLK_ESCAPE) {
-    should_quit = true;
-    return;
-
-  } else if(key == SDLK_TAB) {
-    put_tab();
-    return;
-
-  } else if(key == SDLK_BACKSPACE) {
-    backspace_key();
-    return;
-
-  } else if(key == SDLK_DELETE) {
-    delete_key();
-    return;
-
-  } else if(key == SDLK_RETURN) {
-    return_key();
-    return;
-
-  } else if(key == SDLK_UP) {
-    cursor_up();
-    return;
-
-  } else if(key == SDLK_DOWN) {
-    cursor_down();
-    return;
-
-  } else if(key == SDLK_LEFT) {
-    cursor_left();
-    return;
-
-  } else if(key == SDLK_RIGHT) {
-    cursor_right();
-    return;
-
-  } else if(key == SDLK_r && is_ctrl) {
-    open_console();
-    return;
-  }
-  put_character_editor(key);
-}
-
-void exec_command() {
-  char *c = to_c_string(buffer.console);
-  exec_command(c);
-  free(c);
-}
-
-void handle_console_keydown(const SDL_Event &e) {
-  auto keysym = e.key.keysym;
-  auto key = keysym.sym;
-  is_shift = (keysym.mod == KMOD_SHIFT);
-
-  if(key == SDLK_LSHIFT || key == SDLK_RSHIFT) {
-    SDL_SetModState((SDL_Keymod)KMOD_SHIFT);
-    return;
-
-  } else if(key == SDLK_ESCAPE) {
-    close_console();
-    return;
-
-  } else if(key == SDLK_RETURN) {
-    exec_command();
-    close_console();
-    return;
-  }
-  put_character_console(key);
-}
-#endif

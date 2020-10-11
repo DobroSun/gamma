@@ -1,16 +1,21 @@
 #include "gamma/pch.h"
 #include "gamma/font.h"
 #include "gamma/init.h"
-#include "gamma/globals.h"
 
 static TTF_Font *active_font = nullptr;
 static texture_map alphabet;
 
-static int tw, th;
-static void copy_texture(SDL_Texture *t, int px, int py) {
+void copy_texture(SDL_Texture *t, int px, int py) {
+  int tw, th;
   SDL_QueryTexture(t, nullptr, nullptr, &tw, &th);
   SDL_Rect dst {px, py, tw, th};
   SDL_RenderCopy(get_renderer(), t, nullptr, &dst);
+}
+
+void draw_rect(int x, int y, int w, int h, SDL_Color c) {
+  SDL_SetRenderDrawColor(get_renderer(), c.r, c.g, c.b, c.a);
+  SDL_Rect r {x, y, w, h};
+  SDL_RenderFillRect(get_renderer(), &r);
 }
 
 void draw_text(TTF_Font *font, const char *text, SDL_Color c, int p1, int p2) {
@@ -74,8 +79,10 @@ texture_map &get_alphabet() {
 void make_alphabet(SDL_Color color) {
   assert(active_font);
   for_each(chars) {
-    char c = *it;
-    alphabet.insert(std::make_pair(c, render_text_solid(active_font, &c, color)));
+    char c[2];
+    c[0] = *it;
+    c[1] = '\0';
+    alphabet.insert(std::make_pair(c[0], render_text_solid(active_font, reinterpret_cast<const char *>(&c), color)));
   }
 }
 

@@ -1,5 +1,8 @@
 #ifndef GAMMA_UTILITY_H
 #define GAMMA_UTILITY_H
+#include <iostream> // for print, and printFPS.
+#include <chrono>
+#include <cstring> // strncmp.
 
 inline char *concat(const char *a, const char *b) {
   char *ret;
@@ -38,13 +41,16 @@ ScopeGuard<F> operator+(Junk, F &&fun) {
 }
 
 
+void inline print() {
+  std::cout << std::endl;
+}
 
-#define printi(A) do { printf("%i\n", (A)); } while(0)
-#define printu(A) do { printf("%u\n", (A)); } while(0)
-#define printl(A) do { printf("%lu\n", (A)); } while(0)
-#define printd(A) do { printf("%f\n", (A)); } while(0)
-#define printc(A) do { printf("%c\n", (A)); } while(0)
-#define printb(A) do { if((A)) puts("true"); else puts("false"); } while(0)
+template<class T, class ...Args>
+void print(T&& first, Args&&... rest) {
+  std::cout << std::boolalpha << std::forward<T>(first);
+  print(std::forward<Args>(rest)...);
+}
+
 #define begin_clock auto begin = std::chrono::steady_clock::now()
 #define end_clock auto end = std::chrono::steady_clock::now()
 #define nanoseconds_diff std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin).count()
@@ -58,21 +64,6 @@ ScopeGuard<F> operator+(Junk, F &&fun) {
   }
 
 #define for_each(c_array) for(auto it = c_array; *it != '\0'; it++)
-template<class T, class C>
-bool in(const T *x, C val) {
-  for_each(x) {
-    if(*it == val) {
-      return true;
-    }
-  }
-  return false;
-}
-template<class T>
-const T *slice(const T *x, unsigned index) {
-  auto tmp = x;
-  tmp += index;
-  return tmp;
-}
 
 #define do_times(n, function) \
   { \
@@ -81,5 +72,62 @@ const T *slice(const T *x, unsigned index) {
     } \
   } while(0)
 
+
+struct literal {
+  const char *data;
+  size_t      size;
+
+  literal() = default;
+  template<size_t N>
+  literal(const char (&x)[N]) {
+    data = x;
+    size = N-1;
+  }
+  literal(const char *x, size_t N) {
+    data = x;
+    size = N;
+  }
+  literal(const literal &o) {
+    data = o.data;
+    size = o.size;
+  }
+  literal &operator=(const literal &o) {
+    data = o.data;
+    size = o.size;
+    return *this;
+  }
+  literal(literal &&o) {
+    data = std::move(o.data);
+    size = std::move(o.size);
+  }
+  literal &operator=(literal &&o) {
+    data = std::move(o.data);
+    size = std::move(o.size);
+    return *this;
+  }
+};
+
+inline bool operator==(const char *s, const literal &l) {
+  return !strncmp(s, l.data, l.size);
+}
+
+inline bool operator==(const literal &l, const char *s) {
+  return !strncmp(s, l.data, l.size);
+}
+
+inline bool operator==(const literal &l1, const literal &l2) {
+  if(l1.size == l2.size) {
+    return !strncmp(l1.data, l2.data, l1.size);
+  } else {
+    return false;
+  }
+}
+
+inline std::ostream& operator<<(std::ostream &os, const literal &l) {
+  for(auto i = 0u; i < l.size; i++) {
+    os << l.data[i];
+  }
+  return os;
+}
 
 #endif

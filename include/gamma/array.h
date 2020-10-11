@@ -62,7 +62,7 @@ struct dyn_array {
 
   void reserve(unsigned new_cap=0) {
     if(!data) {
-      assert(!capacity && !size);
+      assert(!capacity && !size && !data);
 
       new_cap = (new_cap)? new_cap: eight;
 
@@ -73,17 +73,36 @@ struct dyn_array {
       assert(data && capacity);
 
       new_cap = (new_cap)? new_cap: 2*capacity;
-      assert(new_cap > capacity);
 
-      auto new_data = new T[new_cap];
-      assert(new_data);
-      if(size) {
-        memcpy(new_data, data, sizeof(T) * size);
+      if(new_cap > capacity) {
+        auto new_data = new T[new_cap];
+        assert(new_data);
+        if(size) {
+          memcpy(new_data, data, sizeof(T) * size);
+        }
+        capacity = new_cap;
+
+        delete[] data;
+        data = new_data;
+
+      } else {
+        assert(new_cap <= capacity);
+        if(size > new_cap) {
+          size     = new_cap;
+          capacity = new_cap;
+
+          auto new_data = new T[new_cap];
+          assert(new_data);
+
+          memcpy(new_data, data, sizeof(T) * size);
+
+          delete[] data;
+          data = new_data;
+
+        } else {
+          // Do nothing.
+        }
       }
-      capacity = new_cap;
-
-      delete[] data;
-      data = new_data;
     }
   }
 

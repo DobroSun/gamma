@@ -14,11 +14,15 @@ class dyn_array;
 
 class gap_buffer;
 class buffer_t;
-struct cursor_t;
+struct console_t;
 
 struct editor_t;
 struct tab_buffer_t;
 
+enum class EditorMode;
+
 using texture_map = std::unordered_map<char, SDL_Texture*>;
+
+struct Token;
 
 #endif
