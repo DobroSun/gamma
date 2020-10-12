@@ -4,6 +4,7 @@
 #include "gamma/font.h"
 #include "gamma/input.h"
 #include "gamma/console.h"
+#include "gamma/interp.h"
 
 #include <fcntl.h>
 
@@ -137,7 +138,6 @@ void buffer_t::act_on_non_text_character(int &offset_x, int &offset_y, char c) c
 void buffer_t::draw() const {
   // @Hack: with negative numbers, it just works, do I need to change it?
   int offset_x = -offset_on_line, offset_y = 0;
-  //print(total_lines);
 
   unsigned i;
   for(i = offset_from_beginning; i < buffer.size(); i++) {
@@ -367,7 +367,7 @@ void buffer_t::put_backspace() {
   if(cursor == 0) {
     // Do nothing.
   } else {
-    if(buffer[cursor-1] == '\n') total_lines--;
+    if(buffer[cursor-1] == '\n' || buffer.size() == 1) total_lines--;
 
     move_left();
   }
@@ -388,6 +388,7 @@ void buffer_t::put_return() {
 }
 
 void buffer_t::put(char c) {
+  if(!total_lines) total_lines++;
   buffer.add(c);
 
   inc_cursor();
@@ -487,23 +488,34 @@ void buffer_t::save() const {
     assert(filename);
     FILE *f = get_file_or_create(filename, "w");
     defer { close_file(f); };
-    
 
     if(!f) {
       // @Incomplete.
       print("No file for me (:");
     }
 
-    for(auto i = 0u; i < buffer.size(); i++) {
+    unsigned i = 0u;
+    for( ; i < buffer.size(); i++) {
       fprintf(f, "%c", buffer[i]);
     }
+    if(!buffer.size() || buffer[i-1] != '\n') {
+      // @Fix:
+      // 1) total_lines breaks when we edit file that doesn't ends up with '\n'.
+      //  Problem is we can access text after buffer, so it's possible to write
+      //  something after last '\n'. we probably need to fix it.
+      // 2) that causes bugs in go_to_line function.
+      // 3) here we have to put it.
+      // 
+      fprintf(f, "%c", '\n');
+    }
     fflush(f);
-
     console_put_text("File saved.");
   }
 }
 
 void init(int argc, char **argv) {
+  init_var_table();
+
   const char *filename = nullptr;
   if(argc > 1) {
     filename = argv[1];
@@ -511,6 +523,7 @@ void init(int argc, char **argv) {
     // No positional arguments provided.
     // filename == nullptr.
   }
+
 
   assert(editor.tabs.size == 0);
   editor.tabs.push(create_tab_from_file(filename));
@@ -554,6 +567,9 @@ void update() {
 
 void go_to_line(unsigned line) {
   auto &buffer = get_current_buffer();
+  print(buffer.total_lines);
+  if(!buffer.total_lines) return;
+
   if(line > buffer.total_lines) {
     line = buffer.total_lines;
   } else if(line == 0) {

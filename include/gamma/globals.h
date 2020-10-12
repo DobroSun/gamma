@@ -20,6 +20,8 @@ inline char dt_scroll = 3;
 
 inline const int MAX_CONSOLE_COMMAND_SIZE = 512;
 
+inline bool show_fps = false;
+
 
 // @CleanUp.
 inline const char *assets_fonts = "../assets/fonts/";

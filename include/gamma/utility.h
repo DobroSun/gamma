@@ -3,6 +3,7 @@
 #include <iostream> // for print, and printFPS.
 #include <chrono>
 #include <cstring> // strncmp.
+#include <unistd.h>
 
 inline char *concat(const char *a, const char *b) {
   char *ret;
@@ -51,17 +52,8 @@ void print(T&& first, Args&&... rest) {
   print(std::forward<Args>(rest)...);
 }
 
-#define begin_clock auto begin = std::chrono::steady_clock::now()
-#define end_clock auto end = std::chrono::steady_clock::now()
-#define nanoseconds_diff std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin).count()
-#define print_nanoseconds std::cout << nanoseconds_diff << std::endl
+#define sleep(x) usleep(x)
 
-#define printFPS \
-  begin_clock;   \
-  defer {        \
-    end_clock;   \
-    std::cout << 1000000000 / nanoseconds_diff << std::endl; \
-  }
 
 #define for_each(c_array) for(auto it = c_array; *it != '\0'; it++)
 
