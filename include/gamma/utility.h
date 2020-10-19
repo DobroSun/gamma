@@ -122,4 +122,14 @@ inline std::ostream& operator<<(std::ostream &os, const literal &l) {
   return os;
 }
 
+#define arr_size(x) (sizeof((x)) / sizeof(*(x)))
+#define get_string_from_literal(name, l) \
+  char name[l.size+1]; \
+  { \
+    for(decltype(l.size) i = 0; i < l.size; i++) { \
+      name[i] = l.data[i]; \
+    } \
+    name[l.size] = '\0'; \
+  } \
+
 #endif

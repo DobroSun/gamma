@@ -3,8 +3,10 @@
 #include "gamma/console.h"
 #include "gamma/buffer.h"
 #include "gamma/init.h"
+#include "gamma/commands.h"
 
-// @nochecking: @CleanUp: @Temporary:
+
+// @CleanUp: @Temporary:
 size_t hash_literal(const literal &l) {
 	const size_t prime = 31;
 	size_t result = 0;
@@ -33,9 +35,11 @@ enum TokenType {
   Float32Type    = 260,
   Float64Type    = 261,
   IdentifierType = 262,
+  LiteralType    = 263,
 
   QuitCommandType = 400,
   SetCommandType  = 401,
+  SplitCommandType = 402,
 };
 
 union RValue {
@@ -93,6 +97,7 @@ enum Ast_Type {
   Ast_Error_Type,
   Ast_Quit_Type,
   Ast_Set_Type,
+  Ast_Split_Type,
 };
 
 struct Ast_Expression {
@@ -109,9 +114,13 @@ struct Ast_Quit: public Ast_Expression {
 
 struct Ast_Set: public Ast_Expression {
   using Ast_Expression::Ast_Expression;
-
   literal name;
   Var     var;
+};
+
+struct Ast_Split: public Ast_Expression {
+  using Ast_Expression::Ast_Expression;
+  literal path;
 };
 
 
@@ -124,10 +133,10 @@ struct Keyword_Def {
   TokenType type;
 };
 
-static const int N_KEYWORDS = 2;
-static const Keyword_Def table[N_KEYWORDS] = {
+static const Keyword_Def table[] = {
   {"quit", QuitCommandType},
   {"set",  SetCommandType},
+  {"split",  SplitCommandType},
 };
 
 static void set_token(const literal &l, const TokenType t) {
@@ -168,6 +177,20 @@ static void set_num_token(const char *&c) {
   while(isdigit(*c)) c++;
 }
 
+static void set_literal_token(const char *&c) {
+  c++;
+  int count = 0;
+  while(c[count] != '\0') {
+    if(c[count] == '\"' || c[count] == '\'') break;
+    count++;
+  }
+  current_tok.type = LiteralType;
+  current_tok.string_literal.data = c;
+  current_tok.string_literal.size = count;
+  c += count;
+  c++;
+}
+
 static void set_ident_token(const char *&c) {
   current_tok.string_literal.data = c;
   current_tok.type = IdentifierType;
@@ -181,13 +204,17 @@ static void set_ident_token(const char *&c) {
 }
 
 static bool is_keyword(const char *cursor) {
-  for(int i = 0; i < N_KEYWORDS; i++) {
+  for(int i = 0; i < arr_size(table); i++) {
     if(cursor == table[i].name) {
       found_keyword = i;
       return true;
     }
   }
   return false;
+}
+
+static bool is_literal(char c) {
+  return c == '\"' || c == '\'';
 }
 
 static bool is_number(char c) {
@@ -199,6 +226,10 @@ static Token *get_next_token() {
   while(*cursor != '\0') {
     if(is_number(*cursor)) {
       set_num_token(cursor);
+      return &current_tok;
+
+    } else if(is_literal(*cursor)) {
+      set_literal_token(cursor);
       return &current_tok;
   
     } else if(is_boolean(cursor)) {
@@ -300,7 +331,7 @@ static Ast_Expression *parse() {
       expr->var.value.float64_value = tok->value.float64_value;
 
     } else {
-      // report error.
+      // @Incomplete: report error.
       failed = true;
       return expr;
     }
@@ -309,6 +340,23 @@ static Ast_Expression *parse() {
     if(tok->type != EndOfLineType) {
       failed = true;
       return expr;
+    }
+    return expr;
+
+  } else if(tok->type == SplitCommandType) {
+    auto expr = NEW_AST(Ast_Split);
+    defer { if(failed) DELETE_AST(expr); expr = nullptr; };
+
+    tok = get_next_token();
+    if(tok->type == LiteralType) {
+      expr->path = tok->string_literal;
+
+    } else if(tok->type == EndOfLineType) {
+      expr->path.data = nullptr;
+      
+    } else {
+      // @Incomplete: report error.
+      failed = true;
     }
     return expr;
   
@@ -324,18 +372,17 @@ static Ast_Expression *parse() {
   return nullptr;
 }
 
+#define DEALLOC_JUST(ast_type) \
+  case ast_type##_Type: { \
+    auto e = static_cast<ast_type *>(ast); \
+    DELETE_AST(e); \
+  } break;
+
 static void dealloc(Ast_Expression *ast) {
   switch(ast->type) {
-    case Ast_Quit_Type: {
-      auto e = static_cast<Ast_Quit *>(ast);
-      DELETE_AST(e);
-    } break;
-
-    case Ast_Set_Type: {
-      auto e = static_cast<Ast_Set *>(ast);
-      DELETE_AST(e);
-    } break;
-
+    DEALLOC_JUST(Ast_Quit);
+    DEALLOC_JUST(Ast_Set);
+    DEALLOC_JUST(Ast_Split);
     default: {
     } break;
   }
@@ -385,7 +432,7 @@ void interp(const char *s) {
     switch(ast->type) {
       case Ast_Quit_Type: {
         auto e = static_cast<Ast_Quit *>(ast);
-        exit(e->err_code);
+        quit(e->err_code);
       } break;
 
       case Ast_Set_Type: {
@@ -398,6 +445,11 @@ void interp(const char *s) {
         // 
         attach_table[e->name] = e->var;
         update_variables();
+      } break;
+
+      case Ast_Split_Type: {
+        auto e = static_cast<Ast_Split *>(ast);
+        split(e->path);
 
       } break;
       

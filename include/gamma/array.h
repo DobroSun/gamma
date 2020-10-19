@@ -46,18 +46,20 @@ struct dyn_array {
     data = new T[cap];
   }
 
-  void push(const T &val) {
+  T &add(const T &val) {
     if(size == capacity) {
       reserve();
     }
-    data[size++] = val;
+    data[size] = val;
+    return data[size++];
   }
 
-  void push(T &&val) {
+  T &add(T &&val) {
     if(size == capacity) {
       reserve();
     }
-    data[size++] = std::move(val);
+    data[size] = std::move(val);
+    return data[size++];
   }
 
   void reserve(unsigned new_cap=0) {

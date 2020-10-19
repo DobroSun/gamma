@@ -8,7 +8,9 @@
 
 #include <fcntl.h>
 
+
 static editor_t editor;
+
 
 tab_buffer_t &get_current_tab() {
   assert(editor.active_tab);
@@ -21,33 +23,14 @@ buffer_t &get_current_buffer() {
   return *tab.active_buffer;
 }
 
-#if 0
-static char *read_file_to_string(FILE *f) {
-  char *ret;
-  fseek(f, 0, SEEK_END);
-  size_t size = ftell(f);
-  rewind(f);
-
-  ret = (char*)malloc(sizeof(char) * size);
-  assert(ret);
-
-  auto res = fread(ret, sizeof(char), size, f);
-  if(res != size) {
-    fprintf(stderr, "@Incomplete\n");
-  }
-  return ret;
-}
-#endif
-
-static buffer_t read_entire_file(FILE *f) {
+void read_entire_file(buffer_t *ret, FILE *f) {
   assert(f);
-  buffer_t ret;
 
   fseek(f, 0, SEEK_END);
   size_t size = ftell(f);
 
-  auto &array = ret.buffer.array;
-  auto gap_len = ret.buffer.gap_len;
+  auto &array = ret->buffer.array;
+  auto gap_len = ret->buffer.gap_len;
 
   array.resize(size+gap_len);
 
@@ -57,21 +40,11 @@ static buffer_t read_entire_file(FILE *f) {
   if(res != size) {
     fprintf(stderr, "@Incomplete\n");
   }
-
-  return ret;
 }
 
-static FILE *get_file_handle(const char *filename, const char *mods) {
+
+FILE *get_file_or_create(const char *filename, const char *mods) {
   FILE *ret = fopen(filename, mods);
-  if(!ret) {
-    return nullptr;
-  } else {
-    return ret;
-  }
-}
-
-static FILE *get_file_or_create(const char *filename, const char *mods) {
-  FILE *ret = get_file_handle(filename, mods);
   if(!ret) {
     int fd = open(filename, O_RDWR | O_CREAT, 0);
     if(!fd) {
@@ -85,41 +58,23 @@ static FILE *get_file_or_create(const char *filename, const char *mods) {
   }
 }
 
-static void close_file(FILE *f) {
-  fclose(f);
-}
 
-static buffer_t create_buffer_with_name(const char *name) {
+static buffer_t open_buffer(const char *filename) {
   buffer_t ret;
-  ret.filename = name;
+  ret.filename = filename;
+  if(!filename) return ret;
+
+  if(FILE *file = fopen(filename, "r")) {
+    defer { fclose(file); };
+    read_entire_file(&ret, file);
+  }
   return ret;
 }
 
-static buffer_t create_buffer_with_no_name() {
-  return create_buffer_with_name(nullptr);
-}
-
-static buffer_t create_buffer_from_file(const char *filename) {
-  if(!filename) {
-    return create_buffer_with_no_name();
-    
-  } else {
-    FILE *file = get_file_handle(filename, "r");
-    defer { if(file) close_file(file); };
-
-    if(file) {
-      return read_entire_file(file);
-    } else {
-      return create_buffer_with_name(filename);
-    }
-  }
-}
-
-static tab_buffer_t create_tab_from_file(const char *filename) {
+static tab_buffer_t open_tab(const char *filename) {
   tab_buffer_t tab;
-  tab.buffers.push(create_buffer_from_file(filename));
-  tab.active_buffer = &tab.buffers[0];
-  assert(tab.buffers.size == 1);
+  auto &written = tab.buffers.add(open_buffer(filename));
+  tab.active_buffer = &written;
   return tab;
 }
 
@@ -182,7 +137,7 @@ void buffer_t::draw() const {
     auto t = get_alphabet()[c];
     assert(t);
 
-    if(px > width-font_width) {
+    if(px > start_x+width-font_width) {
       continue;
     }
     if(py >= get_console()->bottom_y - font_height) {
@@ -255,7 +210,7 @@ bool buffer_t::cursor_on_last_line() const {
 }
 
 bool buffer_t::char_fits_on_buffer_width() const {
-  return n_character - offset_on_line <= num_chars_fits_to_buffer_width();
+  return n_character - offset_on_line <= (unsigned)num_chars_fits_to_buffer_width();
 }
 
 int buffer_t::num_chars_fits_to_buffer_width() const {
@@ -411,7 +366,7 @@ void buffer_t::put_return() {
 void buffer_t::put(char c) {
   buffer.add(c);
   inc_cursor();
-  if(get_relative_pos_x(n_character-offset_on_line) > width-font_width) {
+  if(!char_fits_on_buffer_width()) {
     offset_on_line++;
   }
 }
@@ -480,41 +435,6 @@ void buffer_t::scroll_up() {
 
 void buffer_t::init(const char *f, int x, int y, int w, int h) {
   filename = f; start_x = x; start_y = y; width = w; height = h;
-
-  auto count = 0u;
-  for(auto i = 0u; i < buffer.size(); i++) {
-    if(buffer[i] == '\n') {
-      count++;
-    }
-  }
-}
-
-void buffer_t::save() {
-  if(!filename) {
-    console_put_text("File has no name.");
-
-  } else {
-    assert(filename);
-    FILE *f = get_file_or_create(filename, "w");
-    defer { close_file(f); };
-
-    if(!f) {
-      // @Incomplete.
-      print("No file for me (:");
-    }
-
-    unsigned i = 0u;
-    for( ; i < buffer.size(); i++) {
-      fprintf(f, "%c", buffer[i]);
-    }
-    if(!buffer.size() || buffer[i-1] != '\n') {
-      put('\n');
-      go_left();
-      save();
-    }
-    fflush(f);
-    console_put_text("File saved.");
-  }
 }
 
 void init(int argc, char **argv) {
@@ -530,7 +450,7 @@ void init(int argc, char **argv) {
 
 
   assert(editor.tabs.size == 0);
-  editor.tabs.push(create_tab_from_file(filename));
+  editor.tabs.add(open_tab(filename));
   editor.active_tab = &editor.tabs[0];
   assert(editor.tabs.size == 1);
 
@@ -567,24 +487,4 @@ void update() {
       update_console();
     } break;
   }
-}
-
-void go_to_line(int line) {
-  auto &buffer = get_current_buffer();
-  auto total_lines = buffer.get_total_lines();
-
-  if(line < 0) {
-    line = total_lines + line;
-    if(line <= 0) {
-      line = 1;
-    }
-
-  } else if(line > total_lines) {
-    line = total_lines;
-  } else if(line == 0) {
-    line++;
-  }
-
-  while(line > buffer.n_line+1) buffer.go_down();
-  while(line < buffer.n_line+1) buffer.go_up();
 }

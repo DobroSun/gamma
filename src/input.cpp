@@ -3,6 +3,7 @@
 #include "gamma/buffer.h"
 #include "gamma/init.h"
 #include "gamma/console.h"
+#include "gamma/commands.h"
 
 static EditorMode mode = EditorMode::Editor;
 
@@ -31,10 +32,6 @@ static void handle_mouse_wheel(SDL_Event e) {
   }
 }
 
-static void save_file() {
-  get_current_buffer().save();
-}
-
 
 static void handle_editor_keydown(SDL_Event e) {
   auto key = e.key.keysym.sym;
@@ -49,7 +46,7 @@ static void handle_editor_keydown(SDL_Event e) {
       console_open();
 
     } else if(key == SDLK_c) {
-      save_file();
+      save();
     }
 
   } else {

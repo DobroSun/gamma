@@ -5,6 +5,7 @@ tab_buffer_t &get_current_tab();
 buffer_t &get_current_buffer();
 
 
+
 struct editor_t {
   dyn_array<tab_buffer_t> tabs;
   tab_buffer_t *active_tab = nullptr;
@@ -81,5 +82,6 @@ private:
 void init(int, char**);
 void update();
 
-void go_to_line(int);
+FILE *get_file_or_create(const char *, const char *);
+buffer_t read_entire_file(FILE *);
 #endif
