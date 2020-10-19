@@ -21,6 +21,24 @@ buffer_t &get_current_buffer() {
   return *tab.active_buffer;
 }
 
+#if 0
+static char *read_file_to_string(FILE *f) {
+  char *ret;
+  fseek(f, 0, SEEK_END);
+  size_t size = ftell(f);
+  rewind(f);
+
+  ret = (char*)malloc(sizeof(char) * size);
+  assert(ret);
+
+  auto res = fread(ret, sizeof(char), size, f);
+  if(res != size) {
+    fprintf(stderr, "@Incomplete\n");
+  }
+  return ret;
+}
+#endif
+
 static buffer_t read_entire_file(FILE *f) {
   assert(f);
   buffer_t ret;
@@ -194,10 +212,6 @@ int buffer_t::get_relative_pos_y(int n_place) const {
   return start_y + font_height * n_place;
 }
 
-int buffer_t::get_offset_from_relative_x(int window_x) const {
-  return (window_x - start_y) / font_width;
-}
-
 void buffer_t::draw_cursor(char c, int px, int py, SDL_Color color1, SDL_Color color2) const {
   const char b[2] = {c, '\0'};
   draw_text_shaded(get_font(), reinterpret_cast<const char *>(&b), color1, color2, px, py);
@@ -223,7 +237,8 @@ bool buffer_t::is_first_line() const {
 }
 
 bool buffer_t::cursor_on_first_line() const {
-  auto i = 0u;
+  if(cursor == 0) return true;
+  unsigned i = 0;
   for( ; buffer[i] != '\n'; i++) {
     if(i == cursor) return true;
   }
@@ -232,17 +247,50 @@ bool buffer_t::cursor_on_first_line() const {
 }
 
 bool buffer_t::cursor_on_last_line() const {
+  if(cursor == buffer.size()) return true;
   for(auto i = cursor; buffer[i] != '\n'; i++) {
     if(i == buffer.size()-2) return true;
   }
   return false;
 }
 
-unsigned buffer_t::get_cursor_pos_x() const {
+bool buffer_t::char_fits_on_buffer_width() const {
+  return n_character - offset_on_line <= num_chars_fits_to_buffer_width();
+}
+
+int buffer_t::num_chars_fits_to_buffer_width() const {
+  return width/font_width - 1;
+}
+
+int buffer_t::num_to_shift_down_on_scrolling() const {
+  int count = 0;
+  for(auto i = offset_from_beginning; buffer[i] != '\n'; i++) {
+    count++;
+  }
+  count++; // '\n'.
+  return count;
+}
+
+int buffer_t::num_to_shift_up_on_scrolling() const {
+  int count = 0;
+  if(offset_from_beginning < 2) {
+    count++;
+
+  } else {
+    for(auto i = offset_from_beginning-2; buffer[i] != '\n'; i--) {
+      count++;
+      if(i == 0) break;
+    }
+    count++;
+  }
+  return count;
+}
+
+int buffer_t::get_cursor_pos_x() const {
   if(cursor == 0) return 0;
 
-  auto tmp = cursor-1;
-  auto ret = 0u;
+  int tmp = cursor-1;
+  int ret = 0;
   while(buffer[tmp] != '\n') {
     ret++;
 
@@ -255,34 +303,32 @@ unsigned buffer_t::get_cursor_pos_x() const {
   return ret;
 }
 
-void buffer_t::inc_cursor() {
-  if(cursor == buffer.size()) {
-    // Do nothing.
-  } else {
-    if(buffer[cursor] == '\n') {
-      n_character = 0;
-      n_line++;
-    } else {
-      n_character++;
-    }
-    cursor++;
+int buffer_t::get_total_lines() const {
+  int count = 0;
+  for(auto i = 0u; i < buffer.size(); i++) {
+    if(buffer[i] == '\n') count++;
   }
+  return count;
+}
+
+void buffer_t::inc_cursor() {
+  if(buffer[cursor] == '\n') {
+    n_character = 0;
+    n_line++;
+  } else {
+    n_character++;
+  }
+  cursor++;
 }
 
 
 void buffer_t::dec_cursor() {
-  if(cursor == 0) {
-    assert(n_character == 0);
-    assert(n_line == 0);
-    // Do nothing.
+  cursor--;
+  if(buffer[cursor] == '\n') {
+    n_character = get_cursor_pos_x();
+    n_line--;
   } else {
-    cursor--;
-    if(buffer[cursor] == '\n') {
-      n_character = get_cursor_pos_x();
-      n_line--;
-    } else {
-      n_character--;
-    }
+    n_character--;
   }
 }
 
@@ -297,10 +343,11 @@ void buffer_t::dec_start(int n) {
 }
 
 void buffer_t::go_right() {
+  if(cursor == buffer.size()) return;
   buffer.move_right();
   inc_cursor();
   
-  if(get_relative_pos_x(n_character-offset_on_line) > width-font_width) {
+  if(!char_fits_on_buffer_width()) {
     offset_on_line++;
   }
 
@@ -308,22 +355,15 @@ void buffer_t::go_right() {
     offset_on_line = 0;
   }
 
-
-  if((height / font_height) + start_pos == n_line) {
-    // @CleanUp. @Copy&Paste from scroll down.
-    auto count = 0u;
-    for(auto i = offset_from_beginning; buffer[i] != '\n'; i++) {
-      count++;
-    }
-    count++; // '\n'.
-    // end.
-
-    inc_start(count);
+  if((height / font_height) + start_pos == n_line) {  
+    int shift = num_to_shift_down_on_scrolling();
+    inc_start(shift);
   }
-
 }
 
+
 void buffer_t::move_left() {
+  if(cursor == 0) return;
   dec_cursor();
 
   if(n_character < offset_on_line) {
@@ -332,29 +372,14 @@ void buffer_t::move_left() {
 
   if(buffer[cursor] == '\n') {
     assert(offset_on_line == 0);
-    if(get_relative_pos_x(n_character) > width-font_width) {
-      unsigned offset = get_offset_from_relative_x(width-font_width);
-      assert(n_character > offset);
-      offset_on_line = n_character - offset_on_line - offset;
+    if(!char_fits_on_buffer_width()) {
+      offset_on_line = n_character - num_chars_fits_to_buffer_width();
     }
   }
 
-  // @CleanUp.
   if(start_pos-1 == n_line && start_pos != 0) {
-    // @CleanUp. @Copy&Paste from scroll_up.
-    auto count = 0u;
-    if(offset_from_beginning < 2) {
-      count++;
-
-    } else {
-      for(auto i = offset_from_beginning-2; buffer[i] != '\n'; i--) {
-        count++;
-        if(i == 0) break;
-      }
-      count++;
-    }
-
-    dec_start(count);
+    int shift = num_to_shift_up_on_scrolling();
+    dec_start(shift);
   }
 }
 
@@ -367,15 +392,12 @@ void buffer_t::put_backspace() {
   if(cursor == 0) {
     // Do nothing.
   } else {
-    if(buffer[cursor-1] == '\n' || buffer.size() == 1) total_lines--;
-
     move_left();
   }
   buffer.backspace();
 }
 
 void buffer_t::put_delete() {
-  if(buffer[cursor] == '\n') total_lines--;
   buffer.del();
 }
 
@@ -384,15 +406,11 @@ void buffer_t::put_return() {
   inc_cursor();
 
   offset_on_line = 0;
-  total_lines++;
 }
 
 void buffer_t::put(char c) {
-  if(!total_lines) total_lines++;
   buffer.add(c);
-
   inc_cursor();
-
   if(get_relative_pos_x(n_character-offset_on_line) > width-font_width) {
     offset_on_line++;
   }
@@ -402,7 +420,6 @@ void buffer_t::go_down() {
   if(cursor_on_last_line()) return;
 
   auto prev_character_pos = n_character;
-
   for(auto i = cursor; buffer[i] != '\n'; i++) {
     go_right();
   }
@@ -421,51 +438,44 @@ void buffer_t::go_up() {
   for(auto i = 0u; i < prev_character_pos; i++) {
     go_left();
   }
+
+  assert(n_character == 0 && offset_on_line == 0);
   go_left();
 
-  while(n_character > prev_character_pos) {
+  while(n_character > 0) {
     go_left();
     if(buffer[cursor] == '\n') break;
+  }
+
+  while(n_character < prev_character_pos) {
+    if(buffer[cursor] == '\n') break;
+    go_right();
   }
 }
 
 void buffer_t::scroll_down() {
   if(is_last_line()) return;
+   
+  int shift = num_to_shift_down_on_scrolling();
 
-  auto count = 0u;
-  for(auto i = offset_from_beginning; buffer[i] != '\n'; i++) {
-    count++;
-  }
-  count++; // '\n'.
-
-  bool cursor_should_go_down = start_pos == n_line;
-  if(cursor_should_go_down) {
+  if(start_pos == n_line) {
     go_down();
   }
 
-  inc_start(count);
+  inc_start(shift);
 }
 
 void buffer_t::scroll_up() {
   if(is_first_line()) return;
 
-  auto count = 0u;
-  if(offset_from_beginning < 2) {
-    count++;
-
-  } else {
-    for(auto i = offset_from_beginning-2; buffer[i] != '\n'; i--) {
-      count++;
-      if(i == 0) break;
-    }
-    count++;
-  }
 
   bool cursor_should_go_up = (height / font_height) + start_pos - 1 == n_line;
   if(cursor_should_go_up) {
     go_up();
   }
-  dec_start(count);
+
+  int shift = num_to_shift_up_on_scrolling();
+  dec_start(shift);
 }
 
 void buffer_t::init(const char *f, int x, int y, int w, int h) {
@@ -477,10 +487,9 @@ void buffer_t::init(const char *f, int x, int y, int w, int h) {
       count++;
     }
   }
-  total_lines = count;
 }
 
-void buffer_t::save() const {
+void buffer_t::save() {
   if(!filename) {
     console_put_text("File has no name.");
 
@@ -499,14 +508,9 @@ void buffer_t::save() const {
       fprintf(f, "%c", buffer[i]);
     }
     if(!buffer.size() || buffer[i-1] != '\n') {
-      // @Fix:
-      // 1) total_lines breaks when we edit file that doesn't ends up with '\n'.
-      //  Problem is we can access text after buffer, so it's possible to write
-      //  something after last '\n'. we probably need to fix it.
-      // 2) that causes bugs in go_to_line function.
-      // 3) here we have to put it.
-      // 
-      fprintf(f, "%c", '\n');
+      put('\n');
+      go_left();
+      save();
     }
     fflush(f);
     console_put_text("File saved.");
@@ -565,13 +569,18 @@ void update() {
   }
 }
 
-void go_to_line(unsigned line) {
+void go_to_line(int line) {
   auto &buffer = get_current_buffer();
-  print(buffer.total_lines);
-  if(!buffer.total_lines) return;
+  auto total_lines = buffer.get_total_lines();
 
-  if(line > buffer.total_lines) {
-    line = buffer.total_lines;
+  if(line < 0) {
+    line = total_lines + line;
+    if(line <= 0) {
+      line = 1;
+    }
+
+  } else if(line > total_lines) {
+    line = total_lines;
   } else if(line == 0) {
     line++;
   }

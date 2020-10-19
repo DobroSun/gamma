@@ -21,9 +21,10 @@
 
 int main(int argc, char **argv) {
   if(Init_SDL()) return 1;
-  init(argc, argv);
 
+  init(argc, argv);
   destruct;
+    
 
   while(!should_quit) {
     auto begin = std::chrono::steady_clock::now();
@@ -31,7 +32,7 @@ int main(int argc, char **argv) {
       auto end = std::chrono::steady_clock::now();
       double cur_time = std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count();
       unsigned to_sleep = 1000000/60 - cur_time;
-      sleep(to_sleep);
+      //sleep(to_sleep);
       if(show_fps) {
         end = std::chrono::steady_clock::now();
         cur_time = std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count();
@@ -40,7 +41,6 @@ int main(int argc, char **argv) {
         print(fps);
       }
     };
-    //printFPS;
     process_input();
     update();
   }

@@ -2,6 +2,7 @@
 #include "gamma/interp.h"
 #include "gamma/console.h"
 #include "gamma/buffer.h"
+#include "gamma/init.h"
 
 // @nochecking: @CleanUp: @Temporary:
 size_t hash_literal(const literal &l) {
@@ -189,10 +190,14 @@ static bool is_keyword(const char *cursor) {
   return false;
 }
 
+static bool is_number(char c) {
+  return isdigit(c) || c == '-';
+}
+
 
 static Token *get_next_token() {
   while(*cursor != '\0') {
-    if(isdigit(*cursor)) {
+    if(is_number(*cursor)) {
       set_num_token(cursor);
       return &current_tok;
   
@@ -209,7 +214,7 @@ static Token *get_next_token() {
       set_token(kw.name, kw.type);
       return &current_tok;
 
-    } else if(isalpha(*cursor)) {
+    } else if(isalpha(*cursor) || *cursor == '_') {
       set_ident_token(cursor);
       return &current_tok;
 
@@ -345,9 +350,20 @@ static void attach_value(bool *val, const literal &name) {
   if(r->type == BooleanType) {
     *val = r->value.boolean_value;
   } else {
-    // report error.
+    // @Incomplete: report error.
     r->type = BooleanType;
     r->value.boolean_value = *val;
+  }
+}
+
+static void attach_value(int *val, const literal &name) {
+  Var *r = &attach_table[name];
+  if(r->type == IntegerType) {
+    *val = r->value.integer_value;
+  } else {
+    // @Incomplete: report error.
+    r->type = IntegerType;
+    r->value.integer_value = *val;
   }
 }
 
@@ -363,10 +379,9 @@ static void update_variables() {
 void interp(const char *s) {
   cursor = s;
 
-  Ast_Expression *ast = parse();
-  defer { if(ast) dealloc(ast); };
+  if(Ast_Expression *ast = parse()) {
+    defer { dealloc(ast); };
 
-  if(ast) {
     switch(ast->type) {
       case Ast_Quit_Type: {
         auto e = static_cast<Ast_Quit *>(ast);
@@ -389,7 +404,6 @@ void interp(const char *s) {
       default: {
       } break;
     }
-  } else {
   }
   cursor = nullptr;
 }
