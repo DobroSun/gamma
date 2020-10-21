@@ -132,4 +132,14 @@ inline std::ostream& operator<<(std::ostream &os, const literal &l) {
     name[l.size] = '\0'; \
   } \
 
+inline literal null_terminate(const literal &l) {
+  get_string_from_literal(s, l);
+  return literal{s, l.size+1};
+}
+
+
+
+
+
+
 #endif

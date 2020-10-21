@@ -15,18 +15,18 @@ static void handle_resize(SDL_Event e) {
   if(e.window.event == SDL_WINDOWEVENT_RESIZED) {
     SDL_GetWindowSize(get_win(), &Width, &Height);
 
-    auto &tab = get_current_tab();
-    tab.on_resize(Width, Height);
+    auto tab = get_current_tab();
+    tab->on_resize(Width, Height);
   }
 }
 
 static void handle_mouse_wheel(SDL_Event e) {
-  auto &buffer = get_current_buffer();
+  auto buffer = get_current_buffer();
   if(e.wheel.y > 0) {
-    do_times(dt_scroll, buffer.scroll_up);
+    do_times(dt_scroll, buffer->scroll_up);
 
   } else if(e.wheel.y < 0) {
-    do_times(dt_scroll, buffer.scroll_down);
+    do_times(dt_scroll, buffer->scroll_down);
 
   } else {
   }
@@ -54,32 +54,32 @@ static void handle_editor_keydown(SDL_Event e) {
       should_quit = true;
 
     } else if(key == SDLK_RETURN) {
-      get_current_buffer().put_return();
+      get_current_buffer()->put_return();
     
     } else if(key == SDLK_BACKSPACE) {
-      get_current_buffer().put_backspace();
+      get_current_buffer()->put_backspace();
     
     } else if(key == SDLK_DELETE) {
-      get_current_buffer().put_delete();
+      get_current_buffer()->put_delete();
     
     } else if(key == SDLK_LEFT) {
-      get_current_buffer().go_left();
+      get_current_buffer()->go_left();
     
     } else if(key == SDLK_RIGHT) {
-      get_current_buffer().go_right();
+      get_current_buffer()->go_right();
     
     } else if(key == SDLK_DOWN) {
-      get_current_buffer().go_down();
+      get_current_buffer()->go_down();
     
     } else if(key == SDLK_UP) {
-      get_current_buffer().go_up();
+      get_current_buffer()->go_up();
     }
   }
 }
 
 static void handle_editor_input(SDL_Event e) {
   char c = e.text.text[0];
-  get_current_buffer().put(c);
+  get_current_buffer()->put(c);
 }
 
 static void handle_console_keydown(SDL_Event e) {

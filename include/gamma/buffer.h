@@ -1,28 +1,16 @@
 #ifndef GAMMA_BUFFER_H
 #define GAMMA_BUFFER_H
 
-tab_buffer_t &get_current_tab();
-buffer_t &get_current_buffer();
 
-
-
-struct editor_t {
-  dyn_array<tab_buffer_t> tabs;
-  tab_buffer_t *active_tab = nullptr;
+struct file_buffer_t {
+  gap_buffer buffer;
+  bool is_used = false;
 };
-
-struct tab_buffer_t {
-  dyn_array<buffer_t> buffers;
-  buffer_t *active_buffer = nullptr;
-
-  void draw() const;
-  void on_resize(int,int);
-};
-
 
 struct buffer_t {
-  gap_buffer buffer;
-  const char *filename;
+  file_buffer_t *file;
+  bool is_used = false;
+  literal filename; // @Note: needs to be null-terminated to call c-std functions.
 
 
   // Position on the window.
@@ -31,7 +19,7 @@ struct buffer_t {
   unsigned offset_on_line = 0, offset_from_beginning = 0, start_pos = 0;
 
 
-  void init(const char*,int,int,int,int);
+  void init(literal,int,int,int,int);
   void draw() const;
   void save();
   void on_resize(int,int,int,int);
@@ -79,9 +67,29 @@ private:
   bool is_end_of_line(char) const;
 };
 
+
+struct tab_t {
+  buffer_t buffers[4];
+  bool is_used = false;
+
+  void on_resize(int,int);
+  void draw() const;
+};
+
+tab_t *get_current_tab();
+buffer_t *get_current_buffer();
+
+
+
+
 void init(int, char**);
 void update();
 
+void open_new_buffer(literal);
+void open_existing_or_new_buffer(literal);
+void open_existing_buffer(buffer_t *);
+
+
 FILE *get_file_or_create(const char *, const char *);
-buffer_t read_entire_file(FILE *);
+void read_entire_file(gap_buffer *, FILE *);
 #endif

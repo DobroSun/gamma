@@ -16,8 +16,8 @@ class gap_buffer;
 class buffer_t;
 struct console_t;
 
-struct editor_t;
-struct tab_buffer_t;
+struct tab_t;
+struct file_buffer_t;
 
 enum class EditorMode;
 

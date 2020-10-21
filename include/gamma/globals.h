@@ -24,7 +24,7 @@ inline bool show_fps = false;
 
 
 // @CleanUp.
-inline const char *assets_fonts = "../assets/fonts/";
+inline const char *assets_fonts = "/gamma/assets/fonts/";
 
 
 const SDL_Color WhiteColor {255, 255, 255, 255};

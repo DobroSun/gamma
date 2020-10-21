@@ -449,7 +449,19 @@ void interp(const char *s) {
 
       case Ast_Split_Type: {
         auto e = static_cast<Ast_Split *>(ast);
-        split(e->path);
+        //literal l = null_terminate(e->path);
+        //split(l);
+
+        // @Incomplete:
+        // This thing must give dynamic strings.
+        // cause otherwise, if we keep pointer
+        // to string, after leaving current
+        // scope, it also goes down.
+        // 
+        // Or we can pass literals everywhere, and then allocate
+        // while saving filenames.
+
+        split(e->path); // @Temporary:
 
       } break;
       

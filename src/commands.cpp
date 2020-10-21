@@ -4,8 +4,8 @@
 #include "gamma/buffer.h"
 
 void go_to_line(int line) {
-  auto &buffer = get_current_buffer();
-  auto total_lines = buffer.get_total_lines();
+  auto buffer = get_current_buffer();
+  auto total_lines = buffer->get_total_lines();
 
   if(line < 0) {
     line = total_lines + line;
@@ -19,19 +19,19 @@ void go_to_line(int line) {
     line++;
   }
 
-  while(line > (int)buffer.n_line+1) buffer.go_down();
-  while(line < (int)buffer.n_line+1) buffer.go_up();
+  while(line > (int)buffer->n_line+1) buffer->go_down();
+  while(line < (int)buffer->n_line+1) buffer->go_up();
 }
 
 
 void save() {
-  auto &buffer = get_current_buffer();
-  if(!buffer.filename) {
+  auto buffer = get_current_buffer();
+  if(!buffer->filename.data) {
     console_put_text("File has no name.");
 
   } else {
-    assert(buffer.filename);
-    FILE *f = get_file_or_create(buffer.filename, "w");
+    assert(buffer->filename.data);
+    FILE *f = get_file_or_create(buffer->filename.data, "w");
     defer { fclose(f); };
 
     if(!f) {
@@ -40,12 +40,12 @@ void save() {
     }
 
     unsigned i = 0u;
-    for( ; i < buffer.buffer.size(); i++) {
-      fprintf(f, "%c", buffer.buffer[i]);
+    for( ; i < buffer->file->buffer.size(); i++) {
+      fprintf(f, "%c", buffer->file->buffer[i]);
     }
-    if(!buffer.buffer.size() || buffer.buffer[i-1] != '\n') {
-      buffer.put('\n');
-      buffer.go_left();
+    if(!buffer->file->buffer.size() || buffer->file->buffer[i-1] != '\n') {
+      buffer->put('\n');
+      buffer->go_left();
       save();
     }
     fflush(f);
@@ -58,33 +58,25 @@ void quit(int e) {
 }
 
 void split(const literal &l) {
-  auto &tab = get_current_tab();
+  auto tab = get_current_tab();
   if(!l.data) {
+    auto p_buf = get_current_buffer();
+    open_existing_buffer(p_buf);
+    auto n_buf = get_current_buffer();
+
+    { // TODO: Generalize for all cases.
+      n_buf->init(l, Width-p_buf->width/2., 0, p_buf->width/2., p_buf->height);
+      p_buf->init(p_buf->filename, 0, 0, p_buf->width/2., p_buf->height);
+    }
 
   } else {
-#if 0
-    get_string_from_literal(filename, l);
-    buffer_t buf;
-    bool new_file = true;
-    for(auto i = 0u; i < tab.buffers.size; i++) {
-      if(tab.buffers[i].filename == e->path) {
-        //buf.buffer = 
-        new_file = false;
-        break;
-      }
+    auto *p_buf = get_current_buffer();
+    open_existing_or_new_buffer(l);
+    auto *n_buf = get_current_buffer();
+
+    {
+      n_buf->init(l, Width-p_buf->width/2., 0, p_buf->width/2., p_buf->height);
+      p_buf->init(p_buf->filename, 0, 0, p_buf->width/2., p_buf->height);
     }
-    /*
-    FILE *f = get_file_or_create(filename, "r");
-    defer { fclose(f); };
-    */
-
-
-    auto &b = tab.buffers.add(read_entire_file(f));
-    auto &p = tab.buffers[0]; // @Hardcode:
-    b.init(filename, Width - p.width/2, 0, p.width/2, p.height);
-    p.init(p.filename, 0, 0, p.width/2, p.height);
-    
-    tab.active_buffer = &b;
-#endif
   }
 }
