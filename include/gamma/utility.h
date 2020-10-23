@@ -64,7 +64,6 @@ void print(T&& first, Args&&... rest) {
     } \
   } while(0)
 
-
 struct literal {
   const char *data;
   size_t      size;
@@ -115,6 +114,14 @@ inline bool operator==(const literal &l1, const literal &l2) {
   }
 }
 
+#define to_literal(a) literal{a.data(), a.size()}
+inline bool operator==(const literal &l, const string_t &s) {
+  return to_literal(s) == l;
+}
+inline bool operator==(const string_t &s, const literal &l) {
+  return to_literal(s) == l;
+}
+
 inline std::ostream& operator<<(std::ostream &os, const literal &l) {
   for(auto i = 0u; i < l.size; i++) {
     os << l.data[i];
@@ -122,7 +129,15 @@ inline std::ostream& operator<<(std::ostream &os, const literal &l) {
   return os;
 }
 
-#define arr_size(x) (sizeof((x)) / sizeof(*(x)))
+inline string_t to_string(const literal &l) {
+  string_t r;
+  for(size_t i = 0; i < l.size; i++) {
+    r.push_back(l.data[i]);
+  }
+  return r;
+}
+
+
 #define get_string_from_literal(name, l) \
   char name[l.size+1]; \
   { \
@@ -132,14 +147,6 @@ inline std::ostream& operator<<(std::ostream &os, const literal &l) {
     name[l.size] = '\0'; \
   } \
 
-inline literal null_terminate(const literal &l) {
-  get_string_from_literal(s, l);
-  return literal{s, l.size+1};
-}
-
-
-
-
-
+#define arr_size(x) (sizeof((x)) / sizeof(*(x)))
 
 #endif

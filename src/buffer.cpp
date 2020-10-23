@@ -39,7 +39,7 @@ static file_buffer_t bufs[48];
 
 
 static file_buffer_t *get_free_file_buffer() {
-  for(int i = 0; i < arr_size(bufs); i++) {
+  for(size_t i = 0; i < arr_size(bufs); i++) {
     if(!bufs[i].is_used) {
       bufs[i].is_used = true;
       return &bufs[i];
@@ -50,7 +50,7 @@ static file_buffer_t *get_free_file_buffer() {
 }
 
 static buffer_t *get_free_win_buffer() {
-  for(int i = 0; i < arr_size(active_tab->buffers); i++) {
+  for(size_t i = 0; i < arr_size(active_tab->buffers); i++) {
     auto &buf = active_tab->buffers[i];
     if(!buf.is_used) {
       buf.is_used = true;
@@ -62,7 +62,7 @@ static buffer_t *get_free_win_buffer() {
 }
 
 static tab_t *get_free_tab() {
-  for(int i = 0; i < arr_size(tabs); i++) {
+  for(size_t i = 0; i < arr_size(tabs); i++) {
     if(!tabs[i].is_used) {
       tabs[i].is_used = true;
       return &tabs[i];
@@ -100,10 +100,10 @@ void read_entire_file(gap_buffer *ret, FILE *f) {
   fseek(f, 0, SEEK_END);
   size_t size = ftell(f);
 
-  ret->array.resize(size + ret->gap_len);
+  ret->chars.resize_with_no_init(size + ret->gap_len);
 
   rewind(f);
-  auto res = fread(ret->array.data + ret->gap_len, sizeof(char), size, f);
+  auto res = fread(ret->chars.data + ret->gap_len, sizeof(char), size, f);
 
   if(res != size) {
     fprintf(stderr, "@Incomplete\n");
@@ -157,7 +157,7 @@ void open_existing_or_new_buffer(literal filename) {
   auto tab = get_current_tab();
   get_used_buffers(used_bufs, size, tab->buffers);
 
-  for(int i = 0; i < size; i++) {
+  for(size_t i = 0; i < size; i++) {
     if(used_bufs[i]->filename == filename) {
       auto buffer = get_free_win_buffer();
       assert(buffer);
@@ -307,9 +307,11 @@ bool buffer_t::cursor_on_first_line() const {
 
 bool buffer_t::cursor_on_last_line() const {
   if(cursor == file->buffer.size()) return true;
-  for(auto i = cursor; file->buffer[i] != '\n'; i++) {
-    if(i == file->buffer.size()-2) return true;
+  size_t i = cursor;
+  for( ; file->buffer[i] != '\n'; i++) {
+    if(i == file->buffer.size()-1) return true;
   }
+  if(i == file->buffer.size()-1) return true;
   return false;
 }
 
@@ -485,7 +487,7 @@ void buffer_t::go_down() {
   go_right();
   
   for(auto i = 0u; i < prev_character_pos; i++) {
-    if(file->buffer[cursor] == '\n') break;
+    if(cursor == file->buffer.size() || file->buffer[cursor] == '\n') break;
     go_right();
   }
 }
@@ -537,27 +539,30 @@ void buffer_t::scroll_up() {
   dec_start(shift);
 }
 
-void buffer_t::init(literal f, int x, int y, int w, int h) {
-  filename = f; start_x = x; start_y = y; width = w; height = h;
+void buffer_t::init(int x, int y, int w, int h) {
+  start_x = x; start_y = y; width = w; height = h;
 }
 
 void init(int argc, char **argv) {
   init_var_table();
 
-  literal filename;
+  string_t filename;
   if(argc > 1) {
-    filename.data = argv[1];
-    filename.size = strlen(filename.data);
+    filename = argv[1];
   } else {
     // No positional arguments provided.
     // filename.data == nullptr.
   }
 
-  open_tab(filename);
+  open_tab(to_literal(filename));
   make_font();
 
   console_init(Height);
-  get_current_buffer()->init(filename, 0, 0, Width, get_console()->bottom_y);
+
+  auto buffer = get_current_buffer();
+
+  buffer->filename = filename;
+  get_current_buffer()->init(0, 0, Width, get_console()->bottom_y);
 }
 
 static void update_editor() {

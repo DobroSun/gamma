@@ -26,16 +26,17 @@ void go_to_line(int line) {
 
 void save() {
   auto buffer = get_current_buffer();
-  if(!buffer->filename.data) {
+  if(buffer->filename.empty()) {
     console_put_text("File has no name.");
 
   } else {
-    assert(buffer->filename.data);
-    FILE *f = get_file_or_create(buffer->filename.data, "w");
+    assert(!buffer->filename.empty());
+    FILE *f = get_file_or_create(buffer->filename.c_str(), "w");
     defer { fclose(f); };
 
     if(!f) {
       // @Incomplete: report error.
+      assert(0);
       print("No file for me (:");
     }
 
@@ -65,18 +66,23 @@ void split(const literal &l) {
     auto n_buf = get_current_buffer();
 
     { // TODO: Generalize for all cases.
-      n_buf->init(l, Width-p_buf->width/2., 0, p_buf->width/2., p_buf->height);
-      p_buf->init(p_buf->filename, 0, 0, p_buf->width/2., p_buf->height);
+      n_buf->filename = p_buf->filename;
+
+      n_buf->init(Width-p_buf->width/2., 0, p_buf->width/2., p_buf->height);
+      p_buf->init(0, 0, p_buf->width/2., p_buf->height);
     }
 
   } else {
+    string_t n_filename = to_string(l);
+
     auto *p_buf = get_current_buffer();
-    open_existing_or_new_buffer(l);
+    open_existing_or_new_buffer(to_literal(n_filename));
     auto *n_buf = get_current_buffer();
 
     {
-      n_buf->init(l, Width-p_buf->width/2., 0, p_buf->width/2., p_buf->height);
-      p_buf->init(p_buf->filename, 0, 0, p_buf->width/2., p_buf->height);
+      n_buf->filename = std::move(n_filename);
+      n_buf->init(Width-p_buf->width/2., 0, p_buf->width/2., p_buf->height);
+      p_buf->init(0, 0, p_buf->width/2., p_buf->height);
     }
   }
 }

@@ -10,7 +10,7 @@ struct file_buffer_t {
 struct buffer_t {
   file_buffer_t *file;
   bool is_used = false;
-  literal filename; // @Note: needs to be null-terminated to call c-std functions.
+  string_t filename;
 
 
   // Position on the window.
@@ -19,7 +19,7 @@ struct buffer_t {
   unsigned offset_on_line = 0, offset_from_beginning = 0, start_pos = 0;
 
 
-  void init(literal,int,int,int,int);
+  void init(int,int,int,int);
   void draw() const;
   void save();
   void on_resize(int,int,int,int);

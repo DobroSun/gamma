@@ -39,7 +39,7 @@ enum TokenType {
 
   QuitCommandType = 400,
   SetCommandType  = 401,
-  SplitCommandType = 402,
+  HSplitCommandType = 402,
 };
 
 union RValue {
@@ -135,11 +135,16 @@ struct Keyword_Def {
 
 static const Keyword_Def table[] = {
   {"quit", QuitCommandType},
-  {"set",  SetCommandType},
-  {"split",  SplitCommandType},
+  {"q",    QuitCommandType},
+
+  {"set", SetCommandType},
+
+  {"split", HSplitCommandType},
+  {"hsp",   HSplitCommandType},
+  {"sp",    HSplitCommandType},
 };
 
-static void set_token(const literal &l, const TokenType t) {
+static void set_keyword_token(const literal &l, const TokenType t) {
   current_tok.string_literal = l;
   current_tok.type = t;
   cursor += l.size;
@@ -204,10 +209,17 @@ static void set_ident_token(const char *&c) {
 }
 
 static bool is_keyword(const char *cursor) {
-  for(int i = 0; i < arr_size(table); i++) {
+  for(unsigned i = 0; i < arr_size(table); i++) {
     if(cursor == table[i].name) {
-      found_keyword = i;
-      return true;
+      auto tmp = cursor;
+      tmp += table[i].name.size;
+
+      if(*tmp == '\0' || *tmp == ' ' || *tmp == '\t') {
+        found_keyword = i;
+        return true;
+      } else {
+        continue;
+      }
     }
   }
   return false;
@@ -237,12 +249,12 @@ static Token *get_next_token() {
       return &current_tok;
 
     } else if(*cursor == '=') {
-      set_token(literal{cursor, 1}, (TokenType)'=');
+      set_token((TokenType)'=');
       return &current_tok;
 
     } else if(is_keyword(cursor)) {
       Keyword_Def kw = table[found_keyword];
-      set_token(kw.name, kw.type);
+      set_keyword_token(kw.name, kw.type);
       return &current_tok;
 
     } else if(isalpha(*cursor) || *cursor == '_') {
@@ -343,7 +355,7 @@ static Ast_Expression *parse() {
     }
     return expr;
 
-  } else if(tok->type == SplitCommandType) {
+  } else if(tok->type == HSplitCommandType) {
     auto expr = NEW_AST(Ast_Split);
     defer { if(failed) DELETE_AST(expr); expr = nullptr; };
 
@@ -419,10 +431,6 @@ static void update_variables() {
 }
 
 
-// @Fix: 
-// quit0 - works
-// quitt - does nothing.
-//
 void interp(const char *s) {
   cursor = s;
 
@@ -449,19 +457,7 @@ void interp(const char *s) {
 
       case Ast_Split_Type: {
         auto e = static_cast<Ast_Split *>(ast);
-        //literal l = null_terminate(e->path);
-        //split(l);
-
-        // @Incomplete:
-        // This thing must give dynamic strings.
-        // cause otherwise, if we keep pointer
-        // to string, after leaving current
-        // scope, it also goes down.
-        // 
-        // Or we can pass literals everywhere, and then allocate
-        // while saving filenames.
-
-        split(e->path); // @Temporary:
+        split(e->path);
 
       } break;
       

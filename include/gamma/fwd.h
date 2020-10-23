@@ -10,10 +10,12 @@ typedef struct _TTF_Font TTF_Font;
 typedef Sint32 SDL_Keycode;
 
 template<class T>
-class dyn_array;
+struct array;
 
-class gap_buffer;
-class buffer_t;
+struct string;
+
+struct gap_buffer;
+struct buffer_t;
 struct console_t;
 
 struct tab_t;
@@ -21,7 +23,8 @@ struct file_buffer_t;
 
 enum class EditorMode;
 
-using texture_map = std::unordered_map<char, SDL_Texture*>;
+typedef std::unordered_map<char, SDL_Texture*> texture_map;
+typedef std::string string_t;
 
 struct Token;
 
