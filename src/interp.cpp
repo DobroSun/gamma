@@ -139,7 +139,7 @@ static const Keyword_Def table[] = {
 
   {"set", SetCommandType},
 
-  {"split", HSplitCommandType},
+  {"hsplit", HSplitCommandType},
   {"hsp",   HSplitCommandType},
   {"sp",    HSplitCommandType},
 };
@@ -457,7 +457,7 @@ void interp(const char *s) {
 
       case Ast_Split_Type: {
         auto e = static_cast<Ast_Split *>(ast);
-        split(e->path);
+        hsplit(e->path);
 
       } break;
       

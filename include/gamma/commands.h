@@ -4,6 +4,6 @@
 void go_to_line(int);
 void save();
 void quit(int);
-void split(const literal &);
+void hsplit(const literal &);
 
 #endif

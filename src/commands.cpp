@@ -58,31 +58,30 @@ void quit(int e) {
   exit(e);
 }
 
-void split(const literal &l) {
+void hsplit(const literal &l) {
   auto tab = get_current_tab();
   if(!l.data) {
     auto p_buf = get_current_buffer();
     open_existing_buffer(p_buf);
     auto n_buf = get_current_buffer();
 
-    { // TODO: Generalize for all cases.
+    {
       n_buf->filename = p_buf->filename;
-
-      n_buf->init(Width-p_buf->width/2., 0, p_buf->width/2., p_buf->height);
-      p_buf->init(0, 0, p_buf->width/2., p_buf->height);
+      n_buf->init(p_buf->start_x + p_buf->width/2., p_buf->start_y, p_buf->width/2., p_buf->height);
+      p_buf->init(p_buf->start_x, p_buf->start_y, p_buf->width/2., p_buf->height);
     }
 
   } else {
     string_t n_filename = to_string(l);
 
-    auto *p_buf = get_current_buffer();
+    auto p_buf = get_current_buffer();
     open_existing_or_new_buffer(to_literal(n_filename));
-    auto *n_buf = get_current_buffer();
+    auto n_buf = get_current_buffer();
 
     {
       n_buf->filename = std::move(n_filename);
-      n_buf->init(Width-p_buf->width/2., 0, p_buf->width/2., p_buf->height);
-      p_buf->init(0, 0, p_buf->width/2., p_buf->height);
+      n_buf->init(p_buf->start_x + p_buf->width/2., p_buf->start_y, p_buf->width/2., p_buf->height);
+      p_buf->init(p_buf->start_x, p_buf->start_y, p_buf->width/2., p_buf->height);
     }
   }
 }
