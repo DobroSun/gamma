@@ -101,7 +101,10 @@ int main(int argc, char **argv) {
                 
                 } else if(key == SDLK_UP) {
                   get_current_buffer()->go_up();
+
+                } else {
                 }
+
               }
             } break;
             // Editor.
@@ -147,7 +150,11 @@ int main(int argc, char **argv) {
 
               } else if(key == SDLK_UP) {
                 buffer->go_up();
-                
+
+              } else if(key == SDLK_d) {
+                delete_selected();
+                // We don't go to Editor mode here, see SDL_TEXTINPUT case Selection:
+              
               } else {
                 // Can copy, or delete selected text.
               }
@@ -167,6 +174,15 @@ int main(int argc, char **argv) {
             case Console: {
               char c = e.text.text[0];
               console_put(c);
+            } break;
+
+            case Selection: {
+              // @Hack: 
+              // Happen to be here only if we do some `lettered` command, so 
+              // SDL_TEXTINPUT gets triggered, and puts corresponding letter.
+              get_current_buffer()->file->buffer.backspace(); // deleting that letter.
+              mode = Editor;
+
             } break;
           }
         } break;

@@ -138,11 +138,9 @@ void open_new_buffer(literal filename) {
   assert(buffer->file);
 
   if(!filename.data) return;
-  {
-    if(FILE *f = fopen(filename.data, "r")) {
-      defer { fclose(f); };
-      read_entire_file(&buffer->file->buffer, f);
-    }
+  if(FILE *f = fopen(filename.data, "r")) {
+    defer { fclose(f); };
+    read_entire_file(&buffer->file->buffer, f);
   }
 }
 
@@ -153,6 +151,16 @@ void open_existing_buffer(buffer_t *prev) {
 
   buffer->file     = prev->file;
   buffer->filename = prev->filename;
+
+  // Have to explicitly move gap inside gap_buffer
+  // to the beginning, otherwise it will place new
+  // characters right where it starts.
+
+  // But it doesn't work.
+  /*
+  print(prev->file->buffer.pre_len);
+  prev->file->buffer.move_until(0);
+  */
 }
 
 void open_existing_or_new_buffer(literal filename) {
@@ -256,17 +264,22 @@ void buffer_t::draw() const {
     assert(mode == Selection);
 
     int offset_x;
-    if(selection_buffer.starting_index > cursor) {
-      offset_x = MIN(selection_buffer.starting_char, n_character);
+    int offset_y = min(selection_buffer.starting_line, n_line)-start_pos;
+    if(selection_buffer.starting_index > cursor && offset_y >= selection_buffer.starting_line) {
+      offset_x = min(selection_buffer.starting_char, n_character);
+
+    } else if(selection_buffer.starting_index > cursor) {
+      offset_x = n_character;
+
     } else {
       offset_x = selection_buffer.starting_char;
     }
 
-    int offset_y = MIN(selection_buffer.starting_line, n_line)-start_pos;
-    int first_index = MIN(selection_buffer.starting_index, cursor);
-    int last_index  = MAX(selection_buffer.starting_index, cursor);
-
+    int first_index = min(selection_buffer.starting_index, cursor);
+    int last_index  = max(selection_buffer.starting_index, cursor);
     assert(first_index <= last_index);
+
+
     for(int i = first_index; i < last_index+1; i++) {
       int px = get_relative_pos_x(offset_x);
       int py = get_relative_pos_y(offset_y);
@@ -591,4 +604,27 @@ void init(int argc, char **argv) {
 
 selection_buffer_t *get_selection_buffer() {
   return &selection_buffer;
+}
+
+void delete_selected() {
+  auto buffer = get_current_buffer();
+  selection_buffer;
+
+  buffer->file->buffer;
+  auto cursor      = buffer->cursor;
+  auto n_character = buffer->n_character;
+  auto n_line      = buffer->n_line;
+  auto start_pos    = buffer->start_pos;
+
+  // @CleanUp: @Temporary: @FIXME:
+  // @Copy&Paste: from draw function.
+#if 0
+  int first_index = min(selection_buffer.starting_index, cursor);
+  int last_index  = max(selection_buffer.starting_index, cursor);
+  assert(first_index <= last_index);
+
+  buffer->file->buffer.move_until(last_index);
+  do_times(last_index-first_index, buffer->put_backspace);
+  buffer->move_left();
+#endif
 }

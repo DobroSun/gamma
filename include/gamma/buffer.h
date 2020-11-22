@@ -94,4 +94,5 @@ FILE *get_file_or_create(const char *, const char *);
 void read_entire_file(gap_buffer *, FILE *);
 
 selection_buffer_t *get_selection_buffer();
+void delete_selected();
 #endif

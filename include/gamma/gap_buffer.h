@@ -27,6 +27,28 @@ struct gap_buffer {
     chars[post_start-1] = chars[--pre_len];
   }
 
+  void move_until(unsigned new_pre_len) {
+    if(new_pre_len == pre_len) {
+      // Nothing.
+
+    } else if(new_pre_len > pre_len) {
+      int diff = new_pre_len - pre_len;
+      while(diff) {
+        move_right();
+        diff--;
+      }
+
+    } else {
+      assert(new_pre_len < pre_len);
+      int diff  = pre_len - new_pre_len;
+      while(diff) {
+        move_left();
+        diff--;
+      }
+    }
+    assert(new_pre_len == pre_len);
+  }
+
   void add(char val) {
     if(gap_len == 0)  {
     /*

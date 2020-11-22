@@ -148,7 +148,14 @@ inline string_t to_string(const literal &l) {
   } \
 
 #define arr_size(x) (sizeof((x)) / sizeof(*(x)))
-#define MIN(a, b)   (((decltype((b)))(a) < (b))? (a): (b))
-#define MAX(a, b)   (((decltype((a)))(b) < (a))? (a): (b))
+
+template<class T, class U>
+T max(T a, U b) {
+  return static_cast<T>((a < (T)b)? b: a);
+}
+template<class T, class U>
+T min(T a, U b) {
+  return static_cast<T>((a < (T)b)? a: b);
+}
 
 #endif
