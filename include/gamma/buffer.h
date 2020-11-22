@@ -41,6 +41,9 @@ struct buffer_t {
 
 private:
   void draw_cursor(char, int, int, SDL_Color, SDL_Color) const;
+  void draw_line(int, int) const;
+
+  int  get_line_length(int) const;
 
   bool is_last_line() const;
   bool is_first_line() const;
@@ -64,7 +67,6 @@ private:
   void dec_start(int);
 
   void act_on_non_text_character(int&, int&, char) const;
-  bool is_end_of_line(char) const;
 };
 
 

@@ -198,10 +198,7 @@ void tab_t::on_resize(int n_width, int n_height) {
 }
 
 
-bool buffer_t::is_end_of_line(char c) const {
-  return c == '\n';
-}
-
+#if 0
 void buffer_t::act_on_non_text_character(int &offset_x, int &offset_y, char c) const {
   if(c == '\n') {
     offset_x = -offset_on_line;
@@ -211,8 +208,62 @@ void buffer_t::act_on_non_text_character(int &offset_x, int &offset_y, char c) c
     // @Incomplete:
   }
 }
+#endif
+
+int buffer_t::get_line_length(int beginning) const {
+  int count = 1;
+  for(int i = beginning; file->buffer[i] != '\n'; i++) {
+    count++;
+  }
+  return count;
+}
+
+void buffer_t::draw_line(int beginning, int line_number) const {
+  if(get_line_length(beginning) <= offset_on_line) { return; }
+
+  gap_buffer &buffer = file->buffer;
+  for(int i = beginning+offset_on_line, char_number = 0; buffer[i] != '\n'; i++, char_number++) {
+    int px = get_relative_pos_x(char_number);
+    int py = get_relative_pos_y(line_number);
+
+    char c = buffer[i];
+    auto t = get_alphabet()[c];
+    assert(t);
+
+    if(px > start_x+width-font_width) {
+      break;
+    }
+
+    copy_texture(t, px, py);
+  }
+
+}
 
 void buffer_t::draw() const {
+  int i = offset_from_beginning, line = 0;
+  while(i < file->buffer.size()) {
+    if(get_relative_pos_y(line) >= get_console()->bottom_y - font_height) { 
+      // If is out of window.
+      break;
+    }
+
+    draw_line(i, line);
+    i += get_line_length(i);
+    line++;
+
+  }
+
+  //assert(n_line <= line);
+
+  // Draw cursor.
+  char s = file->buffer[cursor];
+  if(s == '\n') { s = ' '; }
+
+  int px = get_relative_pos_x(n_character);
+  int py = get_relative_pos_y(n_line);
+  draw_cursor(s, px, py, WhiteColor, BlackColor);
+
+#if 0
   // @Hack: with negative numbers, it just works, do I need to change it?
   int offset_x = -offset_on_line, offset_y = 0;
 
@@ -221,10 +272,11 @@ void buffer_t::draw() const {
     int px = get_relative_pos_x(offset_x);
     int py = get_relative_pos_y(offset_y);
 
+
     defer { 
       if(i == cursor) {
         char s = file->buffer[cursor];
-        if(is_end_of_line(s)) {
+        if(s == '\n') {
           s = ' ';
         }
         
@@ -234,7 +286,7 @@ void buffer_t::draw() const {
 
     char c = file->buffer[i];
     act_on_non_text_character(offset_x, offset_y, c);
-    if(is_end_of_line(c)) {
+    if(c == '\n') {
       continue;
     }
 
@@ -261,6 +313,7 @@ void buffer_t::draw() const {
     char c = ' ';
     draw_cursor(c, px, py, WhiteColor, BlackColor);
   }
+#endif
 }
 
 int buffer_t::get_relative_pos_x(int n_place) const {
