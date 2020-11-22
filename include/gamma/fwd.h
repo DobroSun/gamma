@@ -21,7 +21,6 @@ struct console_t;
 struct tab_t;
 struct file_buffer_t;
 
-enum class EditorMode;
 
 typedef std::unordered_map<char, SDL_Texture*> texture_map;
 typedef std::string string_t;

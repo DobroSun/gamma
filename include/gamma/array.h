@@ -103,6 +103,10 @@ struct array {
     size = capacity;
   }
 
+  void clear() {
+    size = 0;
+  }
+
   T &operator[](unsigned index) {
     assert(index < size);
     return data[index];

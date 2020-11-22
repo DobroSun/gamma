@@ -2,7 +2,6 @@
 #include "gamma/buffer.h"
 #include "gamma/init.h"
 #include "gamma/font.h"
-#include "gamma/input.h"
 #include "gamma/console.h"
 #include "gamma/interp.h"
 
@@ -30,6 +29,9 @@
     } \
   }
 
+
+
+static selection_buffer_t selection_buffer;
 
 static tab_t    *active_tab = nullptr;
 static buffer_t *active_buffer = nullptr;
@@ -228,26 +230,65 @@ void buffer_t::draw_line(int beginning, int line_number) const {
 }
 
 void buffer_t::draw() const {
-  int i = offset_from_beginning, line = 0;
-  while(i < file->buffer.size()) {
-    if(get_relative_pos_y(line) >= get_console()->bottom_y - font_height) { 
-      // If is out of window.
-      break;
+  if(mode == Editor) {
+    int i = offset_from_beginning, line = 0;
+    while(i < file->buffer.size()) {
+      if(get_relative_pos_y(line) >= get_console()->bottom_y - font_height) { 
+        // If is out of window.
+        break;
+      }
+
+      draw_line(i, line);
+      i += get_line_length(i);
+      line++;
     }
 
-    draw_line(i, line);
-    i += get_line_length(i);
-    line++;
+    // Draw cursor.
+    char s = file->buffer[cursor];
+    s = (s == '\n')? ' ': s;
+
+    int px = get_relative_pos_x(n_character-offset_on_line);
+    int py = get_relative_pos_y(n_line-start_pos);
+    draw_cursor(s, px, py, WhiteColor, BlackColor);
+
+  } else {
+    // @Hack: Please get rid of doing switch on mode in this function.
+    assert(mode == Selection);
+
+    int offset_x;
+    if(selection_buffer.starting_index > cursor) {
+      offset_x = MIN(selection_buffer.starting_char, n_character);
+    } else {
+      offset_x = selection_buffer.starting_char;
+    }
+
+    int offset_y = MIN(selection_buffer.starting_line, n_line)-start_pos;
+    int first_index = MIN(selection_buffer.starting_index, cursor);
+    int last_index  = MAX(selection_buffer.starting_index, cursor);
+
+    assert(first_index <= last_index);
+    for(int i = first_index; i < last_index+1; i++) {
+      int px = get_relative_pos_x(offset_x);
+      int py = get_relative_pos_y(offset_y);
+
+      char c = file->buffer[i];
+      if(c == '\n') {
+        c = ' ';
+        offset_x = -1;
+        offset_y++;
+      }
+
+      draw_cursor(c, px, py, WhiteColor, BlackColor);
+      offset_x++;
+    }
   }
-
-  // Draw cursor.
-  char s = file->buffer[cursor];
-  if(s == '\n') { s = ' '; }
-
-  int px = get_relative_pos_x(n_character-offset_on_line);
-  int py = get_relative_pos_y(n_line-start_pos);
-  draw_cursor(s, px, py, WhiteColor, BlackColor);
 }
+
+void buffer_t::draw_cursor(char c, int px, int py, SDL_Color color1, SDL_Color color2) const {
+  const char b[2] = {c, '\0'};
+  draw_text_shaded(get_font(), reinterpret_cast<const char *>(&b), color1, color2, px, py);
+}
+
 
 int buffer_t::get_relative_pos_x(int n_place) const {
   return start_x + font_width * n_place;
@@ -257,10 +298,7 @@ int buffer_t::get_relative_pos_y(int n_place) const {
   return start_y + font_height * n_place;
 }
 
-void buffer_t::draw_cursor(char c, int px, int py, SDL_Color color1, SDL_Color color2) const {
-  const char b[2] = {c, '\0'};
-  draw_text_shaded(get_font(), reinterpret_cast<const char *>(&b), color1, color2, px, py);
-}
+//void buffer_t::draw_selected(
 
 
 void buffer_t::on_resize(int prev_width, int prev_height, int new_width, int new_height) {
@@ -551,31 +589,6 @@ void init(int argc, char **argv) {
   get_current_buffer()->init(0, 0, Width, get_console()->bottom_y);
 }
 
-static void update_editor() {
-  auto renderer = get_renderer();
-  SDL_SetRenderDrawColor(renderer, WhiteColor.r, WhiteColor.g, WhiteColor.b, WhiteColor.a); 
-  SDL_RenderClear(renderer);
-
-  get_current_tab()->draw();
-
-  SDL_RenderPresent(renderer);
-}
-
-static void update_console() {
-  draw_rect(0, get_console()->bottom_y, Width, font_height, WhiteColor);
-  console_draw();
-
-  SDL_RenderPresent(get_renderer());
-}
-
-void update() {
-  switch(*get_editor_mode()) {
-    case EditorMode::Editor: {
-      update_editor();
-    } break;
-
-    case EditorMode::Console: {
-      update_console();
-    } break;
-  }
+selection_buffer_t *get_selection_buffer() {
+  return &selection_buffer;
 }

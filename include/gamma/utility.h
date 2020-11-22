@@ -148,5 +148,7 @@ inline string_t to_string(const literal &l) {
   } \
 
 #define arr_size(x) (sizeof((x)) / sizeof(*(x)))
+#define MIN(a, b)   (((decltype((b)))(a) < (b))? (a): (b))
+#define MAX(a, b)   (((decltype((a)))(b) < (a))? (a): (b))
 
 #endif

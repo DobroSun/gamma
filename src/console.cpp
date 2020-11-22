@@ -2,7 +2,7 @@
 #include "gamma/console.h"
 #include "gamma/font.h"
 #include "gamma/interp.h"
-#include "gamma/input.h"
+
 
 static console_t console;
 static bool is_input = false;
@@ -116,13 +116,13 @@ void console_on_resize(int n_height) {
 }
 
 void console_open() {
-  *get_editor_mode() = EditorMode::Console;
+  mode = Console;
   console_clear();
   is_input = true;
 }
 
 void console_close() {
-  *get_editor_mode() = EditorMode::Editor;
+  mode = Editor;
   is_input = false;
 }
 

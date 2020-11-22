@@ -32,10 +32,11 @@ const SDL_Color BlackColor {0, 0, 0, 255};
 
 inline const char *chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890!@#$%^&?*()\\/ -+_=~|\t`\"'.,:;{}[]<>";
 
-enum class EditorMode {
+enum EditorMode {
   Editor,
   Console,
+  Selection,
 };
-
+inline EditorMode mode = Editor;
 
 #endif

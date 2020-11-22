@@ -1,6 +1,9 @@
 #ifndef GAMMA_BUFFER_H
 #define GAMMA_BUFFER_H
 
+struct selection_buffer_t {
+  int starting_index, starting_line, starting_char;
+};
 
 struct file_buffer_t {
   gap_buffer buffer;
@@ -65,8 +68,6 @@ private:
 
   void inc_start(int);
   void dec_start(int);
-
-  void act_on_non_text_character(int&, int&, char) const;
 };
 
 
@@ -81,9 +82,6 @@ struct tab_t {
 tab_t *get_current_tab();
 buffer_t *get_current_buffer();
 
-
-
-
 void init(int, char**);
 void update();
 
@@ -94,4 +92,6 @@ void open_existing_buffer(buffer_t *);
 
 FILE *get_file_or_create(const char *, const char *);
 void read_entire_file(gap_buffer *, FILE *);
+
+selection_buffer_t *get_selection_buffer();
 #endif
