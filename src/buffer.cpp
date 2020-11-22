@@ -198,18 +198,6 @@ void tab_t::on_resize(int n_width, int n_height) {
 }
 
 
-#if 0
-void buffer_t::act_on_non_text_character(int &offset_x, int &offset_y, char c) const {
-  if(c == '\n') {
-    offset_x = -offset_on_line;
-    offset_y++;
-
-  } else if(c == '\t') {
-    // @Incomplete:
-  }
-}
-#endif
-
 int buffer_t::get_line_length(int beginning) const {
   int count = 1;
   for(int i = beginning; file->buffer[i] != '\n'; i++) {
@@ -250,70 +238,15 @@ void buffer_t::draw() const {
     draw_line(i, line);
     i += get_line_length(i);
     line++;
-
   }
-
-  //assert(n_line <= line);
 
   // Draw cursor.
   char s = file->buffer[cursor];
   if(s == '\n') { s = ' '; }
 
-  int px = get_relative_pos_x(n_character);
-  int py = get_relative_pos_y(n_line);
+  int px = get_relative_pos_x(n_character-offset_on_line);
+  int py = get_relative_pos_y(n_line-start_pos);
   draw_cursor(s, px, py, WhiteColor, BlackColor);
-
-#if 0
-  // @Hack: with negative numbers, it just works, do I need to change it?
-  int offset_x = -offset_on_line, offset_y = 0;
-
-  unsigned i;
-  for(i = offset_from_beginning; i < file->buffer.size(); i++) {
-    int px = get_relative_pos_x(offset_x);
-    int py = get_relative_pos_y(offset_y);
-
-
-    defer { 
-      if(i == cursor) {
-        char s = file->buffer[cursor];
-        if(s == '\n') {
-          s = ' ';
-        }
-        
-        draw_cursor(s, px, py, WhiteColor, BlackColor);
-      }
-    };
-
-    char c = file->buffer[i];
-    act_on_non_text_character(offset_x, offset_y, c);
-    if(c == '\n') {
-      continue;
-    }
-
-    auto t = get_alphabet()[c];
-    assert(t);
-
-    if(px > start_x+width-font_width) {
-      continue;
-    }
-    if(py >= get_console()->bottom_y - font_height) {
-      break;
-    }
-
-    copy_texture(t, px, py);
-    offset_x++;
-  }
-
-  if(cursor == file->buffer.size()) {
-    // Cursor is at the end of file.
-    
-    int px = get_relative_pos_x(offset_x);
-    int py = get_relative_pos_y(offset_y);
-
-    char c = ' ';
-    draw_cursor(c, px, py, WhiteColor, BlackColor);
-  }
-#endif
 }
 
 int buffer_t::get_relative_pos_x(int n_place) const {
