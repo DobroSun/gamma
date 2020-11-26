@@ -1,8 +1,16 @@
 #ifndef GAMMA_BUFFER_H
 #define GAMMA_BUFFER_H
 
+enum moving_direction_t: char {
+  left,
+  right,
+  none,
+};
+
 struct selection_buffer_t {
-  int starting_index, starting_line, starting_char;
+  int start_index = -1, start_line, start_char;
+  size_t size = 0;
+  moving_direction_t direction = none;
 };
 
 struct file_buffer_t {
@@ -30,11 +38,11 @@ struct buffer_t {
   // @CleanUp all functions.
   void scroll_down();
   void scroll_up();
-  void go_down();
-  void go_up();
-  void go_right();
+  void go_down(bool selecting=false);
+  void go_up(bool selecting=false);
+  void go_right(bool selecting=false);
   void move_left();
-  void go_left();
+  void go_left(bool selecting=false);
   void put_backspace();
   void put_return();
   void put_delete();
@@ -95,4 +103,5 @@ void read_entire_file(gap_buffer *, FILE *);
 
 selection_buffer_t *get_selection_buffer();
 void delete_selected();
+void clear_selection();
 #endif

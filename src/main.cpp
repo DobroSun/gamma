@@ -72,9 +72,12 @@ int main(int argc, char **argv) {
 
                   auto selected = get_selection_buffer();
                   auto buffer   = get_current_buffer(); 
-                  selected->starting_index = buffer->cursor;
-                  selected->starting_char  = buffer->n_character;
-                  selected->starting_line  = buffer->n_line;
+
+                  selected->start_index = buffer->cursor;
+                  selected->start_line  = buffer->n_line;
+                  selected->start_char  = buffer->n_character;
+                  selected->size        = 0;
+                  selected->direction   = none;
                 }
 
               } else {
@@ -134,22 +137,24 @@ int main(int argc, char **argv) {
 
             case Selection: {
               auto key = e.key.keysym.sym;
-              auto buffer   = get_current_buffer();
+              auto buffer    = get_current_buffer();
+              bool selecting = true;
 
               if(key == SDLK_ESCAPE) {
+                clear_selection();
                 mode = Editor;
 
               } else if(key == SDLK_LEFT) {
-                buffer->go_left();
+                buffer->go_left(selecting);
 
               } else if(key == SDLK_RIGHT) {
-                buffer->go_right();
+                buffer->go_right(selecting);
 
               } else if(key == SDLK_DOWN) {
-                buffer->go_down();
+                buffer->go_down(selecting);
 
               } else if(key == SDLK_UP) {
-                buffer->go_up();
+                buffer->go_up(selecting);
 
               } else if(key == SDLK_d) {
                 delete_selected();
@@ -181,6 +186,7 @@ int main(int argc, char **argv) {
               // Happen to be here only if we do some `lettered` command, so 
               // SDL_TEXTINPUT gets triggered, and puts corresponding letter.
               get_current_buffer()->file->buffer.backspace(); // deleting that letter.
+              clear_selection();
               mode = Editor;
 
             } break;
@@ -238,22 +244,15 @@ int main(int argc, char **argv) {
       } break;
 
       case Selection: {
-        // @Hack: to update text.
-        {
-          // @Copy&Paste: of case Editor here.
-          mode = Editor;
-          auto renderer = get_renderer();
-          SDL_SetRenderDrawColor(renderer, WhiteColor.r, WhiteColor.g, WhiteColor.b, WhiteColor.a); 
-          SDL_RenderClear(renderer);
+        // Copy&Paste: of `case Editor` update.
+        auto renderer = get_renderer();
+        SDL_SetRenderDrawColor(renderer, WhiteColor.r, WhiteColor.g, WhiteColor.b, WhiteColor.a); 
+        SDL_RenderClear(renderer);
 
-          get_current_tab()->draw();
-        }
-        {
-          mode = Selection;
-          get_current_tab()->draw();
-        }
-        SDL_RenderPresent(get_renderer());
+        get_current_tab()->draw();
+        SDL_RenderPresent(renderer);
       } break;
+
     }
   }
   return 0;
