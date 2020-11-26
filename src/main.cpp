@@ -115,6 +115,15 @@ int main(int argc, char **argv) {
                 } else if(key == SDLK_d) {
                   delete_selected();
 
+                } else if(key == SDLK_y) {
+                  copy_selected();
+                
+                } else if(key == SDLK_p) {
+                  // @Incomplete:
+                  // It's not using selection_mode so while SDL_TEXTINPUT gets triggered
+                  // it puts `p`.
+                  paste_from_global_copy(); 
+
                 } else {
                 }
 

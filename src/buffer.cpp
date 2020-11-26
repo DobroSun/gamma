@@ -44,7 +44,7 @@ static buffer_t *active_buffer = nullptr;
 
 static tab_t tabs[12];
 static file_buffer_t bufs[48];
-
+static file_buffer_t global_copy_buffer;
 
 static file_buffer_t *get_free_file_buffer() {
   for(size_t i = 0; i < arr_size(bufs); i++) {
@@ -342,6 +342,10 @@ void buffer_t::on_resize(int prev_width, int prev_height, int new_width, int new
   start_y = new_height * start_y / prev_height;
   width   = new_width * width / prev_width;
   height  = new_height * height / prev_height;
+
+  if(get_relative_pos_y(n_line-start_pos) >= height-font_height) {
+    go_up();
+  }
 }
 
 bool buffer_t::is_last_line() const {
@@ -568,7 +572,24 @@ void buffer_t::go_left(bool selecting) {
       selection.direction = none;
     }
   }
+}
 
+void buffer_t::move_to(size_t index) {
+  if(cursor < index) {
+    size_t diff = index - cursor;
+    for(size_t i = 0; i < diff; i++) {
+      go_right();
+    }
+
+  } else if(cursor > index) {
+    size_t diff = cursor - index;
+    for(size_t i = 0; i < diff; i++) {
+      go_left();
+    }
+
+  } else {
+    assert(index == cursor);
+  }
 }
 
 void buffer_t::put_backspace() {
@@ -691,6 +712,25 @@ selection_buffer_t *get_selection_buffer() {
 }
 
 void delete_selected() {
+  assert(selection.start_index != -1);
+  auto buffer = get_current_buffer();
+  buffer->move_to(selection.start_index);
+
+  for(size_t i = 0; i < selection.size+1; i++) {
+    buffer->put_delete();
+  }
+}
+
+void copy_selected() {
+  assert(selection.start_index != -1);
+  int start = selection.start_index;
+
+  auto &gap_buffer = get_current_buffer()->file->buffer;
+  for(size_t i = 0; i < selection.size+1; i++) {
+    char c = gap_buffer[start+i];
+    global_copy_buffer.buffer.add(c);
+  }
+  console_put_text("Copied!");
 }
 
 void clear_selection() {
@@ -699,3 +739,12 @@ void clear_selection() {
   selection.direction = none;
 }
 
+void paste_from_global_copy() {
+  auto buffer = get_current_buffer();
+  auto &gap_buffer = global_copy_buffer.buffer;
+
+  for(size_t i = 0; i < gap_buffer.size(); i++) {
+    buffer->put(gap_buffer[i]);
+  }
+  console_put_text("Pasted!");
+}

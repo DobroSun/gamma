@@ -48,6 +48,8 @@ struct buffer_t {
   void put_delete();
   void put(char);
 
+  void move_to(size_t);
+
   int get_total_lines() const;
 
 private:
@@ -103,5 +105,8 @@ void read_entire_file(gap_buffer *, FILE *);
 
 selection_buffer_t *get_selection_buffer();
 void delete_selected();
+void copy_selected();
 void clear_selection();
+
+void paste_from_global_copy();
 #endif
