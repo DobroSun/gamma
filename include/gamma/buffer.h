@@ -31,13 +31,13 @@ struct buffer_t {
 
 
   void init(int,int,int,int);
-  void draw() const;
+  void draw(bool) const;
   void save();
   void on_resize(int,int,int,int);
 
   // @CleanUp all functions.
-  void scroll_down();
-  void scroll_up();
+  void scroll_down(bool selecting=false);
+  void scroll_up(bool selecting=false);
   void go_down(bool selecting=false);
   void go_up(bool selecting=false);
   void go_right(bool selecting=false);
@@ -52,7 +52,7 @@ struct buffer_t {
 
 private:
   void draw_cursor(char, int, int, SDL_Color, SDL_Color) const;
-  void draw_line(int, int) const;
+  void draw_line(int, int, bool) const;
 
   int  get_line_length(int) const;
 
@@ -84,7 +84,7 @@ struct tab_t {
   bool is_used = false;
 
   void on_resize(int,int);
-  void draw() const;
+  void draw(bool) const;
 };
 
 tab_t *get_current_tab();

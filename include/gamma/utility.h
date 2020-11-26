@@ -53,16 +53,7 @@ void print(T&& first, Args&&... rest) {
 }
 
 #define sleep(x) usleep(x)
-
-
 #define for_each(c_array) for(auto it = c_array; *it != '\0'; it++)
-
-#define do_times(n, function) \
-  { \
-    for(decltype(n) i = 0; i < n; i++) { \
-      function(); \
-    } \
-  } while(0)
 
 struct literal {
   const char *data;

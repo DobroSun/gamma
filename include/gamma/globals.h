@@ -35,7 +35,6 @@ inline const char *chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ
 enum EditorMode {
   Editor,
   Console,
-  Selection,
 };
 inline EditorMode mode = Editor;
 

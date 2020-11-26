@@ -32,23 +32,12 @@
 
 
 static selection_buffer_t selection;
-#if 0
-static void swap_indicies(selection_buffer_t *s) {
-  int tmp_index, tmp_line, tmp_char;
-  tmp_index = s->end_index;
-  tmp_line  = s->end_line;
-  tmp_char  = s->end_char;
-
-  s->end_line  = s->start_line;
-  s->end_char  = s->start_char;
-
-  s->start_index = tmp_index;
-  s->start_line  = tmp_line;
-  s->start_char  = tmp_char;
-
-  assert(s->start_index <= s->end_index);
+static bool is_in_selected(const selection_buffer_t *s, const size_t ind) {
+  return s->start_index <= ind && ind <= s->start_index+s->size;
 }
-#endif
+static bool is_last_to_be_selected(const selection_buffer_t *s, const size_t ind) {
+  return ind <= s->start_index+s->size;
+}
 
 static tab_t    *active_tab = nullptr;
 static buffer_t *active_buffer = nullptr;
@@ -205,11 +194,11 @@ static void open_tab(literal filename) {
   open_new_buffer(filename);
 }
 
-void tab_t::draw() const {
+void tab_t::draw(bool selection_mode) const {
   get_const_buffers(used_bufs, size, buffers);
 
   for(auto i = 0u; i < size; i++) {
-    used_bufs[i]->draw();
+    used_bufs[i]->draw(selection_mode);
   }
   console_draw();
 }
@@ -234,8 +223,13 @@ int buffer_t::get_line_length(int beginning) const {
 }
 
 static bool is_selection = false;
-void buffer_t::draw_line(int beginning, int line_number) const {
+void buffer_t::draw_line(int beginning, int line_number, bool selecting) const {
   if(get_line_length(beginning) <= offset_on_line) { return; }
+
+  const int start_index = selection.start_index;
+  const int start_line  = selection.start_line;
+  const int start_char  = selection.start_char;
+  const size_t size     = selection.size;
 
   const gap_buffer &buffer = file->buffer;
   int i = beginning + offset_on_line, char_number = 0;
@@ -253,13 +247,18 @@ void buffer_t::draw_line(int beginning, int line_number) const {
       return;
     }
 
-    if(i == selection.start_index) { is_selection= true; }
-    if(is_selection) {
-      draw_cursor(c, px, py, WhiteColor, BlackColor);
+    if(selecting) {
+      if(is_in_selected(&selection, i)) { is_selection= true; }
+      if(is_selection) {
+        draw_cursor(c, px, py, WhiteColor, BlackColor);
+      } else {
+        copy_texture(t, px, py);
+      }
+      if(is_last_to_be_selected(&selection, i)) { is_selection = false; }
+
     } else {
       copy_texture(t, px, py);
     }
-    if(i == selection.start_index+(int)selection.size) { is_selection = false; }
 
     i++;
     char_number++;
@@ -280,28 +279,39 @@ void buffer_t::draw_line(int beginning, int line_number) const {
     return;
   }
 
-  if(i == selection.start_index) { is_selection= true; }
-  if(is_selection) {
-    draw_cursor(c, px, py, WhiteColor, BlackColor);
+  if(selecting) {
+    if(is_in_selected(&selection, i)) { is_selection= true; }
+    if(is_selection) {
+      draw_cursor(c, px, py, WhiteColor, BlackColor);
+    } else {
+      copy_texture(t, px, py);
+    }
+    if(is_last_to_be_selected(&selection, i)) { is_selection = false; }
+
   } else {
     copy_texture(t, px, py);
   }
-  if(i == selection.start_index+(int)selection.size) { is_selection = false; }
 }
 
-void buffer_t::draw() const {
+void buffer_t::draw(bool selection_mode) const {
+
   int i = offset_from_beginning, line = 0;
   while(i < file->buffer.size()) {
     assert(i >= 0 && i < file->buffer.size());
+
     if(get_relative_pos_y(line) >= get_console()->bottom_y - font_height) { 
       // If we are out of window.
       break;
     }
 
-    draw_line(i, line);
+    draw_line(i, line, selection_mode);
     i += get_line_length(i);
     line++;
   }
+
+  // @Hack: when inside draw_line we never reach the 
+  //  is_selection = false;
+  is_selection = false;
 
   // Draw cursor.
   char s = file->buffer[cursor];
@@ -456,29 +466,6 @@ void buffer_t::dec_start(int n) {
 void buffer_t::go_right(bool selecting) {
   if(cursor == file->buffer.size()-1) return;
 
-#if 0
-  if(selecting) {
-    if(selection.start_index == selection.end_index) {
-      direction = right;
-    }
-
-    if(direction == left) {
-      selection.start_index = cursor;
-      selection.start_line  = n_line;
-      selection.start_char  = n_character;
-
-    } else if(direction == right) {
-      selection.end_index = cursor;
-      selection.end_line  = n_line;
-      selection.end_char  = n_character;
-
-    } else {
-      assert(0);
-    }
-    assert(selection.start_index <= selection.end_index);
-  }
-#endif
-
   file->buffer.move_right();
   inc_cursor();
   
@@ -498,7 +485,6 @@ void buffer_t::go_right(bool selecting) {
 
   if(selecting) {
     if(selection.direction == left) {
-      puts("Left GO RIGHT");
       selection.start_index = cursor;
       selection.start_line  = n_line;
       selection.start_char  = n_character;
@@ -507,15 +493,11 @@ void buffer_t::go_right(bool selecting) {
       selection.size--;
 
     } else if(selection.direction == right) {
-      puts("Right GO RIGHT");
       selection.size++;
 
     } else {
-      puts("None GO RIGHT");
       assert(selection.direction == none && selection.size == 0);
       selection.direction = right;
-
-      print("Start: ", selection.start_index);
 
       // Copy&Paste: of right case.
       selection.size++;
@@ -523,11 +505,9 @@ void buffer_t::go_right(bool selecting) {
     }
 
     if(selection.size == 0) {
-      puts("PUTTING NONE");
       selection.direction = none;
     }
   }
-
 }
 
 
@@ -563,19 +543,16 @@ void buffer_t::go_left(bool selecting) {
 
   if(selecting) {
     if(selection.direction == left) {
-      puts("Left GO LEFT");
       selection.start_index = cursor;
       selection.start_line  = n_line;
       selection.start_char  = n_character;
       selection.size++;
 
     } else if(selection.direction == right) {
-      puts("Right GO LEFT");
       assert(selection.size > 0);
       selection.size--;
 
     } else {
-      puts("None GO LEFT");
       assert(selection.direction == none && selection.size == 0);
       selection.direction = left;
 
@@ -588,10 +565,10 @@ void buffer_t::go_left(bool selecting) {
     }
 
     if(selection.size == 0) {
-      puts("PUTTING NONE");
       selection.direction = none;
     }
   }
+
 }
 
 void buffer_t::put_backspace() {
@@ -659,25 +636,25 @@ void buffer_t::go_up(bool selecting) {
   }
 }
 
-void buffer_t::scroll_down() {
+void buffer_t::scroll_down(bool selecting) {
   if(is_last_line()) return;
    
   int shift = num_to_shift_down_on_scrolling();
 
   if(start_pos == n_line) {
-    go_down();
+    go_down(selecting);
   }
 
   inc_start(shift);
 }
 
-void buffer_t::scroll_up() {
+void buffer_t::scroll_up(bool selecting) {
   if(is_first_line()) return;
 
 
   bool cursor_should_go_up = (height / font_height) + start_pos - 1 == n_line;
   if(cursor_should_go_up) {
-    go_up();
+    go_up(selecting);
   }
 
   int shift = num_to_shift_up_on_scrolling();
@@ -703,7 +680,6 @@ void init(int argc, char **argv) {
   make_font();
 
   console_init(Height);
-
   auto buffer = get_current_buffer();
 
   buffer->filename = filename;
@@ -722,3 +698,4 @@ void clear_selection() {
   selection.size = 0;
   selection.direction = none;
 }
+

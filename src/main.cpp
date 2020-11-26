@@ -23,6 +23,7 @@ int main(int argc, char **argv) {
   };
     
 
+  bool selection_mode = false;
   while(!should_quit) {
     #if 0
     auto begin = std::chrono::steady_clock::now();
@@ -44,6 +45,7 @@ int main(int argc, char **argv) {
 
     SDL_Event e;
     while(SDL_PollEvent(&e)) {
+
       switch(e.type) {
         case SDL_QUIT: {
           should_quit = true;
@@ -68,7 +70,7 @@ int main(int argc, char **argv) {
 
                 } else if(key == SDLK_c) {
                   assert(mode == Editor);
-                  mode = Selection;
+                  selection_mode = true;
 
                   auto selected = get_selection_buffer();
                   auto buffer   = get_current_buffer(); 
@@ -80,9 +82,14 @@ int main(int argc, char **argv) {
                   selected->direction   = none;
                 }
 
-              } else {
+              } else { // no mod.
                 if(key == SDLK_ESCAPE) {
-                  should_quit = true;
+                  // @Temporary: 
+                  if(selection_mode) {
+                    selection_mode = false;
+                  } else {
+                    should_quit = true;
+                  }
 
                 } else if(key == SDLK_RETURN) {
                   get_current_buffer()->put_return();
@@ -94,16 +101,19 @@ int main(int argc, char **argv) {
                   get_current_buffer()->put_delete();
                 
                 } else if(key == SDLK_LEFT) {
-                  get_current_buffer()->go_left();
+                  get_current_buffer()->go_left(selection_mode);
                 
                 } else if(key == SDLK_RIGHT) {
-                  get_current_buffer()->go_right();
+                  get_current_buffer()->go_right(selection_mode);
                 
                 } else if(key == SDLK_DOWN) {
-                  get_current_buffer()->go_down();
+                  get_current_buffer()->go_down(selection_mode);
                 
                 } else if(key == SDLK_UP) {
-                  get_current_buffer()->go_up();
+                  get_current_buffer()->go_up(selection_mode);
+
+                } else if(key == SDLK_d) {
+                  delete_selected();
 
                 } else {
                 }
@@ -134,37 +144,6 @@ int main(int argc, char **argv) {
               }
             } break;
             // Console.
-
-            case Selection: {
-              auto key = e.key.keysym.sym;
-              auto buffer    = get_current_buffer();
-              bool selecting = true;
-
-              if(key == SDLK_ESCAPE) {
-                clear_selection();
-                mode = Editor;
-
-              } else if(key == SDLK_LEFT) {
-                buffer->go_left(selecting);
-
-              } else if(key == SDLK_RIGHT) {
-                buffer->go_right(selecting);
-
-              } else if(key == SDLK_DOWN) {
-                buffer->go_down(selecting);
-
-              } else if(key == SDLK_UP) {
-                buffer->go_up(selecting);
-
-              } else if(key == SDLK_d) {
-                delete_selected();
-                // We don't go to Editor mode here, see SDL_TEXTINPUT case Selection:
-              
-              } else {
-                // Can copy, or delete selected text.
-              }
-            } break;
-            // Selection.
           }
         } break;
         // SDL_KEYDOWN.
@@ -172,23 +151,20 @@ int main(int argc, char **argv) {
         case SDL_TEXTINPUT: {
           switch(mode) {
             case Editor: {
-              char c = e.text.text[0];
-              get_current_buffer()->put(c);
+              if(selection_mode) {
+                clear_selection();
+                selection_mode = false;
+
+              } else {
+                char c = e.text.text[0];
+                get_current_buffer()->put(c);
+
+              }
             } break;
 
             case Console: {
               char c = e.text.text[0];
               console_put(c);
-            } break;
-
-            case Selection: {
-              // @Hack: 
-              // Happen to be here only if we do some `lettered` command, so 
-              // SDL_TEXTINPUT gets triggered, and puts corresponding letter.
-              get_current_buffer()->file->buffer.backspace(); // deleting that letter.
-              clear_selection();
-              mode = Editor;
-
             } break;
           }
         } break;
@@ -206,18 +182,22 @@ int main(int argc, char **argv) {
         case SDL_MOUSEWHEEL: {
           auto buffer = get_current_buffer();
           if(e.wheel.y > 0) {
-            do_times(dt_scroll, buffer->scroll_up);
+            for(char i = 0; i < dt_scroll; i++) {
+              buffer->scroll_up(selection_mode);
+            }
 
           } else if(e.wheel.y < 0) {
-            do_times(dt_scroll, buffer->scroll_down);
+            for(char i = 0; i < dt_scroll; i++) {
+              buffer->scroll_down(selection_mode);
+            }
 
           } else {
+            assert(0);
           }
         } break;
         // SDL_MOUSEWHEEL.
 
         case SDL_MOUSEBUTTONDOWN: {
-          //e.button;
         } break;
         // SDL_MOUSEBUTTONDOWN.
 
@@ -233,7 +213,7 @@ int main(int argc, char **argv) {
         SDL_SetRenderDrawColor(renderer, WhiteColor.r, WhiteColor.g, WhiteColor.b, WhiteColor.a); 
         SDL_RenderClear(renderer);
 
-        get_current_tab()->draw();
+        get_current_tab()->draw(selection_mode);
         SDL_RenderPresent(renderer);
       } break;
 
@@ -242,17 +222,6 @@ int main(int argc, char **argv) {
         console_draw();
         SDL_RenderPresent(get_renderer());
       } break;
-
-      case Selection: {
-        // Copy&Paste: of `case Editor` update.
-        auto renderer = get_renderer();
-        SDL_SetRenderDrawColor(renderer, WhiteColor.r, WhiteColor.g, WhiteColor.b, WhiteColor.a); 
-        SDL_RenderClear(renderer);
-
-        get_current_tab()->draw();
-        SDL_RenderPresent(renderer);
-      } break;
-
     }
   }
   return 0;
