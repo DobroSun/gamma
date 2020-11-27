@@ -464,8 +464,12 @@ void buffer_t::go_left(bool selecting) {
     assert(offset_on_line == 0);
     n_character = get_cursor_pos_on_line();
     n_line--;
-  } else {
 
+    int diff = (int)n_character - number_chars_on_line_fits_in_window(this);
+    if(diff > 0 && diff > offset_on_line) {
+      offset_on_line = diff;
+    }
+  } else {
     n_character--;
   }
 
@@ -474,17 +478,9 @@ void buffer_t::go_left(bool selecting) {
   }
   //
 
-  if(file->buffer[cursor] == '\n') {
-    int diff = (int)n_character - number_chars_on_line_fits_in_window(this);
-    if(diff > 0 && diff > offset_on_line) {
-      offset_on_line = diff;
-    }
-  }
-
   if(start_pos-1 == n_line && start_pos != 0) {
     shift_beginning_down();
   }
-
 
   if(selecting) {
     if(selection.direction == left) {
@@ -809,7 +805,6 @@ void close_buffer() {
 void cursor_right() {
   auto buffer = get_current_buffer();
   if(buffer->file->buffer[buffer->cursor] == '\n') return; // '\n' means it's the last char on line.
-
   buffer->go_right();
 }
 
@@ -817,7 +812,6 @@ void cursor_left() {
   auto buffer = get_current_buffer();
   if(buffer->cursor == 0) return;
   if(buffer->file->buffer[buffer->cursor-1] == '\n') return;
-
   buffer->go_left();
 }
 
