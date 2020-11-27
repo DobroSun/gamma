@@ -7,7 +7,6 @@ set(gamma_source
   font.cpp
   console.cpp
   interp.cpp
-  commands.cpp
 )
 
 add_library(

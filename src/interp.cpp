@@ -3,7 +3,6 @@
 #include "gamma/console.h"
 #include "gamma/buffer.h"
 #include "gamma/init.h"
-#include "gamma/commands.h"
 
 
 // @CleanUp: @Temporary:
@@ -40,6 +39,7 @@ enum TokenType {
   QuitCommandType = 400,
   SetCommandType  = 401,
   HSplitCommandType = 402,
+  VSplitCommandType = 403,
 };
 
 union RValue {
@@ -121,6 +121,7 @@ struct Ast_Set: public Ast_Expression {
 struct Ast_Split: public Ast_Expression {
   using Ast_Expression::Ast_Expression;
   literal path;
+  split_type_t split_type;
 };
 
 
@@ -140,8 +141,11 @@ static const Keyword_Def table[] = {
   {"set", SetCommandType},
 
   {"hsplit", HSplitCommandType},
-  {"hsp",   HSplitCommandType},
-  {"sp",    HSplitCommandType},
+  {"vsplit", VSplitCommandType},
+  {"hsp",    HSplitCommandType},
+  {"vsp",    VSplitCommandType},
+  {"sp",     HSplitCommandType},
+
 };
 
 static void set_keyword_token(const literal &l, const TokenType t) {
@@ -357,6 +361,27 @@ static Ast_Expression *parse() {
 
   } else if(tok->type == HSplitCommandType) {
     auto expr = NEW_AST(Ast_Split);
+    expr->split_type = hsp_type;
+
+    defer { if(failed) DELETE_AST(expr); expr = nullptr; };
+
+    tok = get_next_token();
+    if(tok->type == LiteralType) {
+      expr->path = tok->string_literal;
+
+    } else if(tok->type == EndOfLineType) {
+      expr->path.data = nullptr;
+      
+    } else {
+      // @Incomplete: report error.
+      failed = true;
+    }
+    return expr;
+
+  } else if(tok->type == VSplitCommandType) {
+    auto expr = NEW_AST(Ast_Split);
+    expr->split_type = vsp_type;
+
     defer { if(failed) DELETE_AST(expr); expr = nullptr; };
 
     tok = get_next_token();
@@ -457,7 +482,7 @@ void interp(const char *s) {
 
       case Ast_Split_Type: {
         auto e = static_cast<Ast_Split *>(ast);
-        hsplit(e->path);
+        do_split(e->path, e->split_type);
 
       } break;
       

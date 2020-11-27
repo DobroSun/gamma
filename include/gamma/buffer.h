@@ -1,7 +1,18 @@
 #ifndef GAMMA_BUFFER_H
 #define GAMMA_BUFFER_H
 
-enum moving_direction_t: char {
+enum split_type_t : char {
+  hsp_type,
+  vsp_type,
+};
+
+enum editing_mode_t : char {
+  normal_m,
+  insert_m,
+  select_m,
+};
+
+enum moving_direction_t : char {
   left,
   right,
   none,
@@ -45,40 +56,26 @@ struct buffer_t {
   void put_backspace();
   void put_return();
   void put_delete();
+  void put_tab();
   void put(char);
 
   void move_to(size_t);
 
-  int get_total_lines() const;
-
-private:
   void draw_cursor(char, int, int, SDL_Color, SDL_Color) const;
   void draw_line(int, int, bool) const;
 
-  int  get_line_length(int) const;
+  void shift_beginning_down();
+  void shift_beginning_up();
 
-  bool is_last_line() const;
-  bool is_first_line() const;
-  bool cursor_on_last_line() const;
-  bool cursor_on_first_line() const;
-  bool char_fits_on_buffer_width() const;
-
-  int num_chars_fits_to_buffer_width() const;
-  int num_to_shift_down_on_scrolling() const;
-  int num_to_shift_up_on_scrolling() const;
+  int get_total_lines() const;
+  int get_line_length(int) const;
+  int get_cursor_pos_on_line() const;
 
   int get_relative_pos_x(int) const;
   int get_relative_pos_y(int) const;
 
-  int get_cursor_pos_x() const;
-
   void inc_cursor();
-  void dec_cursor();
-
-  void inc_start(int);
-  void dec_start(int);
 };
-
 
 struct tab_t {
   buffer_t buffers[4];
@@ -87,6 +84,9 @@ struct tab_t {
   void on_resize(int,int);
   void draw(bool) const;
 };
+
+int number_lines_fits_in_window(const buffer_t *);
+int number_chars_on_line_fits_in_window(const buffer_t *);
 
 tab_t *get_current_tab();
 buffer_t *get_current_buffer();
@@ -98,14 +98,24 @@ void open_new_buffer(literal);
 void open_existing_or_new_buffer(literal);
 void open_existing_buffer(buffer_t *);
 
-
-FILE *get_file_or_create(const char *, const char *);
-void read_entire_file(gap_buffer *, FILE *);
-
 selection_buffer_t *get_selection_buffer();
 void delete_selected();
 void copy_selected();
 void clear_selection();
 
 void paste_from_global_copy();
+
+void go_to_line(int);
+void save();
+void quit(int);
+
+void do_split(const literal &l, split_type_t);
+#define hsplit(l) do_split(l, hsp_type)
+#define vsplit(l) do_split(l, vsp_type)
+
+void cursor_right();
+void cursor_left();
+void cursor_up();
+void cursor_down();
+
 #endif

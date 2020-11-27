@@ -2,7 +2,6 @@
 #include "gamma/init.h"
 #include "gamma/buffer.h"
 #include "gamma/font.h"
-#include "gamma/commands.h"
 #include "gamma/console.h"
 
 
@@ -23,7 +22,8 @@ int main(int argc, char **argv) {
   };
     
 
-  bool selection_mode = false;
+  editing_mode_t editing_mode = insert_m;
+  bool allow_text_input       = true;
   while(!should_quit) {
     #if 0
     auto begin = std::chrono::steady_clock::now();
@@ -70,7 +70,7 @@ int main(int argc, char **argv) {
 
                 } else if(key == SDLK_c) {
                   assert(mode == Editor);
-                  selection_mode = true;
+                  editing_mode = select_m;
 
                   auto selected = get_selection_buffer();
                   auto buffer   = get_current_buffer(); 
@@ -85,8 +85,8 @@ int main(int argc, char **argv) {
               } else { // no mod.
                 if(key == SDLK_ESCAPE) {
                   // @Temporary: 
-                  if(selection_mode) {
-                    selection_mode = false;
+                  if(editing_mode == select_m) {
+                    editing_mode = insert_m;
                   } else {
                     should_quit = true;
                   }
@@ -96,33 +96,45 @@ int main(int argc, char **argv) {
                 
                 } else if(key == SDLK_BACKSPACE) {
                   get_current_buffer()->put_backspace();
-                
+
                 } else if(key == SDLK_DELETE) {
                   get_current_buffer()->put_delete();
+
+                } else if(key == SDLK_TAB) {
+                  get_current_buffer()->put_tab();
                 
                 } else if(key == SDLK_LEFT) {
-                  get_current_buffer()->go_left(selection_mode);
+                  get_current_buffer()->go_left(editing_mode == select_m);
                 
                 } else if(key == SDLK_RIGHT) {
-                  get_current_buffer()->go_right(selection_mode);
+                  get_current_buffer()->go_right(editing_mode == select_m);
                 
                 } else if(key == SDLK_DOWN) {
-                  get_current_buffer()->go_down(selection_mode);
+                  get_current_buffer()->go_down(editing_mode == select_m);
                 
                 } else if(key == SDLK_UP) {
-                  get_current_buffer()->go_up(selection_mode);
+                  get_current_buffer()->go_up(editing_mode == select_m);
 
                 } else if(key == SDLK_d) {
-                  delete_selected();
-
+                  switch(editing_mode) {
+                    case normal_m: allow_text_input = false; /*@Incomplete*/ break;
+                    case select_m: allow_text_input = false; delete_selected(); editing_mode = insert_m; break;
+                    case insert_m: allow_text_input = true;  break;
+                  }
+                  
                 } else if(key == SDLK_y) {
-                  copy_selected();
+                  switch(editing_mode) {
+                    case normal_m: allow_text_input = false; /*@Incomplete*/ break;
+                    case select_m: allow_text_input = false; copy_selected(); editing_mode = insert_m; break;
+                    case insert_m: allow_text_input = true;  break;
+                  }
                 
                 } else if(key == SDLK_p) {
-                  // @Incomplete:
-                  // It's not using selection_mode so while SDL_TEXTINPUT gets triggered
-                  // it puts `p`.
-                  paste_from_global_copy(); 
+                  switch(editing_mode) {
+                    case normal_m: allow_text_input = false; paste_from_global_copy(); break;
+                    case select_m: allow_text_input = false; paste_from_global_copy(); break;
+                    case insert_m: allow_text_input = true;  break;
+                  }
 
                 } else {
                 }
@@ -160,14 +172,10 @@ int main(int argc, char **argv) {
         case SDL_TEXTINPUT: {
           switch(mode) {
             case Editor: {
-              if(selection_mode) {
-                clear_selection();
-                selection_mode = false;
-
-              } else {
+              if(allow_text_input) {
                 char c = e.text.text[0];
                 get_current_buffer()->put(c);
-
+              } else {
               }
             } break;
 
@@ -192,12 +200,12 @@ int main(int argc, char **argv) {
           auto buffer = get_current_buffer();
           if(e.wheel.y > 0) {
             for(char i = 0; i < dt_scroll; i++) {
-              buffer->scroll_up(selection_mode);
+              buffer->scroll_up(editing_mode == select_m);
             }
 
           } else if(e.wheel.y < 0) {
             for(char i = 0; i < dt_scroll; i++) {
-              buffer->scroll_down(selection_mode);
+              buffer->scroll_down(editing_mode == select_m);
             }
 
           } else {
@@ -222,7 +230,7 @@ int main(int argc, char **argv) {
         SDL_SetRenderDrawColor(renderer, WhiteColor.r, WhiteColor.g, WhiteColor.b, WhiteColor.a); 
         SDL_RenderClear(renderer);
 
-        get_current_tab()->draw(selection_mode);
+        get_current_tab()->draw(editing_mode == select_m);
         SDL_RenderPresent(renderer);
       } break;
 

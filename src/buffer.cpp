@@ -14,21 +14,20 @@
 // @Temporary:
 #define get_used_buffers(name, size_name, buffers) \
   buffer_t *name[arr_size(buffers)]; \
-  unsigned size_name = 0; \
-  for(auto i = 0u; i < arr_size(buffers); i++) { \
+  size_t size_name = 0; \
+  for(size_t i = 0; i < arr_size(buffers); i++) { \
     if(buffers[i].is_used) { \
       name[size_name++] = &buffers[i]; \
     } \
   }
 #define get_const_buffers(name, size_name, buffers) \
   const buffer_t *name[arr_size(buffers)]; \
-  unsigned size_name = 0; \
-  for(auto i = 0u; i < arr_size(buffers); i++) { \
+  size_t size_name = 0; \
+  for(size_t i = 0; i < arr_size(buffers); i++) { \
     if(buffers[i].is_used) { \
       name[size_name++] = &buffers[i]; \
     } \
   }
-
 
 
 static selection_buffer_t selection;
@@ -101,7 +100,7 @@ buffer_t *get_current_buffer() {
 }
 
 
-void read_entire_file(gap_buffer *ret, FILE *f) {
+static void read_entire_file(gap_buffer *ret, FILE *f) {
   assert(f);
   assert(ret);
 
@@ -119,7 +118,7 @@ void read_entire_file(gap_buffer *ret, FILE *f) {
 }
 
 
-FILE *get_file_or_create(const char *filename, const char *mods) {
+static FILE *get_file_or_create(const char *filename, const char *mods) {
   FILE *ret = fopen(filename, mods);
   if(!ret) {
     int fd = open(filename, O_RDWR | O_CREAT, 0);
@@ -158,15 +157,7 @@ void open_existing_buffer(buffer_t *prev) {
   buffer->file     = prev->file;
   buffer->filename = prev->filename;
 
-  // Have to explicitly move gap inside gap_buffer
-  // to the beginning, otherwise it will place new
-  // characters right where it starts.
-
-  // But it doesn't work.
-  /*
-  print(prev->file->buffer.pre_len);
-  prev->file->buffer.move_until(0);
-  */
+  buffer->file->buffer.move_until(0); // move gap to the beginning of file.
 }
 
 void open_existing_or_new_buffer(literal filename) {
@@ -175,12 +166,7 @@ void open_existing_or_new_buffer(literal filename) {
 
   for(size_t i = 0; i < size; i++) {
     if(used_bufs[i]->filename == filename) {
-      auto buffer = get_free_win_buffer();
-      assert(buffer);
-      active_buffer = buffer;
-
-      buffer->file = used_bufs[i]->file;
-      assert(buffer->file);
+      open_existing_buffer(used_bufs[i]);
       return;
     }
   }
@@ -195,11 +181,28 @@ static void open_tab(literal filename) {
 }
 
 void tab_t::draw(bool selection_mode) const {
-  get_const_buffers(used_bufs, size, buffers);
+  get_const_buffers(used_bufs, used_size, buffers);
 
-  for(auto i = 0u; i < size; i++) {
-    used_bufs[i]->draw(selection_mode);
+  const buffer_t *same_buffers[used_size];
+  size_t size = 0;
+  for(size_t i = 0; i < used_size; i++) {
+    if(used_bufs[i]->filename == active_buffer->filename) {
+      same_buffers[size++] = used_bufs[i];
+    }
   }
+
+  // Updating only the same buffers, as active_buffer.
+  for(size_t i = 0; i < size; i++) {
+    same_buffers[i]->draw(selection_mode);
+  }
+
+  // Update cursor.
+  char s = active_buffer->file->buffer[active_buffer->cursor];
+  s = (s == '\n')? ' ': s;
+  int px = active_buffer->get_relative_pos_x(active_buffer->n_character-active_buffer->offset_on_line);
+  int py = active_buffer->get_relative_pos_y(active_buffer->n_line-active_buffer->start_pos);
+  active_buffer->draw_cursor(s, px, py, WhiteColor, BlackColor);
+
   console_draw();
 }
 
@@ -213,14 +216,6 @@ void tab_t::on_resize(int n_width, int n_height) {
   }
 }
 
-
-int buffer_t::get_line_length(int beginning) const {
-  int count = 1;
-  for(int i = beginning; file->buffer[i] != '\n'; i++) {
-    count++;
-  }
-  return count;
-}
 
 static bool is_selection = false;
 void buffer_t::draw_line(int beginning, int line_number, bool selecting) const {
@@ -289,9 +284,32 @@ void buffer_t::draw_line(int beginning, int line_number, bool selecting) const {
 }
 
 void buffer_t::draw(bool selection_mode) const {
+#if 0
+  // @Note:
+  // When we split on current window and start editing text,
+  // it gets wrong on another window if both have different 
+  // `start_pos` or `offset_on_line`, so we try to avoid 
+  // that right here, deciding to whether update or not, 
+  // `another window`. 
+
+  // The problem is current draw function updates every frame,
+  // and not when text is changed, so it's impossible to don't
+  // get that behavior.
+  //
+  bool no_update = false;
+  if(this != active_buffer) {
+    // Handles cases, when we split on current buffer, and trying to edit text
+    // in different positions on each window.
+    
+    if(start_pos > active_buffer->start_pos) { // We don't want to update text below 
+      no_update = true;
+    }
+  }
+#endif
+
   int i = offset_from_beginning, line = 0;
-  while((size_t)i < file->buffer.size()) {
-    assert(i >= 0 && (size_t)i < file->buffer.size());
+  while((size_t)i < file->buffer.size()-1) {
+    assert(i >= 0 && (size_t)i < file->buffer.size()-1);
 
     if(get_relative_pos_y(line) >= get_console()->bottom_y - font_height) { 
       // If we are out of window.
@@ -306,14 +324,6 @@ void buffer_t::draw(bool selection_mode) const {
   // @Hack: when inside draw_line we never reach the 
   //  is_selection = false;
   is_selection = false;
-
-  // Draw cursor.
-  char s = file->buffer[cursor];
-  s = (s == '\n')? ' ': s;
-
-  int px = get_relative_pos_x(n_character-offset_on_line);
-  int py = get_relative_pos_y(n_line-start_pos);
-  draw_cursor(s, px, py, WhiteColor, BlackColor);
 }
 
 void buffer_t::draw_cursor(char c, int px, int py, SDL_Color color1, SDL_Color color2) const {
@@ -342,84 +352,44 @@ void buffer_t::on_resize(int prev_width, int prev_height, int new_width, int new
   }
 }
 
-bool buffer_t::is_last_line() const {
-  for(auto i = offset_from_beginning; file->buffer[i] != '\n'; i++) {
-    if(i == file->buffer.size()-2) return true;
-  }
-  return false;
-}
-
-bool buffer_t::is_first_line() const {
-  return offset_from_beginning == 0;
-}
-
-bool buffer_t::cursor_on_first_line() const {
-  if(cursor == 0) return true;
-  unsigned i = 0;
-  for( ; file->buffer[i] != '\n'; i++) {
-    if(i == cursor) return true;
-  }
-  if(i == cursor) return true;
-  return false;
-}
-
-bool buffer_t::cursor_on_last_line() const {
-  if(cursor == file->buffer.size()) return true;
-  size_t i = cursor;
-  for( ; file->buffer[i] != '\n'; i++) {
-    if(i == file->buffer.size()-1) return true;
-  }
-  if(i == file->buffer.size()-1) return true;
-  return false;
-}
-
-bool buffer_t::char_fits_on_buffer_width() const {
-  return n_character - offset_on_line <= (unsigned)num_chars_fits_to_buffer_width();
-}
-
-int buffer_t::num_chars_fits_to_buffer_width() const {
-  return width/font_width - 1;
-}
-
-int buffer_t::num_to_shift_down_on_scrolling() const {
-  int count = 0;
-  for(auto i = offset_from_beginning; file->buffer[i] != '\n'; i++) {
-    count++;
-  }
-  count++; // '\n'.
-  return count;
-}
-
-int buffer_t::num_to_shift_up_on_scrolling() const {
-  int count = 0;
-  if(offset_from_beginning < 2) {
-    count++;
-
-  } else {
-    for(auto i = offset_from_beginning-2; file->buffer[i] != '\n'; i--) {
-      count++;
-      if(i == 0) break;
-    }
+int buffer_t::get_line_length(int beginning) const {
+  int count = 1;
+  for(int i = beginning; file->buffer[i] != '\n'; i++) {
     count++;
   }
   return count;
 }
 
-int buffer_t::get_cursor_pos_x() const {
-  if(cursor == 0) return 0;
+void buffer_t::shift_beginning_up() {
+  assert(offset_on_line == 0 && n_character == 0);
+  int count = get_line_length(offset_from_beginning);
+  offset_from_beginning += count;
+  start_pos++;
+}
 
-  int tmp = cursor-1;
-  int ret = 0;
-  while(file->buffer[tmp] != '\n') {
-    ret++;
+void buffer_t::shift_beginning_down() {
+  assert(offset_on_line == 0 && n_character == 0 && cursor > 0 && offset_from_beginning > 0);
 
-    if(tmp == 0) {
-      break;
-    } else {
-      tmp--;
-    }
+  int count = 2;
+  while(file->buffer[offset_from_beginning-count] != '\n') {
+    if(count == offset_from_beginning) { count++; break; }
+    count++;
   }
-  return ret;
+  count--;
+
+  offset_from_beginning -= count;
+  start_pos--;
+}
+
+int buffer_t::get_cursor_pos_on_line() const {
+  assert(cursor > 0 && offset_on_line == 0 && file->buffer[cursor] == '\n');
+  
+  int count = 1;
+  while(file->buffer[cursor-count] != '\n') {
+    if(cursor == count) { return count; }
+    count++;
+  }
+  return count-1;
 }
 
 int buffer_t::get_total_lines() const {
@@ -433,32 +403,15 @@ int buffer_t::get_total_lines() const {
 void buffer_t::inc_cursor() {
   if(file->buffer[cursor] == '\n') {
     n_character = 0;
+    offset_on_line = 0;
     n_line++;
   } else {
     n_character++;
+    if(n_character - offset_on_line > number_chars_on_line_fits_in_window(this)) {
+      offset_on_line++;
+    }
   }
   cursor++;
-}
-
-
-void buffer_t::dec_cursor() {
-  cursor--;
-  if(file->buffer[cursor] == '\n') {
-    n_character = get_cursor_pos_x();
-    n_line--;
-  } else {
-    n_character--;
-  }
-}
-
-void buffer_t::inc_start(int n) {
-  offset_from_beginning += n;
-  start_pos++;
-}
-
-void buffer_t::dec_start(int n) {
-  offset_from_beginning -= n;
-  start_pos--;
 }
 
 void buffer_t::go_right(bool selecting) {
@@ -466,20 +419,10 @@ void buffer_t::go_right(bool selecting) {
 
   file->buffer.move_right();
   inc_cursor();
-  
-  if(!char_fits_on_buffer_width()) {
-    offset_on_line++;
-  }
 
-  if(file->buffer[cursor-1] == '\n') {
-    offset_on_line = 0;
+  if(number_lines_fits_in_window(this) + start_pos == n_line) {  
+    shift_beginning_up();
   }
-
-  if((height / font_height) + start_pos == n_line) {  
-    int shift = num_to_shift_down_on_scrolling();
-    inc_start(shift);
-  }
-
 
   if(selecting) {
     if(selection.direction == left) {
@@ -514,22 +457,32 @@ void buffer_t::go_left(bool selecting) {
   assert(cursor > 0);
 
   file->buffer.move_left();
-  dec_cursor();
+
+  // dec_cursor.
+  cursor--;
+  if(file->buffer[cursor] == '\n') {
+    assert(offset_on_line == 0);
+    n_character = get_cursor_pos_on_line();
+    n_line--;
+  } else {
+
+    n_character--;
+  }
 
   if(n_character < offset_on_line) {
     offset_on_line--;
   }
+  //
 
   if(file->buffer[cursor] == '\n') {
-    assert(offset_on_line == 0);
-    if(!char_fits_on_buffer_width()) {
-      offset_on_line = n_character - num_chars_fits_to_buffer_width();
+    int diff = (int)n_character - number_chars_on_line_fits_in_window(this);
+    if(diff > 0 && diff > offset_on_line) {
+      offset_on_line = diff;
     }
   }
 
   if(start_pos-1 == n_line && start_pos != 0) {
-    int shift = num_to_shift_up_on_scrolling();
-    dec_start(shift);
+    shift_beginning_down();
   }
 
 
@@ -594,6 +547,7 @@ void buffer_t::put_backspace() {
 }
 
 void buffer_t::put_delete() {
+  if(cursor == file->buffer.size()-1) return; // @Hack: @CleanUp: on for last character.
   file->buffer.del();
 }
 
@@ -605,77 +559,88 @@ void buffer_t::put_return() {
   assert(offset_on_line == 0);
 }
 
-void buffer_t::put(char c) {
-  file->buffer.add(c);
-  inc_cursor();
-  if(!char_fits_on_buffer_width()) {
-    offset_on_line++;
+void buffer_t::put_tab() {
+  for(char i = 0; i < tabstop; i++) {
+    put(' ');
   }
 }
 
+void buffer_t::put(char c) {
+  file->buffer.add(c);
+  inc_cursor();
+}
+
 void buffer_t::go_down(bool selecting) {
-  if(cursor_on_last_line()) return;
+  if(n_line == get_total_lines()-1) return;
 
   auto prev_character_pos = n_character;
   for(size_t i = cursor; file->buffer[i] != '\n'; i++) {
     go_right(selecting);
   }
+
   go_right(selecting);
+  assert(n_character == 0 && offset_on_line == 0);
   
   for(size_t i = 0; i < prev_character_pos; i++) {
-    if(cursor == file->buffer.size() || file->buffer[cursor] == '\n') break;
+    if(file->buffer[cursor] == '\n') break;
     go_right(selecting);
   }
 }
 
 void buffer_t::go_up(bool selecting) {
-  if(cursor_on_first_line()) return;
+  if(n_line == 0) return;
 
   size_t prev_character_pos = n_character;
   for(auto i = 0u; i < prev_character_pos; i++) {
     go_left(selecting);
   }
-  assert(n_character == 0 && offset_on_line == 0);
-  go_left(selecting);
-  
-  size_t diff, line_length = n_character;
-  if(line_length < prev_character_pos) {
-    diff = 0;
-  } else {
-    diff = line_length - prev_character_pos;
-  }
-  for(size_t i = 0; i < diff; i++) {
+  assert(n_character == 0 && offset_on_line == 0 && n_line > 0);
+	go_left(selecting);
+
+  while(n_character > 0) { // go till the beginning of line.
     go_left(selecting);
+    if(file->buffer[cursor] == '\n') break;
+  }
+
+  for(size_t i = 0; i < prev_character_pos; i++) { // from beginning to actual position.
+    if(file->buffer[cursor] == '\n') break;
+    go_right(selecting);
   }
 }
 
 void buffer_t::scroll_down(bool selecting) {
-  if(is_last_line()) return;
-   
-  int shift = num_to_shift_down_on_scrolling();
+  if(start_pos == get_total_lines()-1) return;
 
   if(start_pos == n_line) {
     go_down(selecting);
   }
 
-  inc_start(shift);
+  shift_beginning_up();
 }
 
 void buffer_t::scroll_up(bool selecting) {
-  if(is_first_line()) return;
+  if(offset_from_beginning == 0) return;
 
-
-  bool cursor_should_go_up = (height / font_height) + start_pos - 1 == n_line;
-  if(cursor_should_go_up) {
+  if(number_lines_fits_in_window(this)+start_pos-1 == n_line) {
     go_up(selecting);
   }
 
-  int shift = num_to_shift_up_on_scrolling();
-  dec_start(shift);
+  shift_beginning_down();
 }
 
 void buffer_t::init(int x, int y, int w, int h) {
   start_x = x; start_y = y; width = w; height = h;
+}
+
+int number_lines_fits_in_window(const buffer_t *b) {
+  assert(b->height > font_height);
+  return b->height / font_height;
+
+}
+
+int number_chars_on_line_fits_in_window(const buffer_t *b) {
+  assert(b->width > font_width);
+  return b->width / font_width - 1;
 }
 
 void init(int argc, char **argv) {
@@ -739,4 +704,127 @@ void paste_from_global_copy() {
     buffer->put(gap_buffer[i]);
   }
   console_put_text("Pasted!");
+}
+
+void go_to_line(int line) {
+  auto buffer = get_current_buffer();
+  auto total_lines = buffer->get_total_lines();
+
+  if(line < 0) {
+    line = total_lines + line;
+    if(line <= 0) {
+      line = 1;
+    }
+
+  } else if(line > total_lines) {
+    line = total_lines;
+  } else if(line == 0) {
+    line++;
+  }
+
+  while(line > (int)buffer->n_line+1) buffer->go_down();
+  while(line < (int)buffer->n_line+1) buffer->go_up();
+}
+
+
+void save() {
+  auto buffer = get_current_buffer();
+  if(buffer->filename.empty()) {
+    console_put_text("File has no name.");
+
+  } else {
+    assert(!buffer->filename.empty());
+    FILE *f = get_file_or_create(buffer->filename.c_str(), "w");
+    defer { fclose(f); };
+
+    if(!f) {
+      // @Incomplete: report error.
+      assert(0);
+      print("No file for me (:");
+    }
+
+    unsigned i = 0u;
+    for( ; i < buffer->file->buffer.size(); i++) {
+      fprintf(f, "%c", buffer->file->buffer[i]);
+    }
+    if(!buffer->file->buffer.size() || buffer->file->buffer[i-1] != '\n') {
+      buffer->put('\n');
+      buffer->go_left();
+      save();
+    }
+    fflush(f);
+    console_put_text("File saved.");
+  }
+}
+
+void quit(int e) {
+  exit(e);
+}
+
+static void resize(buffer_t *p, buffer_t *n, split_type_t type) {
+  switch(type) {
+    case hsp_type: {
+      n->init(p->start_x, p->start_y + p->height/2., p->width, p->height/2.);
+      p->init(p->start_x, p->start_y,                p->width, p->height/2.);
+      break;
+    }
+
+    case vsp_type: {
+      n->init(p->start_x + p->width/2., p->start_y, p->width/2., p->height);
+      p->init(p->start_x,               p->start_y, p->width/2., p->height);
+      break;
+    }
+  }
+}
+
+
+void do_split(const literal &l, split_type_t type) {
+  if(!l.data) {
+    // Opening current buffer in another window.
+
+    auto p_buf = get_current_buffer();
+    open_existing_buffer(p_buf);
+    auto n_buf = get_current_buffer();
+
+    n_buf->filename = p_buf->filename;
+    resize(p_buf, n_buf, type);
+
+  } else {
+    // Opening new buffer in another window.
+    string_t n_filename = to_string(l);
+
+    auto p_buf = get_current_buffer();
+    open_existing_or_new_buffer(to_literal(n_filename));
+    auto n_buf = get_current_buffer();
+
+    n_buf->filename = std::move(n_filename);
+    resize(p_buf, n_buf, type);
+  }
+}
+
+void close_buffer() {
+  
+}
+
+void cursor_right() {
+  auto buffer = get_current_buffer();
+  if(buffer->file->buffer[buffer->cursor] == '\n') return; // '\n' means it's the last char on line.
+
+  buffer->go_right();
+}
+
+void cursor_left() {
+  auto buffer = get_current_buffer();
+  if(buffer->cursor == 0) return;
+  if(buffer->file->buffer[buffer->cursor-1] == '\n') return;
+
+  buffer->go_left();
+}
+
+void cursor_up() {
+  get_current_buffer()->go_up();
+}
+
+void cursor_down() {
+  get_current_buffer()->go_down();
 }
