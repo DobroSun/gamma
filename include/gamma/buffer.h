@@ -41,7 +41,6 @@ struct buffer_t {
   void go_down(bool selecting=false);
   void go_up(bool selecting=false);
   void go_right(bool selecting=false);
-  void move_left();
   void go_left(bool selecting=false);
   void put_backspace();
   void put_return();

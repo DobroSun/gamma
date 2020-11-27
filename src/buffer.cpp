@@ -32,11 +32,11 @@
 
 
 static selection_buffer_t selection;
-static bool is_in_selected(const selection_buffer_t *s, const size_t ind) {
-  return s->start_index <= ind && ind <= s->start_index+s->size;
+static bool is_in_selected(const selection_buffer_t *s, const int ind) {
+  return s->start_index <= ind && ind <= s->start_index+(int)s->size;
 }
-static bool is_last_to_be_selected(const selection_buffer_t *s, const size_t ind) {
-  return ind <= s->start_index+s->size;
+static bool is_last_to_be_selected(const selection_buffer_t *s, const int ind) {
+  return ind <= s->start_index+(int)s->size;
 }
 
 static tab_t    *active_tab = nullptr;
@@ -224,17 +224,12 @@ int buffer_t::get_line_length(int beginning) const {
 
 static bool is_selection = false;
 void buffer_t::draw_line(int beginning, int line_number, bool selecting) const {
-  if(get_line_length(beginning) <= offset_on_line) { return; }
-
-  const int start_index = selection.start_index;
-  const int start_line  = selection.start_line;
-  const int start_char  = selection.start_char;
-  const size_t size     = selection.size;
+  if(get_line_length(beginning) <= (int)offset_on_line) { return; }
 
   const gap_buffer &buffer = file->buffer;
   int i = beginning + offset_on_line, char_number = 0;
   while(buffer[i] != '\n') {
-    assert(i < buffer.size());
+    assert(i >= 0 && (size_t)i < buffer.size());
 
     const int px = get_relative_pos_x(char_number);
     const int py = get_relative_pos_y(line_number);
@@ -265,7 +260,7 @@ void buffer_t::draw_line(int beginning, int line_number, bool selecting) const {
   }
 
   // CleanUp: Copy&Paste: of code inside loop.
-  assert(i < buffer.size());
+  assert(i >= 0 && (size_t)i < buffer.size());
   assert(buffer[i] == '\n');
 
   const int px = get_relative_pos_x(char_number);
@@ -294,10 +289,9 @@ void buffer_t::draw_line(int beginning, int line_number, bool selecting) const {
 }
 
 void buffer_t::draw(bool selection_mode) const {
-
   int i = offset_from_beginning, line = 0;
-  while(i < file->buffer.size()) {
-    assert(i >= 0 && i < file->buffer.size());
+  while((size_t)i < file->buffer.size()) {
+    assert(i >= 0 && (size_t)i < file->buffer.size());
 
     if(get_relative_pos_y(line) >= get_console()->bottom_y - font_height) { 
       // If we are out of window.
@@ -515,8 +509,11 @@ void buffer_t::go_right(bool selecting) {
 }
 
 
-void buffer_t::move_left() {
+void buffer_t::go_left(bool selecting) {
   if(cursor == 0) return;
+  assert(cursor > 0);
+
+  file->buffer.move_left();
   dec_cursor();
 
   if(n_character < offset_on_line) {
@@ -534,15 +531,6 @@ void buffer_t::move_left() {
     int shift = num_to_shift_up_on_scrolling();
     dec_start(shift);
   }
-}
-
-
-void buffer_t::go_left(bool selecting) {
-  if(cursor == 0) return;
-  assert(cursor > 0);
-
-  file->buffer.move_left();
-  move_left();
 
 
   if(selecting) {
@@ -596,7 +584,11 @@ void buffer_t::put_backspace() {
   if(cursor == 0) {
     // Do nothing.
   } else {
-    move_left();
+    // We don't need to move gap at all,
+    // but since go_left calls       gap_buffer.move_left(),
+    // we have to compencate it with gap_buffer.move_right().
+    file->buffer.move_right();
+    go_left();
   }
   file->buffer.backspace();
 }
@@ -607,9 +599,10 @@ void buffer_t::put_delete() {
 
 void buffer_t::put_return() {
   file->buffer.add('\n');
-  inc_cursor();
 
-  offset_on_line = 0;
+  go_right();
+  file->buffer.move_left(); // Same hack as for ::put_backspace().
+  assert(offset_on_line == 0);
 }
 
 void buffer_t::put(char c) {
@@ -624,12 +617,12 @@ void buffer_t::go_down(bool selecting) {
   if(cursor_on_last_line()) return;
 
   auto prev_character_pos = n_character;
-  for(auto i = cursor; file->buffer[i] != '\n'; i++) {
+  for(size_t i = cursor; file->buffer[i] != '\n'; i++) {
     go_right(selecting);
   }
   go_right(selecting);
   
-  for(auto i = 0u; i < prev_character_pos; i++) {
+  for(size_t i = 0; i < prev_character_pos; i++) {
     if(cursor == file->buffer.size() || file->buffer[cursor] == '\n') break;
     go_right(selecting);
   }
@@ -638,22 +631,21 @@ void buffer_t::go_down(bool selecting) {
 void buffer_t::go_up(bool selecting) {
   if(cursor_on_first_line()) return;
 
-  auto prev_character_pos = n_character;
+  size_t prev_character_pos = n_character;
   for(auto i = 0u; i < prev_character_pos; i++) {
     go_left(selecting);
   }
-
   assert(n_character == 0 && offset_on_line == 0);
   go_left(selecting);
-
-  while(n_character > 0) {
-    go_left(selecting);
-    if(file->buffer[cursor] == '\n') break;
+  
+  size_t diff, line_length = n_character;
+  if(line_length < prev_character_pos) {
+    diff = 0;
+  } else {
+    diff = line_length - prev_character_pos;
   }
-
-  while(n_character < prev_character_pos) {
-    if(file->buffer[cursor] == '\n') break;
-    go_right(selecting);
+  for(size_t i = 0; i < diff; i++) {
+    go_left(selecting);
   }
 }
 
