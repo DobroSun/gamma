@@ -19,7 +19,8 @@
     if(buffers[i].is_used) { \
       name[size_name++] = &buffers[i]; \
     } \
-  }
+  } \
+  assert(size_name > 0);
 #define get_const_buffers(name, size_name, buffers) \
   const buffer_t *name[arr_size(buffers)]; \
   size_t size_name = 0; \
@@ -27,7 +28,8 @@
     if(buffers[i].is_used) { \
       name[size_name++] = &buffers[i]; \
     } \
-  }
+  } \
+  assert(size_name > 0);
 
 
 static selection_buffer_t selection;
@@ -79,16 +81,26 @@ static tab_t *get_free_tab() {
   return nullptr;
 }
 
-#if 0
-void finish_file_buffer(file_buffer *f) {
+
+static void finish_file(file_buffer_t *f) {
   f->is_used = false;
-  //dealloc(f->buffer);
+  f->buffer.clear();
 }
-void finish_win_buffer(buffer_tt *b) {
-  b->is_used = false;
-  finish_file_buffer(b->file);
+
+static void finish_buffer(buffer_t *b) {
+  b->is_used  = false;
+  b->filename = "";
+  b->split.split_with = NULL;
+  b->cursor = 0; b->n_character = 0; b->n_line = 0; 
+  b->offset_on_line = 0; b->offset_from_beginning = 0;
+  b->start_pos = 0;
 }
-#endif
+
+static void finish_buffer_and_file(buffer_t *b) {
+  finish_buffer(b);
+  finish_file(b->file);
+}
+
 
 
 tab_t *get_current_tab() {
@@ -768,54 +780,86 @@ void save() {
   }
 }
 
-void quit(int e) {
-  exit(e);
+void close_buffer(buffer_t *p) {
+  get_used_buffers(used_bufs, usize, active_tab->buffers);
+
+  if(usize == 1) {
+    exit(0);
+
+  } else {
+    auto split_info = &p->split;
+    auto n          = split_info->split_with;
+    assert(n);
+
+    {
+      auto start_x = min(p->start_x, n->start_x);
+      auto start_y = min(p->start_y, n->start_y);
+      switch(split_info->type) {
+        case hsp_type: {
+          assert(n->width == p->width);
+          n->init(start_x, start_y, n->width, p->height + n->height);
+          break;
+        }
+        case vsp_type: {
+          assert(n->height == p->height);
+          n->init(start_x, start_y, p->width + n->width, n->height);
+          break;
+        }
+      }
+    }
+
+    // @Speed: 
+    // Can have this values as members of buffer_t.
+    size_t size = 0;
+    for(size_t i = 0; i < usize; i++) {
+      if(used_bufs[i]->filename == p->filename) {
+        size++;
+      }
+    }
+    //
+
+    if(size == 1) {
+      finish_buffer_and_file(p);
+    } else {
+      if(n->filename == p->filename) { n->file->buffer.move_until(n->cursor); }
+      finish_buffer(p);
+    }
+
+    active_buffer = n;
+  }
 }
 
-static void resize(buffer_t *p, buffer_t *n, split_type_t type) {
+void do_split(const literal &l, split_type_t type) {
+  buffer_t *p = get_current_buffer();
+  buffer_t *n;
+
+  if(!l.data) {
+    open_existing_buffer(p);
+    n = get_current_buffer();
+    n->filename = p->filename;
+
+  } else {
+    string_t filename = to_string(l);
+    open_existing_or_new_buffer(to_literal(filename));
+    n = get_current_buffer();
+    n->filename = std::move(filename);
+  }
+
   switch(type) {
     case hsp_type: {
       n->init(p->start_x, p->start_y + p->height/2., p->width, p->height/2.);
       p->init(p->start_x, p->start_y,                p->width, p->height/2.);
       break;
     }
-
     case vsp_type: {
       n->init(p->start_x + p->width/2., p->start_y, p->width/2., p->height);
       p->init(p->start_x,               p->start_y, p->width/2., p->height);
       break;
     }
   }
-}
 
-
-void do_split(const literal &l, split_type_t type) {
-  buffer_t *n_buf;
-  if(!l.data) {
-    // Opening current buffer in another window.
-
-    auto p_buf = get_current_buffer();
-    open_existing_buffer(p_buf);
-    n_buf = get_current_buffer();
-
-    n_buf->filename = p_buf->filename;
-    resize(p_buf, n_buf, type);
-
-  } else {
-    // Opening new buffer in another window.
-    string_t n_filename = to_string(l);
-
-    auto p_buf = get_current_buffer();
-    open_existing_or_new_buffer(to_literal(n_filename));
-    n_buf = get_current_buffer();
-
-    n_buf->filename = std::move(n_filename);
-    resize(p_buf, n_buf, type);
-  }
-}
-
-void close_buffer() {
-  
+  n->split.split_with = p;
+  n->split.type       = type;
 }
 
 void cursor_right() {

@@ -24,6 +24,11 @@ struct selection_buffer_t {
   moving_direction_t direction = none;
 };
 
+struct split_info_t {
+  buffer_t *split_with = NULL;
+  split_type_t type;
+};
+
 struct file_buffer_t {
   gap_buffer buffer;
   bool is_used = false;
@@ -34,9 +39,11 @@ struct buffer_t {
   bool is_used = false;
   string_t filename;
 
+  split_info_t split;
+
 
   // Position on the window.
-  int start_x = 0, start_y = 0, width = Width, height = Height;
+  int start_x, start_y, width, height;
   unsigned cursor = 0, n_character = 0, n_line = 0;
   unsigned offset_on_line = 0, offset_from_beginning = 0, start_pos = 0;
 
@@ -107,7 +114,7 @@ void paste_from_global_copy();
 
 void go_to_line(int);
 void save();
-void quit(int);
+void close_buffer(buffer_t *);
 
 void do_split(const literal &l, split_type_t);
 #define hsplit(l) do_split(l, hsp_type)

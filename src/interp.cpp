@@ -95,7 +95,6 @@ struct Token {
 
 enum Ast_Type {
   Ast_Error_Type,
-  Ast_Quit_Type,
   Ast_Set_Type,
   Ast_Split_Type,
 };
@@ -105,11 +104,6 @@ struct Ast_Expression {
   Ast_Expression(const Ast_Type t) {
     type = t;
   }
-};
-
-struct Ast_Quit: public Ast_Expression {
-  using Ast_Expression::Ast_Expression;
-  int err_code = 0;
 };
 
 struct Ast_Set: public Ast_Expression {
@@ -285,28 +279,14 @@ static Ast_Expression *parse() {
 
   bool failed = false;
   if(tok->type == QuitCommandType) {
-    auto expr = NEW_AST(Ast_Quit);
-    defer { if(failed) { DELETE_AST(expr); expr = nullptr; }};
-
     tok = get_next_token();
-    if(tok->type == IntegerType) {
-      expr->err_code = tok->value.integer_value;
-      return expr;
-
-      tok = get_next_token();
-      if(tok->type == EndOfLineType) {
-        failed = true;
-        return expr;
-      }
-
-    } else if(tok->type == EndOfLineType) {
-      return expr;
-
+    if(tok->type == EndOfLineType) {
+      close_buffer(get_current_buffer());
+      
     } else {
       // report error.
-      failed = true;
-      return expr;
     }
+    return NULL;
 
   } else if(tok->type == SetCommandType) {
     auto expr = NEW_AST(Ast_Set);
@@ -417,7 +397,6 @@ static Ast_Expression *parse() {
 
 static void dealloc(Ast_Expression *ast) {
   switch(ast->type) {
-    DEALLOC_JUST(Ast_Quit);
     DEALLOC_JUST(Ast_Set);
     DEALLOC_JUST(Ast_Split);
     default: {
@@ -463,11 +442,6 @@ void interp(const char *s) {
     defer { dealloc(ast); };
 
     switch(ast->type) {
-      case Ast_Quit_Type: {
-        auto e = static_cast<Ast_Quit *>(ast);
-        quit(e->err_code);
-      } break;
-
       case Ast_Set_Type: {
         auto e = static_cast<Ast_Set *>(ast);
         //
