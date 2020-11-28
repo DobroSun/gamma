@@ -157,7 +157,7 @@ void open_existing_buffer(buffer_t *prev) {
   buffer->file     = prev->file;
   buffer->filename = prev->filename;
 
-  buffer->file->buffer.move_until(0); // move gap to the beginning of file.
+  buffer->file->buffer.move_until(0);
 }
 
 void open_existing_or_new_buffer(literal filename) {
@@ -177,12 +177,17 @@ static void open_tab(literal filename) {
   auto tab = get_free_tab();
   assert(tab);
   active_tab = tab;
-  open_new_buffer(filename);
+  open_new_buffer(filename); // @Incomplete: What if filename is already opened?
 }
 
 void tab_t::draw(bool selection_mode) const {
   get_const_buffers(used_bufs, used_size, buffers);
 
+#if 0
+  // @Incomplete:
+  // Need to update every opened buffer on window.
+  // cause right now we don't have partial update.
+  //
   const buffer_t *same_buffers[used_size];
   size_t size = 0;
   for(size_t i = 0; i < used_size; i++) {
@@ -194,6 +199,11 @@ void tab_t::draw(bool selection_mode) const {
   // Updating only the same buffers, as active_buffer.
   for(size_t i = 0; i < size; i++) {
     same_buffers[i]->draw(selection_mode);
+  }
+#endif
+
+  for(size_t i = 0; i < used_size; i++) {
+    used_bufs[i]->draw(selection_mode);
   }
 
   // Update cursor.
@@ -361,19 +371,23 @@ int buffer_t::get_line_length(int beginning) const {
 }
 
 void buffer_t::shift_beginning_up() {
-  assert(offset_on_line == 0 && n_character == 0);
   int count = get_line_length(offset_from_beginning);
   offset_from_beginning += count;
   start_pos++;
 }
 
 void buffer_t::shift_beginning_down() {
-  assert(offset_on_line == 0 && n_character == 0 && cursor > 0 && offset_from_beginning > 0);
+  assert(cursor > 0 && offset_from_beginning > 0);
 
   int count = 2;
-  while(file->buffer[offset_from_beginning-count] != '\n') {
-    if(count == offset_from_beginning) { count++; break; }
-    count++;
+  if(offset_from_beginning < count) {
+    assert(offset_from_beginning == 1);
+
+  } else {
+    while(file->buffer[offset_from_beginning-count] != '\n') {
+      if(count == offset_from_beginning) { count++; break; }
+      count++;
+    }
   }
   count--;
 
@@ -382,7 +396,8 @@ void buffer_t::shift_beginning_down() {
 }
 
 int buffer_t::get_cursor_pos_on_line() const {
-  assert(cursor > 0 && offset_on_line == 0 && file->buffer[cursor] == '\n');
+  assert(offset_on_line == 0 && file->buffer[cursor] == '\n');
+  if(cursor == 0) return 0;
   
   int count = 1;
   while(file->buffer[cursor-count] != '\n') {
@@ -775,12 +790,13 @@ static void resize(buffer_t *p, buffer_t *n, split_type_t type) {
 
 
 void do_split(const literal &l, split_type_t type) {
+  buffer_t *n_buf;
   if(!l.data) {
     // Opening current buffer in another window.
 
     auto p_buf = get_current_buffer();
     open_existing_buffer(p_buf);
-    auto n_buf = get_current_buffer();
+    n_buf = get_current_buffer();
 
     n_buf->filename = p_buf->filename;
     resize(p_buf, n_buf, type);
@@ -791,7 +807,7 @@ void do_split(const literal &l, split_type_t type) {
 
     auto p_buf = get_current_buffer();
     open_existing_or_new_buffer(to_literal(n_filename));
-    auto n_buf = get_current_buffer();
+    n_buf = get_current_buffer();
 
     n_buf->filename = std::move(n_filename);
     resize(p_buf, n_buf, type);
