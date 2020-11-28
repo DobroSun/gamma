@@ -13,9 +13,16 @@ enum editing_mode_t : char {
 };
 
 enum moving_direction_t : char {
+  move_left,
+  move_right,
+  none,
+};
+
+enum direction_t : char {
   left,
   right,
-  none,
+  up,
+  down,
 };
 
 struct selection_buffer_t {
@@ -115,6 +122,7 @@ void paste_from_global_copy();
 void go_to_line(int);
 void save();
 void close_buffer(buffer_t *);
+void change_buffer(buffer_t *, direction_t);
 
 void do_split(const literal &l, split_type_t);
 #define hsplit(l) do_split(l, hsp_type)

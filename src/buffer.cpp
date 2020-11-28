@@ -452,7 +452,7 @@ void buffer_t::go_right(bool selecting) {
   }
 
   if(selecting) {
-    if(selection.direction == left) {
+    if(selection.direction == move_left) {
       selection.start_index = cursor;
       selection.start_line  = n_line;
       selection.start_char  = n_character;
@@ -460,12 +460,12 @@ void buffer_t::go_right(bool selecting) {
       assert(selection.size > 0);
       selection.size--;
 
-    } else if(selection.direction == right) {
+    } else if(selection.direction == move_right) {
       selection.size++;
 
     } else {
       assert(selection.direction == none && selection.size == 0);
-      selection.direction = right;
+      selection.direction = move_right;
 
       // Copy&Paste: of right case.
       selection.size++;
@@ -510,19 +510,19 @@ void buffer_t::go_left(bool selecting) {
   }
 
   if(selecting) {
-    if(selection.direction == left) {
+    if(selection.direction == move_left) {
       selection.start_index = cursor;
       selection.start_line  = n_line;
       selection.start_char  = n_character;
       selection.size++;
 
-    } else if(selection.direction == right) {
+    } else if(selection.direction == move_right) {
       assert(selection.size > 0);
       selection.size--;
 
     } else {
       assert(selection.direction == none && selection.size == 0);
-      selection.direction = left;
+      selection.direction = move_left;
 
       // Copy&Paste: of left case.
       selection.start_index = cursor;
@@ -778,6 +778,53 @@ void save() {
     fflush(f);
     console_put_text("File saved.");
   }
+}
+
+void change_buffer(buffer_t *p, direction_t d) {
+  get_used_buffers(used_bufs, usize, active_tab->buffers);
+  if(usize == 1) return;
+  {
+    buffer_t *n;
+
+    // Need to find out which buffer has `start_x` < than the current_x.
+    // Not the lowest value, just nearest to current.
+    int current_x = p->start_x;
+    int starts[usize];
+    for(size_t i = 0; i < usize; i++) {
+      switch(d) {
+        case left:  starts[i] = current_x - used_bufs[i]->start_x; break;
+        case right: starts[i] = used_bufs[i]->start_x - current_x; break; 
+      }
+    }
+
+    std::sort(starts, starts+usize); // Maybe I need my implementation of this?
+    if(starts[usize-1] == 0) return; // If all values < 0, than `p` places on left border.
+      
+    size_t i = 0;
+    for( ; i < usize; i++) {
+      if(starts[i] == 0) break;
+    }
+    i++;
+
+    int need_start_x = starts[i];
+    for(size_t k = 0; k < usize; k++) {
+      if(d == left && need_start_x  == current_x - used_bufs[k]->start_x) {
+        n = used_bufs[k];
+        break;
+
+      } else if(d == right && need_start_x == used_bufs[k]->start_x - current_x) {
+        n = used_bufs[k];
+        break;
+      }
+    }
+    assert(n && n != p);
+    active_buffer = n;
+  }
+
+  // 
+  // @Incomplete: 
+  // Need changes in split_info_t to correctly handle closing the buffer.
+  // 
 }
 
 void close_buffer(buffer_t *p) {

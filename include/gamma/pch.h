@@ -4,6 +4,7 @@
 #include <cassert>
 #include <unordered_map> // @Temporary.
 #include <string>        // @Temporary.
+#include <algorithm>     // @Temporary.
 
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_ttf.h>

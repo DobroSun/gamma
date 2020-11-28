@@ -24,6 +24,8 @@ int main(int argc, char **argv) {
 
   editing_mode_t editing_mode = insert_m;
   bool allow_text_input       = true;
+
+  bool ctrl_w_pressed = false;
   while(!should_quit) {
     #if 0
     auto begin = std::chrono::steady_clock::now();
@@ -80,6 +82,8 @@ int main(int argc, char **argv) {
                   selected->start_char  = buffer->n_character;
                   selected->size        = 0;
                   selected->direction   = none;
+                } else if(key == SDLK_w) {
+                  ctrl_w_pressed = true;
                 }
 
               } else { // no mod.
@@ -104,10 +108,23 @@ int main(int argc, char **argv) {
                   get_current_buffer()->put_tab();
                 
                 } else if(key == SDLK_LEFT) {
-                  get_current_buffer()->go_left(editing_mode == select_m);
+                  if(ctrl_w_pressed) {
+                    change_buffer(get_current_buffer(), left);
+                    ctrl_w_pressed = false;
+
+                  } else {
+                    get_current_buffer()->go_left(editing_mode == select_m);
+                  }
                 
                 } else if(key == SDLK_RIGHT) {
-                  get_current_buffer()->go_right(editing_mode == select_m);
+                  if(ctrl_w_pressed) {
+                    change_buffer(get_current_buffer(), right);
+                    ctrl_w_pressed = false;
+
+                  } else {
+                    get_current_buffer()->go_right(editing_mode == select_m);
+                  }
+                
                 
                 } else if(key == SDLK_DOWN) {
                   get_current_buffer()->go_down(editing_mode == select_m);
@@ -117,21 +134,21 @@ int main(int argc, char **argv) {
 
                 } else if(key == SDLK_d) {
                   switch(editing_mode) {
-                    case normal_m: allow_text_input = false; /*@Incomplete*/ break;
+                    //case normal_m: allow_text_input = false; /*@Incomplete*/ break;
                     case select_m: allow_text_input = false; delete_selected(); editing_mode = insert_m; break;
                     case insert_m: allow_text_input = true;  break;
                   }
                   
                 } else if(key == SDLK_y) {
                   switch(editing_mode) {
-                    case normal_m: allow_text_input = false; /*@Incomplete*/ break;
+                    //case normal_m: allow_text_input = false; /*@Incomplete*/ break;
                     case select_m: allow_text_input = false; copy_selected(); editing_mode = insert_m; break;
                     case insert_m: allow_text_input = true;  break;
                   }
                 
                 } else if(key == SDLK_p) {
                   switch(editing_mode) {
-                    case normal_m: allow_text_input = false; paste_from_global_copy(); break;
+                    //case normal_m: allow_text_input = false; paste_from_global_copy(); break;
                     case select_m: allow_text_input = false; paste_from_global_copy(); break;
                     case insert_m: allow_text_input = true;  break;
                   }
