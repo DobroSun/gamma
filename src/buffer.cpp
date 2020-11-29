@@ -796,6 +796,8 @@ void change_buffer(buffer_t *p, direction_t d) {
   // Than find buffer with that value, and change current buffer to it.
   //
 
+  {
+
   int current; int another;
   if(d == left || d == right) {
     current = p->start_x;
@@ -854,7 +856,7 @@ void change_buffer(buffer_t *p, direction_t d) {
 
     }
 
-    bool breaked = false;
+    bool break_from_loop = false;
     buffer_t *yield;
     first_found = false; 
     for(size_t i = 0; i < count; i++) {
@@ -866,7 +868,7 @@ void change_buffer(buffer_t *p, direction_t d) {
         } else if(same_bufs[i]->start_x > another) {
           if(first_found) {
             n = yield;
-            breaked = true;
+            break_from_loop = true;
             break;
           } else {
             assert(0);
@@ -874,7 +876,7 @@ void change_buffer(buffer_t *p, direction_t d) {
         } else {
           assert(another == same_bufs[i]->start_x);
           n = same_bufs[i];
-          breaked = true;
+          break_from_loop = true;
           break;
         }
 
@@ -887,7 +889,7 @@ void change_buffer(buffer_t *p, direction_t d) {
       } else if(same_bufs[i]->start_y > another) {
         if(first_found) {
           n = yield;
-          breaked = true;
+          break_from_loop = true;
           break;
         } else {
           assert(0);
@@ -895,23 +897,31 @@ void change_buffer(buffer_t *p, direction_t d) {
       } else {
         assert(another == same_bufs[i]->start_y);
         n = same_bufs[i];
-        breaked = true;
+        break_from_loop = true;
         break;
       }
      }
     }
-    if(breaked) {
+    if(break_from_loop) {
     } else {
       n = yield;
     }
   }
 
+  }
+
   assert(n && n != p);
   active_buffer = n;
 
-  // 
-  // @Incomplete: 
-  // Need changes in split_info_t to correctly handle closing the buffer.
+  // Reverse linked list of splits.
+  auto *&prev    = n->split.split_with;
+  auto *&current = p;
+  while(current != n) {
+    auto *next = current->split.split_with;
+    current->split.split_with = prev;
+    prev    = current;
+    current = next;
+  }
   // 
 }
 
@@ -922,25 +932,54 @@ void close_buffer(buffer_t *p) {
     exit(0);
 
   } else {
-    auto split_info = &p->split;
-    auto n          = split_info->split_with;
+    auto n = p->split.split_with;
     assert(n);
 
-    {
-      auto start_x = min(p->start_x, n->start_x);
-      auto start_y = min(p->start_y, n->start_y);
-      switch(split_info->type) {
+    auto start_x = min(p->start_x, n->start_x);
+    auto start_y = min(p->start_y, n->start_y);
+
+    split_type_t base_type = n->split.type;
+    switch(base_type) {
+      case hsp_type: {
+        n->init(start_x, start_y, n->width, p->height);
+        break;
+      }
+      case vsp_type: {
+        n->init(start_x, start_y, p->width, n->height);
+        break;
+      }
+    }
+    
+    int count = 0;
+    buffer_t *prev = n;
+    buffer_t *next = n->split.split_with;;
+    while(next != NULL) {
+      switch(next->split.type) {
         case hsp_type: {
-          assert(n->width == p->width);
-          n->init(start_x, start_y, n->width, p->height + n->height);
+          if(base_type == hsp_type) {
+            print("Base hsp_type -- hsp");
+
+          } else {
+            print("Base vsp_type -- hsp");
+            //next->init(next->start_x, next->start_y, prev->width, next->height);
+          }
           break;
         }
         case vsp_type: {
-          assert(n->height == p->height);
-          n->init(start_x, start_y, p->width + n->width, n->height);
+          if(base_type == vsp_type) {
+            print("Base vsp_type -- vsp");
+            //next->init(prev->start_x + prev->width, next->start_y, prev->width/2., next->height);
+          } else {
+            //next->init(next->start_x, prev->start_y, next->width, prev->height);
+            print("Base hsp_type -- vsp");
+
+          }
           break;
         }
       }
+      
+      prev = next;
+      next = next->split.split_with;
     }
 
     // @Speed: 
@@ -959,7 +998,6 @@ void close_buffer(buffer_t *p) {
       if(n->filename == p->filename) { n->file->buffer.move_until(n->cursor); }
       finish_buffer(p);
     }
-
     active_buffer = n;
   }
 }
@@ -994,7 +1032,7 @@ void do_split(const literal &l, split_type_t type) {
   }
 
   n->split.split_with = p;
-  n->split.type       = type;
+  n->split.type = type;
 }
 
 void cursor_right() {
