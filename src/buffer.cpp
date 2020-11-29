@@ -780,46 +780,134 @@ void save() {
   }
 }
 
+static int compute_start_to_left(int current, buffer_t *b)  { return current - b->start_x; }
+static int compute_start_to_right(int current, buffer_t *b) { return b->start_x - current; }
+static int compute_start_to_up(int current, buffer_t *b)    { return current - b->start_y; }
+static int compute_start_to_down(int current, buffer_t *b)  { return b->start_y - current; }
+
 void change_buffer(buffer_t *p, direction_t d) {
   get_used_buffers(used_bufs, usize, active_tab->buffers);
   if(usize == 1) return;
-  {
-    buffer_t *n;
 
-    // Need to find out which buffer has `start_x` < than the current_x.
-    // Not the lowest value, just nearest to current.
-    int current_x = p->start_x;
-    int starts[usize];
-    for(size_t i = 0; i < usize; i++) {
-      switch(d) {
-        case left:  starts[i] = current_x - used_bufs[i]->start_x; break;
-        case right: starts[i] = used_bufs[i]->start_x - current_x; break; 
-      }
-    }
+  buffer_t *n;
+  // Ex. for d == left : 
+  // Need to find out which buffer has `start_x` < than the current_x.
+  // Not the lowest value, just nearest to current.
+  // Than find buffer with that value, and change current buffer to it.
+  //
 
-    std::sort(starts, starts+usize); // Maybe I need my implementation of this?
-    if(starts[usize-1] == 0) return; // If all values < 0, than `p` places on left border.
-      
-    size_t i = 0;
-    for( ; i < usize; i++) {
-      if(starts[i] == 0) break;
-    }
-    i++;
-
-    int need_start_x = starts[i];
-    for(size_t k = 0; k < usize; k++) {
-      if(d == left && need_start_x  == current_x - used_bufs[k]->start_x) {
-        n = used_bufs[k];
-        break;
-
-      } else if(d == right && need_start_x == used_bufs[k]->start_x - current_x) {
-        n = used_bufs[k];
-        break;
-      }
-    }
-    assert(n && n != p);
-    active_buffer = n;
+  int current; int another;
+  if(d == left || d == right) {
+    current = p->start_x;
+    another = p->start_y;
+  } else {
+    assert(d == up || d == down);
+    current = p->start_y;
+    another = p->start_x;
   }
+  
+  int (*compute_buffer_start_position)(int,buffer_t*) = NULL;
+  switch(d) {
+    case left  : compute_buffer_start_position = &compute_start_to_left; break;
+    case right : compute_buffer_start_position = &compute_start_to_right; break;
+    case up    : compute_buffer_start_position = &compute_start_to_up; break;
+    case down  : compute_buffer_start_position = &compute_start_to_down; break;
+  }
+
+  int starts[usize];
+  for(size_t i = 0; i < usize; i++) {
+    starts[i] = compute_buffer_start_position(current, used_bufs[i]);
+  }
+
+  std::sort(starts, starts+usize); // Maybe I need my implementation of this?
+  if(starts[usize-1] == 0) return; // If there is no values after 0.
+
+  int actual_start; int count = 0;
+  bool first_found = true;
+
+  for(size_t i = 0; i < usize; i++) {
+    if(starts[i] > 0) {
+      if(first_found) { actual_start = starts[i]; first_found = false; }
+      count++;
+    }
+  }
+
+  buffer_t *same_bufs[count]; count = 0;
+  for(size_t i = 0; i < usize; i++) {
+    if(actual_start == compute_buffer_start_position(current, used_bufs[i])) {
+      same_bufs[count++] = used_bufs[i];
+    }
+  }
+  
+  if(count == 1) {
+    n = same_bufs[0];
+  } else {
+    if(d == up || d == down) {
+      std::sort(same_bufs, same_bufs+count, [](const buffer_t *b, const buffer_t *p) {
+        return b->start_x < p->start_x;
+      });
+    } else {
+      assert(d == left || d == right);
+      std::sort(same_bufs, same_bufs+count, [](const buffer_t *b, const buffer_t *p) {
+        return b->start_y < p->start_y;
+      });
+
+    }
+
+    bool breaked = false;
+    buffer_t *yield;
+    first_found = false; 
+    for(size_t i = 0; i < count; i++) {
+      if(d == up || d == down) {
+        if(same_bufs[i]->start_x < another) {
+          first_found = true;
+          yield = same_bufs[i];
+
+        } else if(same_bufs[i]->start_x > another) {
+          if(first_found) {
+            n = yield;
+            breaked = true;
+            break;
+          } else {
+            assert(0);
+          }
+        } else {
+          assert(another == same_bufs[i]->start_x);
+          n = same_bufs[i];
+          breaked = true;
+          break;
+        }
+
+     } else {
+      assert(d == left || d == right);
+      if(same_bufs[i]->start_y < another) {
+        first_found = true;
+        yield = same_bufs[i];
+
+      } else if(same_bufs[i]->start_y > another) {
+        if(first_found) {
+          n = yield;
+          breaked = true;
+          break;
+        } else {
+          assert(0);
+        }
+      } else {
+        assert(another == same_bufs[i]->start_y);
+        n = same_bufs[i];
+        breaked = true;
+        break;
+      }
+     }
+    }
+    if(breaked) {
+    } else {
+      n = yield;
+    }
+  }
+
+  assert(n && n != p);
+  active_buffer = n;
 
   // 
   // @Incomplete: 

@@ -109,7 +109,7 @@ int main(int argc, char **argv) {
                 
                 } else if(key == SDLK_LEFT) {
                   if(ctrl_w_pressed) {
-                    change_buffer(get_current_buffer(), left);
+                    change_buffer_to_left(get_current_buffer());
                     ctrl_w_pressed = false;
 
                   } else {
@@ -118,7 +118,7 @@ int main(int argc, char **argv) {
                 
                 } else if(key == SDLK_RIGHT) {
                   if(ctrl_w_pressed) {
-                    change_buffer(get_current_buffer(), right);
+                    change_buffer_to_right(get_current_buffer());
                     ctrl_w_pressed = false;
 
                   } else {
@@ -127,10 +127,22 @@ int main(int argc, char **argv) {
                 
                 
                 } else if(key == SDLK_DOWN) {
-                  get_current_buffer()->go_down(editing_mode == select_m);
+                  if(ctrl_w_pressed) {
+                    change_buffer_to_down(get_current_buffer());
+                    ctrl_w_pressed = false;
+
+                  } else {
+                    get_current_buffer()->go_down(editing_mode == select_m);
+                  }
                 
                 } else if(key == SDLK_UP) {
-                  get_current_buffer()->go_up(editing_mode == select_m);
+                  if(ctrl_w_pressed) {
+                    change_buffer_to_up(get_current_buffer());
+                    ctrl_w_pressed = false;
+
+                  } else {
+                    get_current_buffer()->go_up(editing_mode == select_m);
+                  }
 
                 } else if(key == SDLK_d) {
                   switch(editing_mode) {

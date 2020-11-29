@@ -121,8 +121,13 @@ void paste_from_global_copy();
 
 void go_to_line(int);
 void save();
+
 void close_buffer(buffer_t *);
 void change_buffer(buffer_t *, direction_t);
+#define change_buffer_to_left(b)  change_buffer(b, left)
+#define change_buffer_to_right(b) change_buffer(b, right)
+#define change_buffer_to_up(b)    change_buffer(b, up)
+#define change_buffer_to_down(b)  change_buffer(b, down)
 
 void do_split(const literal &l, split_type_t);
 #define hsplit(l) do_split(l, hsp_type)
