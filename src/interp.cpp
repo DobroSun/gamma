@@ -456,7 +456,18 @@ void interp(const char *s) {
 
       case Ast_Split_Type: {
         auto e = static_cast<Ast_Split *>(ast);
-        do_split(e->path, e->split_type);
+
+        buffer_t *p = get_current_buffer();
+        buffer_t *n;
+
+        if(!e->path.data) {
+          open_existing_buffer(p);
+        } else {
+          open_existing_or_new_buffer(e->path);
+        }
+
+        n = get_current_buffer();
+        do_split(p, n, e->split_type);
 
       } break;
       

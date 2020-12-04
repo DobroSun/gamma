@@ -7,6 +7,7 @@
 
 #include <fcntl.h>
 
+
 // @Speed:
 // No need to iterate and get them 
 // each time, better solution is to keep 
@@ -164,7 +165,7 @@ static FILE *get_file_or_create(const char *filename, const char *mods) {
 }
 
 
-void open_new_buffer(literal filename) {
+void open_new_buffer(const literal &l) {
   auto buffer = get_free_win_buffer();
   assert(buffer);
   active_buffer = buffer;
@@ -172,10 +173,16 @@ void open_new_buffer(literal filename) {
   buffer->file = get_free_file_buffer();
   assert(buffer->file);
 
-  if(!filename.data) return;
-  if(FILE *f = fopen(filename.data, "r")) {
+  if(!l.data) {
+    buffer->filename = "";
+    return;
+  }
+
+  get_string_from_literal(filename, l);
+  if(FILE *f = fopen(filename, "r")) {
     defer { fclose(f); };
     read_entire_file(&buffer->file->buffer, f);
+    buffer->filename = to_string(l);
   }
 }
 
@@ -190,7 +197,7 @@ void open_existing_buffer(buffer_t *prev) {
   buffer->file->buffer.move_until(0);
 }
 
-void open_existing_or_new_buffer(literal filename) {
+void open_existing_or_new_buffer(const literal &filename) {
   auto tab = get_current_tab();
   get_used_buffers(used_bufs, size, tab->buffers);
 
@@ -203,7 +210,7 @@ void open_existing_or_new_buffer(literal filename) {
   open_new_buffer(filename);
 }
 
-static void open_tab(literal filename) {
+static void open_tab(const literal &filename) {
   auto tab = get_free_tab();
   assert(tab);
   active_tab = tab;
@@ -361,7 +368,6 @@ void buffer_t::draw(bool selection_mode) const {
   }
 
   // @Hack: when inside draw_line we never reach the 
-  //  is_selection = false;
   is_selection = false;
 }
 
@@ -386,7 +392,7 @@ void buffer_t::on_resize(int prev_width, int prev_height, int new_width, int new
   width   = new_width * width / prev_width;
   height  = new_height * height / prev_height;
 
-  if(get_relative_pos_y(n_line-start_pos) >= height-font_height) {
+  if(n_line >= start_pos + number_lines_fits_in_window(this)) {
     go_up();
   }
 }
@@ -673,9 +679,7 @@ void buffer_t::init(int x, int y, int w, int h) {
 }
 
 int number_lines_fits_in_window(const buffer_t *b) {
-  assert(b->height > font_height);
-  return b->height / font_height;
-
+  return (b->height < font_height) ? 1 : b->height/font_height;
 }
 
 int number_chars_on_line_fits_in_window(const buffer_t *b) {
@@ -697,11 +701,11 @@ void init(int argc, char **argv) {
   open_tab(to_literal(filename));
   make_font();
 
-  console_init(Height);
-  auto buffer = get_current_buffer();
+  auto buffer = active_buffer;
 
+  console_init(Height);
   buffer->filename = filename;
-  get_current_buffer()->init(0, 0, Width, get_console()->bottom_y);
+  buffer->init(0, 0, Width, get_console()->bottom_y);
 }
 
 selection_buffer_t *get_selection_buffer() {
@@ -710,7 +714,7 @@ selection_buffer_t *get_selection_buffer() {
 
 void delete_selected() {
   assert(selection.start_index != -1);
-  auto buffer = get_current_buffer();
+  auto buffer = active_buffer;
   buffer->move_to(selection.start_index);
 
   for(size_t i = 0; i < selection.size+1; i++) {
@@ -722,7 +726,7 @@ void copy_selected() {
   assert(selection.start_index != -1);
   int start = selection.start_index;
 
-  auto &gap_buffer = get_current_buffer()->file->buffer;
+  auto &gap_buffer = active_buffer->file->buffer;
   for(size_t i = 0; i < selection.size+1; i++) {
     char c = gap_buffer[start+i];
     global_copy_buffer.buffer.add(c);
@@ -737,7 +741,7 @@ void clear_selection() {
 }
 
 void paste_from_global_copy() {
-  auto buffer = get_current_buffer();
+  auto buffer = active_buffer;
   auto &gap_buffer = global_copy_buffer.buffer;
 
   for(size_t i = 0; i < gap_buffer.size(); i++) {
@@ -747,7 +751,7 @@ void paste_from_global_copy() {
 }
 
 void go_to_line(int line) {
-  auto buffer = get_current_buffer();
+  auto buffer = active_buffer;
   auto total_lines = buffer->get_total_lines();
 
   if(line < 0) {
@@ -768,7 +772,7 @@ void go_to_line(int line) {
 
 
 void save() {
-  auto buffer = get_current_buffer();
+  auto buffer = active_buffer;
   if(buffer->filename.empty()) {
     console_put_text("File has no name.");
 
@@ -959,7 +963,6 @@ void change_buffer(buffer_t *p, direction_t d) {
 
 void close_buffer(buffer_t *p) {
   get_used_buffers(used_bufs, usize, active_tab->buffers);
-
   if(usize == 1) { exit(0); }
 
   auto n = p->split.split_with;
@@ -967,50 +970,35 @@ void close_buffer(buffer_t *p) {
 
   auto start_x = min(p->start_x, n->start_x);
   auto start_y = min(p->start_y, n->start_y);
+  n->init(start_x, start_y, p->width, p->height);
 
-  split_type_t base_type = n->split.type;
-  switch(base_type) {
-    case hsp_type: {
-      //n->init(start_x, start_y, n->width, p->height);
-      break;
-    }
-    case vsp_type: {
-      //n->init(start_x, start_y, p->width, n->height);
-      break;
-    }
-  }
-  
-  int count = 0;
-  buffer_t *prev = n;
-  buffer_t *next = n->split.split_with;;
+#if 0
+  auto *prev = n;
+  auto *next = n->split.split_with;
+  auto base_type = n->split.type;
   while(next != NULL) {
+    
     switch(next->split.type) {
       case hsp_type: {
         if(base_type == hsp_type) {
-          print("Base hsp_type -- hsp");
 
         } else {
-          print("Base vsp_type -- hsp");
-          //next->init(next->start_x, next->start_y, prev->width, next->height);
         }
         break;
       }
+
       case vsp_type: {
         if(base_type == vsp_type) {
-          print("Base vsp_type -- vsp");
-          //next->init(prev->start_x + prev->width, next->start_y, prev->width/2., next->height);
         } else {
-          //next->init(next->start_x, prev->start_y, next->width, prev->height);
-          print("Base hsp_type -- vsp");
 
         }
         break;
       }
     }
-    
-    prev = next;
     next = next->split.split_with;
   }
+#endif
+
 
   // @Speed: 
   // Can have this values as members of buffer_t.
@@ -1020,9 +1008,8 @@ void close_buffer(buffer_t *p) {
       size++;
     }
   }
-  //
 
-  if(size == 1) {
+  if(size == 1) { // there is no same buffer on window.
     finish_buffer_and_file(p);
   } else {
     if(n->filename == p->filename) { n->file->buffer.move_until(n->cursor); }
@@ -1031,22 +1018,8 @@ void close_buffer(buffer_t *p) {
   active_buffer = n;
 }
 
-void do_split(const literal &l, split_type_t type) {
-  buffer_t *p = get_current_buffer();
-  buffer_t *n;
 
-  if(!l.data) {
-    open_existing_buffer(p);
-    n = get_current_buffer();
-    n->filename = p->filename;
-
-  } else {
-    string_t filename = to_string(l);
-    open_existing_or_new_buffer(to_literal(filename));
-    n = get_current_buffer();
-    n->filename = std::move(filename);
-  }
-
+void do_split(buffer_t *p, buffer_t *n, split_type_t type) {
   switch(type) {
     case hsp_type: {
       n->init(p->start_x, p->start_y + p->height/2., p->width, p->height/2.);
@@ -1059,8 +1032,9 @@ void do_split(const literal &l, split_type_t type) {
       break;
     }
   }
+
   assert(n == active_buffer);
-  head_buffer = n;
+  head_buffer = active_buffer;
 
   n->split.split_with = p;
   n->split.type = type;
@@ -1068,22 +1042,22 @@ void do_split(const literal &l, split_type_t type) {
 }
 
 void cursor_right() {
-  auto buffer = get_current_buffer();
+  auto buffer = active_buffer;
   if(buffer->file->buffer[buffer->cursor] == '\n') return; // '\n' means it's the last char on line.
   buffer->go_right();
 }
 
 void cursor_left() {
-  auto buffer = get_current_buffer();
+  auto buffer = active_buffer;
   if(buffer->cursor == 0) return;
   if(buffer->file->buffer[buffer->cursor-1] == '\n') return;
   buffer->go_left();
 }
 
 void cursor_up() {
-  get_current_buffer()->go_up();
+  active_buffer->go_up();
 }
 
 void cursor_down() {
-  get_current_buffer()->go_down();
+  active_buffer->go_down();
 }

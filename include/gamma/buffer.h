@@ -49,7 +49,6 @@ struct buffer_t {
 
   split_info_t split;
 
-
   // Position on the window.
   int start_x, start_y, width, height;
   unsigned cursor = 0, n_character = 0, n_line = 0;
@@ -109,8 +108,8 @@ buffer_t *get_current_buffer();
 void init(int, char**);
 void update();
 
-void open_new_buffer(literal);
-void open_existing_or_new_buffer(literal);
+void open_new_buffer(const literal&);
+void open_existing_or_new_buffer(const literal&);
 void open_existing_buffer(buffer_t *);
 
 selection_buffer_t *get_selection_buffer();
@@ -130,9 +129,7 @@ void change_buffer(buffer_t *, direction_t);
 #define change_buffer_to_up(b)    change_buffer(b, up)
 #define change_buffer_to_down(b)  change_buffer(b, down)
 
-void do_split(const literal &l, split_type_t);
-#define hsplit(l) do_split(l, hsp_type)
-#define vsplit(l) do_split(l, vsp_type)
+void do_split(buffer_t *, buffer_t *, split_type_t);
 
 void cursor_right();
 void cursor_left();

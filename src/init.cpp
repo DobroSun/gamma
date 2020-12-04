@@ -1,10 +1,8 @@
 #include "gamma/pch.h"
 #include "gamma/init.h"
 
-
 static SDL_Window *win = nullptr;
 static SDL_Renderer *renderer = nullptr;
-
 
 bool Init_SDL() {
   bool failed = false;
