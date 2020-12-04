@@ -33,6 +33,7 @@ struct selection_buffer_t {
 
 struct split_info_t {
   buffer_t *split_with = NULL;
+  buffer_t *fake_split = NULL;
   split_type_t type;
 };
 
