@@ -26,6 +26,7 @@ int main(int argc, char **argv) {
   bool allow_text_input       = true;
 
   bool ctrl_w_pressed = false;
+
   while(!should_quit) {
     #if 0
     auto begin = std::chrono::steady_clock::now();
@@ -255,12 +256,8 @@ int main(int argc, char **argv) {
     // update.
     switch(mode) {
       case Editor: {
-        auto renderer = get_renderer();
-        SDL_SetRenderDrawColor(renderer, WhiteColor.r, WhiteColor.g, WhiteColor.b, WhiteColor.a); 
-        SDL_RenderClear(renderer);
-
         get_current_tab()->draw(editing_mode == select_m);
-        SDL_RenderPresent(renderer);
+        SDL_RenderPresent(get_renderer());
       } break;
 
       case Console: {

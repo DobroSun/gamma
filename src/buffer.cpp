@@ -213,28 +213,26 @@ static void open_tab(literal filename) {
 void tab_t::draw(bool selection_mode) const {
   get_const_buffers(used_bufs, used_size, buffers);
 
-#if 0
-  // @Incomplete:
-  // Need to update every opened buffer on window.
-  // cause right now we don't have partial update.
-  //
   const buffer_t *same_buffers[used_size];
   size_t size = 0;
   for(size_t i = 0; i < used_size; i++) {
-    if(used_bufs[i]->filename == active_buffer->filename) {
-      same_buffers[size++] = used_bufs[i];
+    auto *buffer = used_bufs[i];
+    if(buffer->filename == active_buffer->filename &&
+       active_buffer->n_line >= buffer->start_pos  &&
+       active_buffer->n_line <  buffer->start_pos + number_lines_fits_in_window(buffer)) {
+
+      same_buffers[size++] = buffer;
     }
   }
 
-  // Updating only the same buffers, as active_buffer.
-  for(size_t i = 0; i < size; i++) {
-    same_buffers[i]->draw(selection_mode);
-  }
-#endif
 
-  for(size_t i = 0; i < used_size; i++) {
-    used_bufs[i]->draw(selection_mode);
+  // Updating only same buffers, as active_buffer.
+  for(size_t i = 0; i < size; i++) {
+    auto *buffer = same_buffers[i];
+    draw_rect(buffer->start_x, buffer->start_y, buffer->width, buffer->height, WhiteColor);
+    buffer->draw(selection_mode);
   }
+
 
   // Update cursor.
   char s = active_buffer->file->buffer[active_buffer->cursor];
@@ -243,6 +241,7 @@ void tab_t::draw(bool selection_mode) const {
   int py = active_buffer->get_relative_pos_y(active_buffer->n_line-active_buffer->start_pos);
   active_buffer->draw_cursor(s, px, py, WhiteColor, BlackColor);
 
+  draw_rect(0, get_console()->bottom_y, Width, font_height, WhiteColor);
   console_draw();
 }
 
