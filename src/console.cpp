@@ -1,7 +1,7 @@
-#include "gamma/pch.h"
-#include "gamma/console.h"
-#include "gamma/font.h"
-#include "gamma/interp.h"
+#include "pch.h"
+#include "console.h"
+#include "font.h"
+#include "interp.h"
 
 
 static console_t console;

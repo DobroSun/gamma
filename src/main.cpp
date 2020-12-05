@@ -1,8 +1,8 @@
-#include "gamma/pch.h"
-#include "gamma/init.h"
-#include "gamma/buffer.h"
-#include "gamma/font.h"
-#include "gamma/console.h"
+#include "pch.h"
+#include "init.h"
+#include "buffer.h"
+#include "font.h"
+#include "console.h"
 
 
 

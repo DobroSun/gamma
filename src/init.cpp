@@ -1,5 +1,5 @@
-#include "gamma/pch.h"
-#include "gamma/init.h"
+#include "pch.h"
+#include "init.h"
 
 static SDL_Window *win = nullptr;
 static SDL_Renderer *renderer = nullptr;

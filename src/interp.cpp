@@ -1,8 +1,8 @@
-#include "gamma/pch.h"
-#include "gamma/interp.h"
-#include "gamma/console.h"
-#include "gamma/buffer.h"
-#include "gamma/init.h"
+#include "pch.h"
+#include "interp.h"
+#include "console.h"
+#include "buffer.h"
+#include "init.h"
 
 
 // @CleanUp: @Temporary:

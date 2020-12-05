@@ -1,9 +1,9 @@
-#include "gamma/pch.h"
-#include "gamma/buffer.h"
-#include "gamma/init.h"
-#include "gamma/font.h"
-#include "gamma/console.h"
-#include "gamma/interp.h"
+#include "pch.h"
+#include "buffer.h"
+#include "init.h"
+#include "font.h"
+#include "console.h"
+#include "interp.h"
 
 #include <fcntl.h>
 

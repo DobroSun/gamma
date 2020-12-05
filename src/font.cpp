@@ -1,6 +1,6 @@
-#include "gamma/pch.h"
-#include "gamma/font.h"
-#include "gamma/init.h"
+#include "pch.h"
+#include "font.h"
+#include "init.h"
 
 static TTF_Font *active_font = nullptr;
 static texture_map alphabet;
