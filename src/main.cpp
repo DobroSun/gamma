@@ -4,27 +4,58 @@
 #include "font.h"
 #include "console.h"
 
+extern "C" {
+#include "lua/include/lua.h"
+#include "lua/include/lauxlib.h"
+#include "lua/include/lualib.h"
+}
 
+static bool check_lua(lua_State *L, int r) {
+  bool ok = (r == LUA_OK);
+  if(!ok) {
+    puts(lua_tostring(L, -1));
+  }
+  return ok;
+}
+
+static int save(lua_State *L) {
+  save();
+  return 0;
+}
+
+static int put(lua_State *L) {
+  const char *c = lua_tostring(L, 1);
+  get_current_buffer()->put(c[0]);
+  return 0;
+}
+
+static int quit(lua_State *L) {
+  should_quit = true;
+  return 0;
+}
 
 int main(int argc, char **argv) {
   if(Init_SDL()) return 1;
-
   init(argc, argv);
-  defer { \
-    for(auto &pair: get_alphabet()) { \
-      SDL_DestroyTexture(pair.second); \
-    } \
-    SDL_DestroyRenderer(get_renderer()); \
-    SDL_DestroyWindow(get_win()); \
-    TTF_CloseFont(get_font()); \
-    TTF_Quit(); \
-    SDL_Quit(); \
-  };
-    
+
+  lua_State *L = luaL_newstate();
+  lua_register(L, "save", &save);
+  lua_register(L, "put",  &put);
+  lua_register(L, "quit", &quit);
+
+  luaL_openlibs(L);
+
+  if(check_lua(L, luaL_dofile(L, "my_first.lua"))) {
+    lua_getglobal(L, "Height");
+    if(lua_isnumber(L, -1)) { Height = lua_tonumber(L, -1); }
+    lua_getglobal(L, "Width");
+    if(lua_isnumber(L, -1)) { Width = lua_tonumber(L, -1);  }
+    SDL_SetWindowSize(get_win(), Width, Height);
+  }
+
 
   editing_mode_t editing_mode = insert_m;
   bool allow_text_input       = true;
-
   bool ctrl_w_pressed = false;
 
   while(!should_quit) {
@@ -68,10 +99,20 @@ int main(int argc, char **argv) {
                 if(key == SDLK_r) {
                   console_open();
 
-                } else if(key == SDLK_s) {
-                  save();
+                } else if(key == 's') {
+                  const char b[] = { (char)key, '\0' };
+                  lua_getglobal(L, "shift");
+                  if(lua_istable(L, -1)) {
+                    lua_pushstring(L, b);
+                    lua_gettable(L, -2);
+                    
+                    if(lua_isfunction(L, -1)) {
+                      if(check_lua(L, lua_pcall(L, 0, 0, 0))) {
+                      }
+                    }
+                  }
 
-                } else if(key == SDLK_c) {
+                } else if(key == 'c') {
                   assert(mode == Editor);
                   editing_mode = select_m;
 
@@ -88,14 +129,19 @@ int main(int argc, char **argv) {
                 }
 
               } else { // no mod.
-                if(key == SDLK_ESCAPE) {
-                  // @Temporary: 
-                  if(editing_mode == select_m) {
-                    editing_mode = insert_m;
-                  } else {
-                    should_quit = true;
+                const char b[] = { (char)key, '\0' };
+                lua_getglobal(L, "keys");
+                if(lua_istable(L, -1)) {
+                  lua_pushstring(L, b);
+                  lua_gettable(L, -2);
+                  
+                  if(lua_isfunction(L, -1)) {
+                    if(check_lua(L, lua_pcall(L, 0, 0, 0))) {
+                    }
                   }
+                }
 
+#if 0
                 } else if(key == SDLK_RETURN) {
                   get_current_buffer()->put_return();
                 
@@ -125,7 +171,6 @@ int main(int argc, char **argv) {
                   } else {
                     get_current_buffer()->go_right(editing_mode == select_m);
                   }
-                
                 
                 } else if(key == SDLK_DOWN) {
                   if(ctrl_w_pressed) {
@@ -168,7 +213,7 @@ int main(int argc, char **argv) {
 
                 } else {
                 }
-
+#endif
               }
             } break;
             // Editor.
@@ -198,7 +243,7 @@ int main(int argc, char **argv) {
           }
         } break;
         // SDL_KEYDOWN.
-
+#if 0
         case SDL_TEXTINPUT: {
           switch(mode) {
             case Editor: {
@@ -216,7 +261,7 @@ int main(int argc, char **argv) {
           }
         } break;
         // SDL_TEXTINPUT.
-
+#endif
         case SDL_WINDOWEVENT: {
           if(e.window.event == SDL_WINDOWEVENT_RESIZED) {
             SDL_GetWindowSize(get_win(), &Width, &Height);
@@ -267,5 +312,16 @@ int main(int argc, char **argv) {
       } break;
     }
   }
+
+  lua_close(L);
+    
+  for(auto &pair: get_alphabet()) {
+    SDL_DestroyTexture(pair.second);
+  }
+  SDL_DestroyRenderer(get_renderer());
+  SDL_DestroyWindow(get_win());
+  TTF_CloseFont(get_font());
+  TTF_Quit();
+  SDL_Quit();
   return 0;
 }

@@ -963,7 +963,7 @@ void change_buffer(buffer_t *p, direction_t d) {
 
 void close_buffer(buffer_t *p) {
   get_used_buffers(used_bufs, usize, active_tab->buffers);
-  if(usize == 1) { exit(0); }
+  if(usize == 1) { should_quit = true; return; }
 
   auto n = p->split.split_with;
   assert(n);
