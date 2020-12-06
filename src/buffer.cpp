@@ -372,8 +372,8 @@ void buffer_t::draw(bool selection_mode) const {
 }
 
 void buffer_t::draw_cursor(char c, int px, int py, SDL_Color color1, SDL_Color color2) const {
-  const char b[2] = {c, '\0'};
-  draw_text_shaded(get_font(), reinterpret_cast<const char *>(&b), color1, color2, px, py);
+  const char b[] = {c, '\0'};
+  draw_text_shaded(get_font(), b, color1, color2, px, py);
 }
 
 

@@ -29,6 +29,45 @@ static int put(lua_State *L) {
   return 0;
 }
 
+static int put_return(lua_State *L) {
+  get_current_buffer()->put_return();
+  return 0;
+}
+
+static int put_backspace(lua_State *L) {
+  get_current_buffer()->put_backspace();
+  return 0;
+}
+
+static int put_delete(lua_State *L) {
+  get_current_buffer()->put_delete();
+  return 0;
+}
+
+static int go_right(lua_State *L) {
+  bool with_selection = lua_toboolean(L, 1);
+  get_current_buffer()->go_right(with_selection);
+  return 0;
+}
+
+static int go_left(lua_State *L) {
+  bool with_selection = lua_toboolean(L, 1);
+  get_current_buffer()->go_left(with_selection);
+  return 0;
+}
+
+static int go_up(lua_State *L) {
+  bool with_selection = lua_toboolean(L, 1);
+  get_current_buffer()->go_up(with_selection);
+  return 0;
+}
+
+static int go_down(lua_State *L) {
+  bool with_selection = lua_toboolean(L, 1);
+  get_current_buffer()->go_down(with_selection);
+  return 0;
+}
+
 static int quit(lua_State *L) {
   should_quit = true;
   return 0;
@@ -42,6 +81,13 @@ int main(int argc, char **argv) {
   lua_register(L, "save", &save);
   lua_register(L, "put",  &put);
   lua_register(L, "quit", &quit);
+  lua_register(L, "go_right", &go_right);
+  lua_register(L, "go_left",  &go_left);
+  lua_register(L, "go_down",  &go_down);
+  lua_register(L, "go_up",    &go_up);
+  lua_register(L, "put_return", &put_return);
+  lua_register(L, "put_backspace", &put_backspace);
+  lua_register(L, "put_delete", &put_delete);
 
   luaL_openlibs(L);
 
@@ -52,7 +98,6 @@ int main(int argc, char **argv) {
     if(lua_isnumber(L, -1)) { Width = lua_tonumber(L, -1);  }
     SDL_SetWindowSize(get_win(), Width, Height);
   }
-
 
   editing_mode_t editing_mode = insert_m;
   bool allow_text_input       = true;
@@ -142,54 +187,6 @@ int main(int argc, char **argv) {
                 }
 
 #if 0
-                } else if(key == SDLK_RETURN) {
-                  get_current_buffer()->put_return();
-                
-                } else if(key == SDLK_BACKSPACE) {
-                  get_current_buffer()->put_backspace();
-
-                } else if(key == SDLK_DELETE) {
-                  get_current_buffer()->put_delete();
-
-                } else if(key == SDLK_TAB) {
-                  get_current_buffer()->put_tab();
-                
-                } else if(key == SDLK_LEFT) {
-                  if(ctrl_w_pressed) {
-                    change_buffer_to_left(get_current_buffer());
-                    ctrl_w_pressed = false;
-
-                  } else {
-                    get_current_buffer()->go_left(editing_mode == select_m);
-                  }
-                
-                } else if(key == SDLK_RIGHT) {
-                  if(ctrl_w_pressed) {
-                    change_buffer_to_right(get_current_buffer());
-                    ctrl_w_pressed = false;
-
-                  } else {
-                    get_current_buffer()->go_right(editing_mode == select_m);
-                  }
-                
-                } else if(key == SDLK_DOWN) {
-                  if(ctrl_w_pressed) {
-                    change_buffer_to_down(get_current_buffer());
-                    ctrl_w_pressed = false;
-
-                  } else {
-                    get_current_buffer()->go_down(editing_mode == select_m);
-                  }
-                
-                } else if(key == SDLK_UP) {
-                  if(ctrl_w_pressed) {
-                    change_buffer_to_up(get_current_buffer());
-                    ctrl_w_pressed = false;
-
-                  } else {
-                    get_current_buffer()->go_up(editing_mode == select_m);
-                  }
-
                 } else if(key == SDLK_d) {
                   switch(editing_mode) {
                     //case normal_m: allow_text_input = false; /*@Incomplete*/ break;
@@ -210,9 +207,6 @@ int main(int argc, char **argv) {
                     case select_m: allow_text_input = false; paste_from_global_copy(); break;
                     case insert_m: allow_text_input = true;  break;
                   }
-
-                } else {
-                }
 #endif
               }
             } break;

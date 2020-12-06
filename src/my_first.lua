@@ -3,18 +3,22 @@
 NORMAL_MODE = 0
 INSERT_MODE = 1
 
-TAB    = '\9'
-ESCAPE = '\27'
+TAB       = '\x09'
+BACKSPACE = '\x08'
+ESCAPE    = '\x1B'
+RETURN    = '\x0D'
+DELETE    = '\x7F'
+ARROW_RIGHT = 'O'
+ARROW_LEFT  = 'P'
+ARROW_UP    = 'R'
+ARROW_DOWN  = 'Q'
 -- end
-
 
 Height = 500
 Width  = 500
 tabstop = 2
 
 mode = INSERT_MODE
-
-
 
 
 function on_a() 
@@ -149,6 +153,56 @@ function on_z()
     put('z')
   end
 end
+function on_0() 
+  if mode == INSERT_MODE then
+    put('0')
+  end
+end
+function on_1() 
+  if mode == INSERT_MODE then
+    put('1')
+  end
+end
+function on_2() 
+  if mode == INSERT_MODE then
+    put('2')
+  end
+end
+function on_3() 
+  if mode == INSERT_MODE then
+    put('3')
+  end
+end
+function on_4() 
+  if mode == INSERT_MODE then
+    put('4')
+  end
+end
+function on_5() 
+  if mode == INSERT_MODE then
+    put('5')
+  end
+end
+function on_6() 
+  if mode == INSERT_MODE then
+    put('6')
+  end
+end
+function on_7() 
+  if mode == INSERT_MODE then
+    put('7')
+  end
+end
+function on_8() 
+  if mode == INSERT_MODE then
+    put('8')
+  end
+end
+function on_9() 
+  if mode == INSERT_MODE then
+    put('9')
+  end
+end
 function on_tab()
   if mode == INSERT_MODE then
     for _ = 1,tabstop,1 do
@@ -161,6 +215,41 @@ function on_escape()
     mode = NORMAL_MODE
   else
     quit() -- @Temporary:
+  end
+end
+function on_right_arrow()
+  if mode == INSERT_MODE or mode == NORMAL_MODE then
+    go_right(false)
+  end
+end
+function on_left_arrow()
+  if mode == INSERT_MODE or mode == NORMAL_MODE then
+    go_left(false)
+  end
+end
+function on_up_arrow()
+  if mode == INSERT_MODE or mode == NORMAL_MODE then
+    go_up(false)
+  end
+end
+function on_down_arrow()
+  if mode == INSERT_MODE or mode == NORMAL_MODE then
+    go_down(false)
+  end
+end
+function on_return()
+  if mode == INSERT_MODE then
+    put_return()
+  end
+end
+function on_backspace()
+  if mode == INSERT_MODE then
+    put_backspace()
+  end
+end
+function on_delete()
+  if mode == INSERT_MODE then
+    put_delete()
   end
 end
 
@@ -194,8 +283,25 @@ keys['w'] = on_w
 keys['x'] = on_x
 keys['y'] = on_y
 keys['z'] = on_z
+keys['0'] = on_0
+keys['1'] = on_1
+keys['2'] = on_2
+keys['3'] = on_3
+keys['4'] = on_4
+keys['5'] = on_5
+keys['6'] = on_6
+keys['7'] = on_7
+keys['8'] = on_8
+keys['9'] = on_9
 keys[TAB] = on_tab
 keys[ESCAPE] = on_escape
+keys[ARROW_RIGHT] = on_right_arrow
+keys[ARROW_LEFT]  = on_left_arrow
+keys[ARROW_UP]    = on_up_arrow
+keys[ARROW_DOWN]  = on_down_arrow
+keys[RETURN]      = on_return
+keys[BACKSPACE]   = on_backspace
+keys[DELETE]      = on_delete
 
 
 shift = {}
