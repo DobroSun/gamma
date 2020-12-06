@@ -1,7 +1,12 @@
 
 -- Constants
+EDITOR  = 0
+CONSOLE = 1
+
 NORMAL_MODE = 0
 INSERT_MODE = 1
+VISUAL_MODE = 2
+
 
 TAB       = '\x09'
 BACKSPACE = '\x08'
@@ -18,12 +23,38 @@ Height = 500
 Width  = 500
 tabstop = 2
 
-mode = INSERT_MODE
+editor_state = EDITOR
+mode         = NORMAL_MODE
+
+function to_normal_mode()
+  mode = NORMAL_MODE
+  console_clear()
+end
+
+function to_insert_mode()
+  mode = INSERT_MODE
+  console_put_text("-- INSERT --");
+end
+
+function to_visual_mode()
+  mode = VISUAL_MODE
+  console_put_text("-- VISUAL --");
+end
+
+function open_console()
+  editor_state = CONSOLE
+end
+
 
 
 function on_a() 
-  if mode == INSERT_MODE then
-    put('a')
+  if editor_state == EDITOR then
+    if mode == INSERT_MODE then
+      put('a')
+    end
+
+  elseif editor_state == CONSOLE then
+    console_put('a')
   end
 end
 function on_b() 
@@ -39,6 +70,11 @@ end
 function on_d() 
   if mode == INSERT_MODE then
     put('d')
+  elseif mode == NORMAL_MODE then
+    -- @Incomplete:
+  elseif mode == VISUAL_MODE then
+    delete_selected()
+    to_normal_mode()
   end
 end
 function on_e() 
@@ -59,26 +95,44 @@ end
 function on_h() 
   if mode == INSERT_MODE then
     put('h')
+  elseif mode == NORMAL_MODE then
+    go_left(false)
+  elseif mode == VISUAL_MODE then
+    go_left(true)
   end
 end
 function on_i() 
   if mode == INSERT_MODE then
     put('i')
+  elseif mode == NORMAL_MODE then
+    to_insert_mode()
   end
 end
 function on_j() 
   if mode == INSERT_MODE then
     put('j')
+  elseif mode == NORMAL_MODE then
+    go_down(false)
+  elseif mode == VISUAL_MODE then
+    go_down(true)
   end
 end
 function on_k() 
   if mode == INSERT_MODE then
     put('k')
+  elseif mode == NORMAL_MODE then
+    go_up(false)
+  elseif mode == VISUAL_MODE then
+    go_up(true)
   end
 end
 function on_l() 
   if mode == INSERT_MODE then
     put('l')
+  elseif mode == NORMAL_MODE then
+    go_right(false)
+  elseif mode == VISUAL_MODE then
+    go_right(true)
   end
 end
 function on_m() 
@@ -99,6 +153,10 @@ end
 function on_p() 
   if mode == INSERT_MODE then
     put('p')
+  elseif mode == NORMAL_MODE then
+    paste_from_global()
+  elseif mode == VISUAL_MODE then
+    paste_from_global()
   end
 end
 function on_q() 
@@ -131,6 +189,12 @@ end
 function on_v() 
   if mode == INSERT_MODE then
     put('v')
+  elseif mode == NORMAL_MODE then
+    to_visual_mode()
+    start_selection()
+  elseif mode == VISUAL_MODE then
+    to_normal_mode()
+    --end_selection
   end
 end
 function on_w() 
@@ -146,6 +210,11 @@ end
 function on_y() 
   if mode == INSERT_MODE then
     put('y')
+  elseif mode == NORMAL_MODE then
+    -- @Incomplete:
+  elseif mode == VISUAL_MODE then
+    copy_selected();
+    to_normal_mode()
   end
 end
 function on_z() 
@@ -156,6 +225,8 @@ end
 function on_0() 
   if mode == INSERT_MODE then
     put('0')
+  elseif mode == NORMAL_MODE then
+    
   end
 end
 function on_1() 
@@ -203,6 +274,56 @@ function on_9()
     put('9')
   end
 end
+function on_space()
+  if mode == INSERT_MODE then
+    put(' ')
+  end
+end
+function on_semicolon()
+  if mode == INSERT_MODE then
+    put(';')
+  end
+end
+function on_quote()
+  if mode == INSERT_MODE then
+    put('\'')
+  end
+end
+function on_left_bracket()
+  if mode == INSERT_MODE then
+    put('[')
+  end
+end
+function on_right_bracket()
+  if mode == INSERT_MODE then
+    put(']')
+  end
+end
+function on_comma()
+  if mode == INSERT_MODE then
+    put(',')
+  end
+end
+function on_period()
+  if mode == INSERT_MODE then
+    put('.')
+  end
+end
+function on_slash()
+  if mode == INSERT_MODE then
+    put('/')
+  end
+end
+function on_minus()
+  if mode == INSERT_MODE then
+    put('-')
+  end
+end
+function on_equals()
+  if mode == INSERT_MODE then
+    put('=')
+  end
+end
 function on_tab()
   if mode == INSERT_MODE then
     for _ = 1,tabstop,1 do
@@ -212,29 +333,39 @@ function on_tab()
 end
 function on_escape()
   if mode == INSERT_MODE then
-    mode = NORMAL_MODE
-  else
+    to_normal_mode()
+  elseif mode == NORMAL_MODE then
     quit() -- @Temporary:
+  elseif mode == VISUAL_MODE then
+    to_normal_mode()
   end
 end
 function on_right_arrow()
   if mode == INSERT_MODE or mode == NORMAL_MODE then
     go_right(false)
+  elseif mode == VISUAL_MODE then
+    go_right(true)
   end
 end
 function on_left_arrow()
   if mode == INSERT_MODE or mode == NORMAL_MODE then
     go_left(false)
+  elseif mode == VISUAL_MODE then
+    go_left(true)
   end
 end
 function on_up_arrow()
   if mode == INSERT_MODE or mode == NORMAL_MODE then
     go_up(false)
+  elseif mode == VISUAL_MODE then
+    go_up(true)
   end
 end
 function on_down_arrow()
   if mode == INSERT_MODE or mode == NORMAL_MODE then
     go_down(false)
+  elseif mode == VISUAL_MODE then
+    go_down(true)
   end
 end
 function on_return()
@@ -293,6 +424,16 @@ keys['6'] = on_6
 keys['7'] = on_7
 keys['8'] = on_8
 keys['9'] = on_9
+keys[' '] = on_space
+keys[';'] = on_semicolon
+keys['\''] = on_quote
+keys['['] = on_left_bracket
+keys[']'] = on_right_bracket
+keys[','] = on_comma
+keys['.'] = on_period
+keys['/'] = on_slash
+keys['-'] = on_minus
+keys['='] = on_equals
 keys[TAB] = on_tab
 keys[ESCAPE] = on_escape
 keys[ARROW_RIGHT] = on_right_arrow
@@ -303,12 +444,10 @@ keys[RETURN]      = on_return
 keys[BACKSPACE]   = on_backspace
 keys[DELETE]      = on_delete
 
-
 shift = {}
-shift['s'] = pass
+shift['s'] = open_console
 
 ctrl = {}
-ctrl['s'] = pass
+ctrl['s'] = open_console
 
 shift_ctrl = {}
-shift_ctrl['s'] = pass

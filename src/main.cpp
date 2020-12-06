@@ -10,10 +10,18 @@ extern "C" {
 #include "lua/include/lualib.h"
 }
 
+
+const int Editor  = 0;
+const int Console = 1;
+
+const int VisualMode = 2;
+
+
 static bool check_lua(lua_State *L, int r) {
   bool ok = (r == LUA_OK);
   if(!ok) {
-    puts(lua_tostring(L, -1));
+    print(lua_tostring(L, -1));
+    should_quit = true;
   }
   return ok;
 }
@@ -68,9 +76,67 @@ static int go_down(lua_State *L) {
   return 0;
 }
 
+static int delete_selected(lua_State *L) {
+  delete_selected();
+  return 0;
+}
+
+static int start_selection(lua_State *L) {
+  auto selected = get_selection_buffer();
+  auto buffer   = get_current_buffer(); 
+
+  selected->start_index = buffer->cursor;
+  selected->start_line  = buffer->n_line;
+  selected->start_char  = buffer->n_character;
+  selected->size        = 0;
+  selected->direction   = none;
+  return 0;
+}
+
+static int copy_selected(lua_State *L) {
+  copy_selected();
+  return 0;
+}
+
+static int paste_from_global(lua_State *L) {
+  paste_from_global_copy();
+  return 0;
+}
+
+static int console_clear(lua_State *L) {
+  console_clear();
+  return 0;
+}
+
+static int console_put(lua_State *L) {
+  const char *s = lua_tostring(L, 1);
+  console_put(s[0]);
+  return 0;
+}
+
+static int console_put_text(lua_State *L) {
+  const char *t = lua_tostring(L, 1);
+  console_put_text(t);
+  return 0;
+}
+
 static int quit(lua_State *L) {
   should_quit = true;
   return 0;
+}
+
+static void interp_lua_table(lua_State *L, const char *name, int key) {
+  const char b[] = { (char)key, '\0' };
+  lua_getglobal(L, name);
+  if(lua_istable(L, -1)) {
+    lua_pushstring(L, b);
+    lua_gettable(L, -2);
+
+    if(lua_isfunction(L, -1)) {
+      if(check_lua(L, lua_pcall(L, 0, 0, 0))) {
+      }
+    }
+  }
 }
 
 int main(int argc, char **argv) {
@@ -88,20 +154,24 @@ int main(int argc, char **argv) {
   lua_register(L, "put_return", &put_return);
   lua_register(L, "put_backspace", &put_backspace);
   lua_register(L, "put_delete", &put_delete);
+  lua_register(L, "delete_selected", &delete_selected);
+  lua_register(L, "start_selection", &start_selection);
+  lua_register(L, "copy_selected", &copy_selected);
+  lua_register(L, "paste_from_global", &paste_from_global);
+  lua_register(L, "console_put_text", &console_put_text);
+  lua_register(L, "console_put", &console_put);
+  lua_register(L, "console_clear", &console_clear);
 
   luaL_openlibs(L);
 
   if(check_lua(L, luaL_dofile(L, "my_first.lua"))) {
     lua_getglobal(L, "Height");
-    if(lua_isnumber(L, -1)) { Height = lua_tonumber(L, -1); }
+    if(lua_isnumber(L, -1)) { Height = lua_tonumber(L, -1); lua_pop(L, -1); }
     lua_getglobal(L, "Width");
-    if(lua_isnumber(L, -1)) { Width = lua_tonumber(L, -1);  }
+    if(lua_isnumber(L, -1)) { Width = lua_tonumber(L, -1); lua_pop(L, -1); }
     SDL_SetWindowSize(get_win(), Width, Height);
-  }
 
-  editing_mode_t editing_mode = insert_m;
-  bool allow_text_input       = true;
-  bool ctrl_w_pressed = false;
+  }
 
   while(!should_quit) {
     #if 0
@@ -121,99 +191,54 @@ int main(int argc, char **argv) {
     };
     #endif
 
+    int editor_state;
+    lua_getglobal(L, "editor_state");
+    if(lua_isnumber(L, -1)) {
+      editor_state = lua_tonumber(L, -1);
+      lua_pop(L, -1);
+    }
 
     SDL_Event e;
     while(SDL_PollEvent(&e)) {
-
       switch(e.type) {
         case SDL_QUIT: {
           should_quit = true;
         } break;
 
         case SDL_KEYDOWN: {
-          switch(mode) {
+          switch(editor_state) {
             case Editor: {
               auto key = e.key.keysym.sym;
               auto mod = e.key.keysym.mod;
-
               if(mod & KMOD_CTRL && mod & KMOD_SHIFT) {
+                interp_lua_table(L, "shift_ctrl", key);
 
               } else if(mod & KMOD_SHIFT) {
+                interp_lua_table(L, "shift", key);
 
               } else if(mod & KMOD_CTRL) {
-                if(key == SDLK_r) {
-                  console_open();
-
-                } else if(key == 's') {
-                  const char b[] = { (char)key, '\0' };
-                  lua_getglobal(L, "shift");
-                  if(lua_istable(L, -1)) {
-                    lua_pushstring(L, b);
-                    lua_gettable(L, -2);
-                    
-                    if(lua_isfunction(L, -1)) {
-                      if(check_lua(L, lua_pcall(L, 0, 0, 0))) {
-                      }
-                    }
-                  }
-
-                } else if(key == 'c') {
-                  assert(mode == Editor);
-                  editing_mode = select_m;
-
-                  auto selected = get_selection_buffer();
-                  auto buffer   = get_current_buffer(); 
-
-                  selected->start_index = buffer->cursor;
-                  selected->start_line  = buffer->n_line;
-                  selected->start_char  = buffer->n_character;
-                  selected->size        = 0;
-                  selected->direction   = none;
-                } else if(key == SDLK_w) {
-                  ctrl_w_pressed = true;
-                }
+                interp_lua_table(L, "ctrl", key);
 
               } else { // no mod.
-                const char b[] = { (char)key, '\0' };
-                lua_getglobal(L, "keys");
-                if(lua_istable(L, -1)) {
-                  lua_pushstring(L, b);
-                  lua_gettable(L, -2);
-                  
-                  if(lua_isfunction(L, -1)) {
-                    if(check_lua(L, lua_pcall(L, 0, 0, 0))) {
-                    }
-                  }
-                }
-
-#if 0
-                } else if(key == SDLK_d) {
-                  switch(editing_mode) {
-                    //case normal_m: allow_text_input = false; /*@Incomplete*/ break;
-                    case select_m: allow_text_input = false; delete_selected(); editing_mode = insert_m; break;
-                    case insert_m: allow_text_input = true;  break;
-                  }
-                  
-                } else if(key == SDLK_y) {
-                  switch(editing_mode) {
-                    //case normal_m: allow_text_input = false; /*@Incomplete*/ break;
-                    case select_m: allow_text_input = false; copy_selected(); editing_mode = insert_m; break;
-                    case insert_m: allow_text_input = true;  break;
-                  }
-                
-                } else if(key == SDLK_p) {
-                  switch(editing_mode) {
-                    //case normal_m: allow_text_input = false; paste_from_global_copy(); break;
-                    case select_m: allow_text_input = false; paste_from_global_copy(); break;
-                    case insert_m: allow_text_input = true;  break;
-                  }
-#endif
+                interp_lua_table(L, "keys", key);
               }
             } break;
             // Editor.
 
             case Console: {
-              auto key = e.key.keysym.sym;
+            #if 0
+              if(mod & KMOD_CTRL && mod & KMOD_SHIFT) {
+
+              } else if(mod & KMOD_CTRL) {
+
+              } else if(mod & KMOD_SHIFT) {
+                interp_lua_table(L, "ctrl", key);
+
+              } else { // no mod.
+                interp_lua_table(L, "ctrl", key);
+              }
+              #endif
+              #if 0
               if(key == SDLK_ESCAPE) {
                 console_close();
 
@@ -232,30 +257,13 @@ int main(int argc, char **argv) {
               } else if(key == SDLK_RIGHT) {
                 console_go_right();
               }
+              #endif
             } break;
             // Console.
           }
         } break;
         // SDL_KEYDOWN.
-#if 0
-        case SDL_TEXTINPUT: {
-          switch(mode) {
-            case Editor: {
-              if(allow_text_input) {
-                char c = e.text.text[0];
-                get_current_buffer()->put(c);
-              } else {
-              }
-            } break;
 
-            case Console: {
-              char c = e.text.text[0];
-              console_put(c);
-            } break;
-          }
-        } break;
-        // SDL_TEXTINPUT.
-#endif
         case SDL_WINDOWEVENT: {
           if(e.window.event == SDL_WINDOWEVENT_RESIZED) {
             SDL_GetWindowSize(get_win(), &Width, &Height);
@@ -267,14 +275,21 @@ int main(int argc, char **argv) {
 
         case SDL_MOUSEWHEEL: {
           auto buffer = get_current_buffer();
+          bool with_selection;
+          lua_getglobal(L, "mode");
+          if(lua_isnumber(L, -1)) { 
+            with_selection = (lua_tonumber(L, -1) == VisualMode);
+            lua_pop(L, -1);
+          }
+
           if(e.wheel.y > 0) {
             for(char i = 0; i < dt_scroll; i++) {
-              buffer->scroll_up(editing_mode == select_m);
+              buffer->scroll_up(with_selection);
             }
 
           } else if(e.wheel.y < 0) {
             for(char i = 0; i < dt_scroll; i++) {
-              buffer->scroll_down(editing_mode == select_m);
+              buffer->scroll_down(with_selection);
             }
 
           } else {
@@ -293,9 +308,16 @@ int main(int argc, char **argv) {
     }
 
     // update.
-    switch(mode) {
+    switch(editor_state) {
       case Editor: {
-        get_current_tab()->draw(editing_mode == select_m);
+        bool with_selection;
+        lua_getglobal(L, "mode");
+        if(lua_isnumber(L, -1)) {
+          with_selection = (lua_tonumber(L, -1) == VisualMode);
+          lua_pop(L, -1);
+        }
+
+        get_current_tab()->draw(with_selection);
         SDL_RenderPresent(get_renderer());
       } break;
 
@@ -306,6 +328,7 @@ int main(int argc, char **argv) {
       } break;
     }
   }
+
 
   lua_close(L);
     

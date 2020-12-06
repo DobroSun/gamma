@@ -116,13 +116,11 @@ void console_on_resize(int n_height) {
 }
 
 void console_open() {
-  mode = Console;
   console_clear();
   is_input = true;
 }
 
 void console_close() {
-  mode = Editor;
   is_input = false;
 }
 
