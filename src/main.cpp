@@ -14,6 +14,8 @@ extern "C" {
 const int Editor  = 0;
 const int Console = 1;
 
+const int NormalMode = 0;
+const int InsertMode = 1;
 const int VisualMode = 2;
 
 
@@ -198,6 +200,13 @@ int main(int argc, char **argv) {
       lua_pop(L, -1);
     }
 
+    int mode;
+    lua_getglobal(L, "mode");
+    if(lua_isnumber(L, -1)) {
+      mode = lua_tonumber(L, -1);
+      lua_pop(L, -1);
+    }
+
     SDL_Event e;
     while(SDL_PollEvent(&e)) {
       switch(e.type) {
@@ -264,6 +273,22 @@ int main(int argc, char **argv) {
         } break;
         // SDL_KEYDOWN.
 
+        case SDL_TEXTINPUT: {
+          switch(editor_state) {
+            case Editor: {
+              if(mode == InsertMode) {
+                get_current_buffer()->put(e.text.text[0]);
+              }
+              break;
+            }
+
+            case Console: {
+              console_put(e.text.text[0]); 
+              break;
+            }
+          }
+        } break;
+
         case SDL_WINDOWEVENT: {
           if(e.window.event == SDL_WINDOWEVENT_RESIZED) {
             SDL_GetWindowSize(get_win(), &Width, &Height);
@@ -275,21 +300,15 @@ int main(int argc, char **argv) {
 
         case SDL_MOUSEWHEEL: {
           auto buffer = get_current_buffer();
-          bool with_selection;
-          lua_getglobal(L, "mode");
-          if(lua_isnumber(L, -1)) { 
-            with_selection = (lua_tonumber(L, -1) == VisualMode);
-            lua_pop(L, -1);
-          }
 
           if(e.wheel.y > 0) {
             for(char i = 0; i < dt_scroll; i++) {
-              buffer->scroll_up(with_selection);
+              buffer->scroll_up(mode == VisualMode);
             }
 
           } else if(e.wheel.y < 0) {
             for(char i = 0; i < dt_scroll; i++) {
-              buffer->scroll_down(with_selection);
+              buffer->scroll_down(mode == VisualMode);
             }
 
           } else {
@@ -310,14 +329,8 @@ int main(int argc, char **argv) {
     // update.
     switch(editor_state) {
       case Editor: {
-        bool with_selection;
-        lua_getglobal(L, "mode");
-        if(lua_isnumber(L, -1)) {
-          with_selection = (lua_tonumber(L, -1) == VisualMode);
-          lua_pop(L, -1);
-        }
 
-        get_current_tab()->draw(with_selection);
+        get_current_tab()->draw(mode == VisualMode);
         SDL_RenderPresent(get_renderer());
       } break;
 
