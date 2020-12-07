@@ -92,7 +92,6 @@ void console_run_command() {
   char f[MAX_CONSOLE_COMMAND_SIZE];
   console.buffer.to_string((char*)&f, MAX_CONSOLE_COMMAND_SIZE);
   interp((const char*)f);
-  console_close();
 }
 
 
@@ -113,15 +112,6 @@ void console_go_right() {
 
 void console_on_resize(int n_height) {
   console.bottom_y = (n_height > font_height)? n_height - font_height: 1;
-}
-
-void console_open() {
-  console_clear();
-  is_input = true;
-}
-
-void console_close() {
-  is_input = false;
 }
 
 console_t *get_console() {

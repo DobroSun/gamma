@@ -122,6 +122,31 @@ static int console_put_text(lua_State *L) {
   return 0;
 }
 
+static int console_put_delete(lua_State *L) {
+  console_del();
+  return 0;
+}
+
+static int console_put_backspace(lua_State *L) {
+  console_backspace();
+  return 0;
+}
+
+static int console_go_right(lua_State *L) {
+  console_go_right();
+  return 0;
+}
+
+static int console_go_left(lua_State *L) {
+  console_go_left();
+  return 0;
+}
+
+static int console_eval(lua_State *L) {
+  console_run_command();
+  return 0;
+}
+
 static int quit(lua_State *L) {
   should_quit = true;
   return 0;
@@ -163,6 +188,11 @@ int main(int argc, char **argv) {
   lua_register(L, "console_put_text", &console_put_text);
   lua_register(L, "console_put", &console_put);
   lua_register(L, "console_clear", &console_clear);
+  lua_register(L, "console_put_backspace", &console_put_backspace);
+  lua_register(L, "console_put_delete", &console_put_delete);
+  lua_register(L, "console_go_right", &console_go_right);
+  lua_register(L, "console_go_left", &console_go_left);
+  lua_register(L, "console_eval", &console_eval);
 
   luaL_openlibs(L);
 
@@ -182,14 +212,11 @@ int main(int argc, char **argv) {
       auto end = std::chrono::steady_clock::now();
       double cur_time = std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count();
       unsigned to_sleep = 1000000/60 - cur_time;
-      //sleep(to_sleep);
-      if(show_fps) {
-        end = std::chrono::steady_clock::now();
-        cur_time = std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count();
-        char fps[64];
-        sprintf(fps, "******* FPS is: %lf *******", 1000000 / cur_time);
-        print(fps);
-      }
+      end = std::chrono::steady_clock::now();
+      cur_time = std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count();
+      char fps[64];
+      sprintf(fps, "******* FPS is: %lf *******", 1000000 / cur_time);
+      print(fps);
     };
     #endif
 
@@ -215,77 +242,31 @@ int main(int argc, char **argv) {
         } break;
 
         case SDL_KEYDOWN: {
-          switch(editor_state) {
-            case Editor: {
-              auto key = e.key.keysym.sym;
-              auto mod = e.key.keysym.mod;
-              if(mod & KMOD_CTRL && mod & KMOD_SHIFT) {
-                interp_lua_table(L, "shift_ctrl", key);
+          auto key = e.key.keysym.sym;
+          auto mod = e.key.keysym.mod;
 
-              } else if(mod & KMOD_SHIFT) {
-                interp_lua_table(L, "shift", key);
+          if(mod & KMOD_CTRL && mod & KMOD_SHIFT) {
+            interp_lua_table(L, "shift_ctrl", key);
 
-              } else if(mod & KMOD_CTRL) {
-                interp_lua_table(L, "ctrl", key);
+          } else if(mod & KMOD_SHIFT) {
+            interp_lua_table(L, "shift", key);
 
-              } else { // no mod.
-                interp_lua_table(L, "keys", key);
-              }
-            } break;
-            // Editor.
+          } else if(mod & KMOD_CTRL) {
+            interp_lua_table(L, "ctrl", key);
 
-            case Console: {
-            #if 0
-              if(mod & KMOD_CTRL && mod & KMOD_SHIFT) {
-
-              } else if(mod & KMOD_CTRL) {
-
-              } else if(mod & KMOD_SHIFT) {
-                interp_lua_table(L, "ctrl", key);
-
-              } else { // no mod.
-                interp_lua_table(L, "ctrl", key);
-              }
-              #endif
-              #if 0
-              if(key == SDLK_ESCAPE) {
-                console_close();
-
-              } else if(key == SDLK_RETURN) {
-                console_run_command();
-              
-              } else if(key == SDLK_BACKSPACE) {
-                console_backspace();
-              
-              } else if(key == SDLK_DELETE) {
-                console_del();
-              
-              } else if(key == SDLK_LEFT) {
-                console_go_left();
-              
-              } else if(key == SDLK_RIGHT) {
-                console_go_right();
-              }
-              #endif
-            } break;
-            // Console.
+          } else { // no mod.
+            interp_lua_table(L, "keys", key);
           }
         } break;
-        // SDL_KEYDOWN.
 
         case SDL_TEXTINPUT: {
-          switch(editor_state) {
-            case Editor: {
-              if(mode == InsertMode) {
-                get_current_buffer()->put(e.text.text[0]);
-              }
-              break;
-            }
+          if(editor_state == Editor) {
+            if(mode == InsertMode) { get_current_buffer()->put(e.text.text[0]); }
 
-            case Console: {
+          } else if(editor_state == Console) {
               console_put(e.text.text[0]); 
-              break;
-            }
+
+          } else {
           }
         } break;
 

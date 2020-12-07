@@ -48,101 +48,135 @@ end
 
 
 function on_d() 
-  if mode == NORMAL_MODE then
-    -- @Incomplete:
-  elseif mode == VISUAL_MODE then
-    delete_selected()
-    to_normal_mode()
+  if editor_state == EDITOR then
+    if mode == NORMAL_MODE then
+      -- @Incomplete:
+    elseif mode == VISUAL_MODE then
+      delete_selected()
+      to_normal_mode()
+    end
   end
 end
 function on_h() 
-  if mode == NORMAL_MODE then
-    go_left(false)
-  elseif mode == VISUAL_MODE then
-    go_left(true)
+  if editor_state == EDITOR then
+    if mode == NORMAL_MODE then
+      go_left(false)
+    elseif mode == VISUAL_MODE then
+      go_left(true)
+    end
   end
 end
 function on_i() 
-  if mode == NORMAL_MODE then
-    to_insert_mode()
+  if editor_state == EDITOR then
+    if mode == NORMAL_MODE then
+      to_insert_mode()
+    end
   end
 end
 function on_j() 
-  if mode == NORMAL_MODE then
-    go_down(false)
-  elseif mode == VISUAL_MODE then
-    go_down(true)
+  if editor_state == EDITOR then
+    if mode == NORMAL_MODE then
+      go_down(false)
+    elseif mode == VISUAL_MODE then
+      go_down(true)
+    end
   end
 end
 function on_k() 
-  if mode == NORMAL_MODE then
-    go_up(false)
-  elseif mode == VISUAL_MODE then
-    go_up(true)
+  if editor_state == EDITOR then
+    if mode == NORMAL_MODE then
+      go_up(false)
+    elseif mode == VISUAL_MODE then
+      go_up(true)
+    end
   end
 end
 function on_l() 
-  if mode == NORMAL_MODE then
-    go_right(false)
-  elseif mode == VISUAL_MODE then
-    go_right(true)
+  if editor_state == EDITOR then
+    if mode == NORMAL_MODE then
+      go_right(false)
+    elseif mode == VISUAL_MODE then
+      go_right(true)
+    end
   end
 end
 function on_p() 
-  if mode == NORMAL_MODE then
-    paste_from_global()
-  elseif mode == VISUAL_MODE then
-    paste_from_global()
+  if editor_state == EDITOR then
+    if mode == NORMAL_MODE then
+      paste_from_global()
+    elseif mode == VISUAL_MODE then
+      paste_from_global()
+    end
   end
 end
 function on_v() 
-  if mode == NORMAL_MODE then
-    to_visual_mode()
-    start_selection()
-  elseif mode == VISUAL_MODE then
-    to_normal_mode()
-    --end_selection
+  if editor_state == EDITOR then
+    if mode == NORMAL_MODE then
+      to_visual_mode()
+      start_selection()
+    elseif mode == VISUAL_MODE then
+      to_normal_mode()
+      --end_selection
+    end
   end
 end
 function on_y() 
-  if mode == NORMAL_MODE then
-    -- @Incomplete:
-  elseif mode == VISUAL_MODE then
-    copy_selected();
-    to_normal_mode()
+  if editor_state == EDITOR then
+    if mode == NORMAL_MODE then
+      -- @Incomplete:
+    elseif mode == VISUAL_MODE then
+      copy_selected();
+      to_normal_mode()
+    end
   end
 end
 
-
-
 function on_tab()
-  if mode == INSERT_MODE then
+  if editor_state == EDITOR then
+    if mode == INSERT_MODE then
+      for _ = 1,tabstop,1 do
+        put(' ')
+      end
+    end
+  elseif editor_state == CONSOLE then
     for _ = 1,tabstop,1 do
-      put(' ')
+      console_put(' ')
     end
   end
 end
 function on_escape()
-  if mode == INSERT_MODE then
-    to_normal_mode()
-  elseif mode == NORMAL_MODE then
-    quit() -- @Temporary:
-  elseif mode == VISUAL_MODE then
-    to_normal_mode()
+  if editor_state == EDITOR then
+    if mode == INSERT_MODE then
+      to_normal_mode()
+    elseif mode == NORMAL_MODE then
+      quit() -- @Temporary:
+    elseif mode == VISUAL_MODE then
+      to_normal_mode()
+    end
+  elseif editor_state == CONSOLE then
+    editor_state = EDITOR
   end
 end
 function on_right_arrow()
-  if mode == INSERT_MODE or mode == NORMAL_MODE then
-    go_right(false)
-  elseif mode == VISUAL_MODE then
-    go_right(true)
+  if editor_state == EDITOR then
+    if mode == INSERT_MODE or mode == NORMAL_MODE then
+      go_right(false)
+    elseif mode == VISUAL_MODE then
+      go_right(true)
+    end
+  elseif editor_state == CONSOLE then
+    console_go_right()
   end
 end
 function on_left_arrow()
-  if mode == INSERT_MODE or mode == NORMAL_MODE then
-    go_left(false)
-  elseif mode == VISUAL_MODE then
-    go_left(true)
+  if editor_state == EDITOR then
+    if mode == INSERT_MODE or mode == NORMAL_MODE then
+      go_left(false)
+    elseif mode == VISUAL_MODE then
+      go_left(true)
+    end
+  elseif editor_state == CONSOLE then
+    console_go_left()
   end
 end
 function on_up_arrow()
@@ -160,19 +194,37 @@ function on_down_arrow()
   end
 end
 function on_return()
-  if mode == INSERT_MODE then
-    put_return()
+  if editor_state == EDITOR then
+    if mode == INSERT_MODE then
+      put_return()
+    end
+  elseif editor_state == CONSOLE then
+    console_eval()
+    editor_state = EDITOR
   end
 end
 function on_backspace()
-  if mode == INSERT_MODE then
-    put_backspace()
+  if editor_state == EDITOR then
+    if mode == INSERT_MODE then
+      put_backspace()
+    end
+  elseif editor_state == CONSOLE then
+    console_put_backspace()
   end
 end
 function on_delete()
-  if mode == INSERT_MODE then
-    put_delete()
+  if editor_state == EDITOR then
+    if mode == INSERT_MODE then
+      put_delete()
+    end
+  elseif editor_state == CONSOLE then
+    console_put_delete()
   end
+end
+
+function open_console()
+  console_clear()
+  editor_state = CONSOLE
 end
 
 function pass()
@@ -199,9 +251,8 @@ keys[BACKSPACE]   = on_backspace
 keys[DELETE]      = on_delete
 
 shift = {}
-shift['s'] = open_console
+shift[';'] = open_console -- ':'
 
 ctrl = {}
-ctrl['s'] = open_console
 
 shift_ctrl = {}
