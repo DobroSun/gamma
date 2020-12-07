@@ -277,7 +277,6 @@ int main(int argc, char **argv) {
             tab->on_resize(Width, Height);
           }
         } break;
-        // SDL_WINDOWEVENT.
 
         case SDL_MOUSEWHEEL: {
           auto buffer = get_current_buffer();
@@ -296,11 +295,9 @@ int main(int argc, char **argv) {
             assert(0);
           }
         } break;
-        // SDL_MOUSEWHEEL.
 
         case SDL_MOUSEBUTTONDOWN: {
         } break;
-        // SDL_MOUSEBUTTONDOWN.
 
         default: {
         } break;

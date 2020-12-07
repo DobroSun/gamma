@@ -52,7 +52,7 @@ struct buffer_t {
   // Position on the window.
   int start_x, start_y, width, height;
   unsigned cursor = 0, n_character = 0, n_line = 0;
-  unsigned offset_on_line = 0, offset_from_beginning = 0, start_pos = 0;
+  unsigned offset_on_line = 0, offset_from_beginning = 0, start_pos = 0, saved_pos = 0;
 
 
   void init(int,int,int,int);

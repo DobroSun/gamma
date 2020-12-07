@@ -462,6 +462,7 @@ void buffer_t::inc_cursor() {
     }
   }
   cursor++;
+  saved_pos = n_character;
 }
 
 void buffer_t::go_right(bool selecting) {
@@ -522,6 +523,8 @@ void buffer_t::go_left(bool selecting) {
   } else {
     n_character--;
   }
+  saved_pos = n_character;
+
 
   if(n_character < offset_on_line) {
     offset_on_line--;
@@ -619,7 +622,8 @@ void buffer_t::put(char c) {
 void buffer_t::go_down(bool selecting) {
   if(n_line == get_total_lines()-1) return;
 
-  auto prev_character_pos = n_character;
+  const size_t tmp_saved_pos = saved_pos;
+  const size_t prev_character_pos = n_character;
   for(size_t i = cursor; file->buffer[i] != '\n'; i++) {
     go_right(selecting);
   }
@@ -627,16 +631,20 @@ void buffer_t::go_down(bool selecting) {
   go_right(selecting);
   assert(n_character == 0 && offset_on_line == 0);
   
-  for(size_t i = 0; i < prev_character_pos; i++) {
+  const size_t go_till = max(prev_character_pos, tmp_saved_pos);
+  for(size_t i = 0; i < go_till; i++) {
     if(file->buffer[cursor] == '\n') break;
     go_right(selecting);
   }
+
+  saved_pos = tmp_saved_pos;
 }
 
 void buffer_t::go_up(bool selecting) {
   if(n_line == 0) return;
 
-  size_t prev_character_pos = n_character;
+  const size_t tmp_saved_pos = saved_pos;
+  const size_t prev_character_pos = n_character;
   for(auto i = 0u; i < prev_character_pos; i++) {
     go_left(selecting);
   }
@@ -648,10 +656,13 @@ void buffer_t::go_up(bool selecting) {
     if(file->buffer[cursor] == '\n') break;
   }
 
-  for(size_t i = 0; i < prev_character_pos; i++) { // from beginning to actual position.
+  const size_t go_till = max(prev_character_pos, tmp_saved_pos);
+  for(size_t i = 0; i < go_till; i++) { // from beginning to actual position.
     if(file->buffer[cursor] == '\n') break;
     go_right(selecting);
   }
+
+  saved_pos = tmp_saved_pos;
 }
 
 void buffer_t::scroll_down(bool selecting) {
