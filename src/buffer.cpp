@@ -184,6 +184,7 @@ void open_new_buffer(const literal &l) {
     read_entire_file(&buffer->file->buffer, f);
     buffer->filename = to_string(l);
   }
+  buffer->total_lines = buffer->count_total_lines();
 }
 
 void open_existing_buffer(buffer_t *prev) {
@@ -442,7 +443,7 @@ int buffer_t::get_cursor_pos_on_line() const {
   return count-1;
 }
 
-int buffer_t::get_total_lines() const {
+int buffer_t::count_total_lines() const {
   int count = 0;
   for(auto i = 0u; i < file->buffer.size(); i++) {
     if(file->buffer[i] == '\n') count++;
@@ -592,16 +593,20 @@ void buffer_t::put_backspace() {
     file->buffer.move_right();
     go_left();
   }
+  if(file->buffer[cursor] == '\n') total_lines--;
   file->buffer.backspace();
 }
 
 void buffer_t::put_delete() {
   if(cursor == file->buffer.size()-1) return; // @Hack: @CleanUp: on for last character.
+  if(file->buffer[cursor] == '\n') total_lines--;
+
   file->buffer.del();
 }
 
 void buffer_t::put_return() {
   file->buffer.add('\n');
+  total_lines++;
 
   go_right();
   file->buffer.move_left(); // Same hack as for ::put_backspace().
@@ -620,7 +625,7 @@ void buffer_t::put(char c) {
 }
 
 void buffer_t::go_down(bool selecting) {
-  if(n_line == get_total_lines()-1) return;
+  if(n_line == total_lines-1) return;
 
   const size_t tmp_saved_pos = saved_pos;
   const size_t prev_character_pos = n_character;
@@ -666,7 +671,7 @@ void buffer_t::go_up(bool selecting) {
 }
 
 void buffer_t::scroll_down(bool selecting) {
-  if(start_pos == get_total_lines()-1) return;
+  if(start_pos == total_lines-1) return;
 
   if(start_pos == n_line) {
     go_down(selecting);
@@ -763,7 +768,7 @@ void paste_from_global_copy() {
 
 void go_to_line(int line) {
   auto buffer = active_buffer;
-  auto total_lines = buffer->get_total_lines();
+  auto total_lines = buffer->total_lines;
 
   if(line < 0) {
     line = total_lines + line;

@@ -206,19 +206,7 @@ int main(int argc, char **argv) {
   }
 
   while(!should_quit) {
-    #if 0
-    auto begin = std::chrono::steady_clock::now();
-    defer {
-      auto end = std::chrono::steady_clock::now();
-      double cur_time = std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count();
-      unsigned to_sleep = 1000000/60 - cur_time;
-      end = std::chrono::steady_clock::now();
-      cur_time = std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count();
-      char fps[64];
-      sprintf(fps, "******* FPS is: %lf *******", 1000000 / cur_time);
-      print(fps);
-    };
-    #endif
+    // measure_scope();
 
     int editor_state;
     lua_getglobal(L, "editor_state");

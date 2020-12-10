@@ -51,7 +51,7 @@ struct buffer_t {
 
   // Position on the window.
   int start_x, start_y, width, height;
-  unsigned cursor = 0, n_character = 0, n_line = 0;
+  unsigned cursor = 0, n_character = 0, n_line = 0, total_lines = 0;
   unsigned offset_on_line = 0, offset_from_beginning = 0, start_pos = 0, saved_pos = 0;
 
 
@@ -81,7 +81,7 @@ struct buffer_t {
   void shift_beginning_down();
   void shift_beginning_up();
 
-  int get_total_lines() const;
+  int count_total_lines() const;
   int get_line_length(int) const;
   int get_cursor_pos_on_line() const;
 

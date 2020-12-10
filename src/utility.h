@@ -149,4 +149,20 @@ T min(T a, U b) {
   return static_cast<T>((a < (T)b)? a: b);
 }
 
+struct Timer {
+  std::chrono::_V2::steady_clock::time_point start;
+  std::chrono::_V2::steady_clock::time_point end;
+
+  Timer()  { start = std::chrono::steady_clock::now(); }
+  ~Timer() { 
+    end = std::chrono::steady_clock::now(); 
+  
+    double delta = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
+    print(delta);
+  }
+};
+
+#define measure_scope() Timer ANONYMOUS_NAME;
+
+
 #endif

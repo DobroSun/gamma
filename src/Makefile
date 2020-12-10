@@ -15,7 +15,7 @@ release: $(DEPS)
 	$(CXX) -o $(EXE_NAME) $(DEPS) $(CXX_FLAGS) -DNDEBUG -O3 $(LINK)
 	strip $(EXE_NAME)
 
-%.o: %.cpp
+%.o: %.cpp 
 	$(CXX) -c -o $@ $^ $(CXX_FLAGS) -g -O0
 
 clean:
