@@ -87,8 +87,6 @@ struct buffer_t {
 
   int get_relative_pos_x(int) const;
   int get_relative_pos_y(int) const;
-
-  void inc_cursor();
 };
 
 struct tab_t {
@@ -131,9 +129,13 @@ void change_buffer(buffer_t *, direction_t);
 
 void do_split(buffer_t *, buffer_t *, split_type_t);
 
-void cursor_right();
-void cursor_left();
-void cursor_up();
-void cursor_down();
+void cursor_right(bool);
+void cursor_left(bool);
+
+void to_beginning_of_line(bool);
+void to_end_of_line(bool);
+
+void go_word_forward(bool);
+void go_word_backwards(bool);
 
 #endif

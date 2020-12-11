@@ -164,5 +164,12 @@ struct Timer {
 
 #define measure_scope() Timer ANONYMOUS_NAME;
 
+template<class T, size_t N>
+bool is_one_of(T c, const T (&x)[N]) {
+  for_each(x) {
+    if(c == *it) { return true; }
+  }
+  return false;
+}
 
 #endif

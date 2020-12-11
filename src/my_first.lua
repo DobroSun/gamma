@@ -47,6 +47,15 @@ end
 
 
 
+function on_b()
+  if editor_state == EDITOR then
+    if mode == NORMAL_MODE then
+      go_word_backwards(false)
+    elseif mode == VISUAL_MODE then
+      go_word_backwards(true)
+    end
+  end
+end
 function on_d() 
   if editor_state == EDITOR then
     if mode == NORMAL_MODE then
@@ -60,9 +69,9 @@ end
 function on_h() 
   if editor_state == EDITOR then
     if mode == NORMAL_MODE then
-      go_left(false)
+      cursor_left(false)
     elseif mode == VISUAL_MODE then
-      go_left(true)
+      cursor_left(true)
     end
   end
 end
@@ -94,9 +103,9 @@ end
 function on_l() 
   if editor_state == EDITOR then
     if mode == NORMAL_MODE then
-      go_right(false)
+      cursor_right(false)
     elseif mode == VISUAL_MODE then
-      go_right(true)
+      cursor_right(true)
     end
   end
 end
@@ -130,6 +139,24 @@ function on_y()
     end
   end
 end
+function on_w()
+  if editor_state == EDITOR then
+    if mode == NORMAL_MODE then
+      go_word_forward(false)
+    elseif mode == VISUAL_MODE then
+      go_word_forward(true)
+    end
+  end
+end
+function on_0()
+  if editor_state == EDITOR then
+    if mode == NORMAL_MODE then
+      to_beginning_of_line(false)
+    elseif mode == VISUAL_MODE then
+      to_beginning_of_line(true)
+    end
+  end
+end
 
 function on_tab()
   if editor_state == EDITOR then
@@ -160,9 +187,9 @@ end
 function on_right_arrow()
   if editor_state == EDITOR then
     if mode == INSERT_MODE or mode == NORMAL_MODE then
-      go_right(false)
+      cursor_right(false)
     elseif mode == VISUAL_MODE then
-      go_right(true)
+      cursor_right(true)
     end
   elseif editor_state == CONSOLE then
     console_go_right()
@@ -171,9 +198,9 @@ end
 function on_left_arrow()
   if editor_state == EDITOR then
     if mode == INSERT_MODE or mode == NORMAL_MODE then
-      go_left(false)
+      cursor_left(false)
     elseif mode == VISUAL_MODE then
-      go_left(true)
+      cursor_left(true)
     end
   elseif editor_state == CONSOLE then
     console_go_left()
@@ -222,15 +249,11 @@ function on_delete()
   end
 end
 
-function open_console()
-  console_clear()
-  editor_state = CONSOLE
-end
-
 function pass()
 end
 
 keys = {}
+keys['b'] = on_b
 keys['d'] = on_d
 keys['h'] = on_h
 keys['i'] = on_i
@@ -240,6 +263,8 @@ keys['l'] = on_l
 keys['p'] = on_p
 keys['v'] = on_v
 keys['y'] = on_y
+keys['w'] = on_w
+keys['0'] = on_0
 keys[TAB] = on_tab
 keys[ESCAPE] = on_escape
 keys[ARROW_RIGHT] = on_right_arrow
@@ -250,8 +275,46 @@ keys[RETURN]      = on_return
 keys[BACKSPACE]   = on_backspace
 keys[DELETE]      = on_delete
 
+
+function open_console()
+  console_clear()
+  editor_state = CONSOLE
+end
+function on_dollar()
+  if editor_state == EDITOR then
+    if mode == NORMAL_MODE then
+      to_end_of_line(false)
+    elseif mode == VISUAL_MODE then
+      to_end_of_line(true)
+    end
+  end
+end
+function on_A()
+  if editor_state == EDITOR then
+    if mode == NORMAL_MODE then
+      to_end_of_line(false)
+      to_insert_mode()
+
+    elseif mode == VISUAL_MODE then
+      to_insert_mode()
+    end
+  end
+end
+function on_D()
+  if editor_state == EDITOR then
+    --to_visual_mode()
+    --to_end_of_line(true)
+    --delete_selected()
+    --to_normal_mode()
+  end
+end
+
+
 shift = {}
 shift[';'] = open_console -- ':'
+shift['4'] = on_dollar    -- '$'
+shift['a'] = on_A         -- 'A'
+shift['d'] = on_D         -- 'D'
 
 ctrl = {}
 

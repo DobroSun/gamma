@@ -78,6 +78,42 @@ static int go_down(lua_State *L) {
   return 0;
 }
 
+static int cursor_right(lua_State *L) {
+  bool with_selection = lua_toboolean(L, 1);
+  cursor_right(with_selection);
+  return 0;
+}
+
+static int cursor_left(lua_State *L) {
+  bool with_selection = lua_toboolean(L, 1);
+  cursor_left(with_selection);
+  return 0;
+}
+
+static int to_beginning_of_line(lua_State *L) {
+  bool with_selection = lua_toboolean(L, 1);
+  to_beginning_of_line(with_selection);
+  return 0;
+}
+
+static int to_end_of_line(lua_State *L) {
+  bool with_selection = lua_toboolean(L, 1);
+  to_end_of_line(with_selection);
+  return 0;
+}
+
+static int go_word_forward(lua_State *L) {
+  bool with_selection = lua_toboolean(L, 1);
+  go_word_forward(with_selection);
+  return 0;
+}
+
+static int go_word_backwards(lua_State *L) {
+  bool with_selection = lua_toboolean(L, 1);
+  go_word_backwards(with_selection);
+  return 0;
+}
+
 static int delete_selected(lua_State *L) {
   delete_selected();
   return 0;
@@ -176,8 +212,14 @@ int main(int argc, char **argv) {
   lua_register(L, "quit", &quit);
   lua_register(L, "go_right", &go_right);
   lua_register(L, "go_left",  &go_left);
+  lua_register(L, "cursor_right", &cursor_right);
+  lua_register(L, "cursor_left",  &cursor_left);
   lua_register(L, "go_down",  &go_down);
   lua_register(L, "go_up",    &go_up);
+  lua_register(L, "to_beginning_of_line", &to_beginning_of_line);
+  lua_register(L, "to_end_of_line", &to_end_of_line);
+  lua_register(L, "go_word_forward", &go_word_forward);
+  lua_register(L, "go_word_backwards", &go_word_backwards);
   lua_register(L, "put_return", &put_return);
   lua_register(L, "put_backspace", &put_backspace);
   lua_register(L, "put_delete", &put_delete);

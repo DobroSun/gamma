@@ -451,7 +451,10 @@ int buffer_t::count_total_lines() const {
   return count;
 }
 
-void buffer_t::inc_cursor() {
+void buffer_t::go_right(bool selecting) {
+  if(cursor == file->buffer.size()-1) return;
+
+  file->buffer.move_right();
   if(file->buffer[cursor] == '\n') {
     n_character = 0;
     offset_on_line = 0;
@@ -464,13 +467,6 @@ void buffer_t::inc_cursor() {
   }
   cursor++;
   saved_pos = n_character;
-}
-
-void buffer_t::go_right(bool selecting) {
-  if(cursor == file->buffer.size()-1) return;
-
-  file->buffer.move_right();
-  inc_cursor();
 
   if(number_lines_fits_in_window(this) + start_pos == n_line) {  
     shift_beginning_up();
@@ -621,7 +617,8 @@ void buffer_t::put_tab() {
 
 void buffer_t::put(char c) {
   file->buffer.add(c);
-  inc_cursor();
+  go_right();
+  file->buffer.move_left();
 }
 
 void buffer_t::go_down(bool selecting) {
@@ -1057,23 +1054,59 @@ void do_split(buffer_t *p, buffer_t *n, split_type_t type) {
   n->split.fake_split = p;
 }
 
-void cursor_right() {
+void cursor_right(bool to_select) {
   auto buffer = active_buffer;
   if(buffer->file->buffer[buffer->cursor] == '\n') return; // '\n' means it's the last char on line.
-  buffer->go_right();
+  buffer->go_right(to_select);
 }
 
-void cursor_left() {
+void cursor_left(bool to_select) {
   auto buffer = active_buffer;
   if(buffer->cursor == 0) return;
   if(buffer->file->buffer[buffer->cursor-1] == '\n') return;
-  buffer->go_left();
+  buffer->go_left(to_select);
 }
 
-void cursor_up() {
-  active_buffer->go_up();
+static const char stop_chars[] = { ' ', '(', '{', ')', '}', '#', '\"', '\'', '/', '\\', '.', ';', '\n' };
+void go_word_forward(bool to_select) {
+  auto buffer = active_buffer;
+
+  if(is_one_of(buffer->file->buffer[buffer->cursor], stop_chars)) {
+    buffer->go_right(to_select);
+
+  } else {
+    buffer->go_right(to_select);
+    while(!is_one_of(buffer->file->buffer[buffer->cursor], stop_chars)) {
+      buffer->go_right(to_select);
+    }
+  }
+  if(buffer->file->buffer[buffer->cursor] == ' ') { buffer->go_right(to_select); }
 }
 
-void cursor_down() {
-  active_buffer->go_down();
+void go_word_backwards(bool to_select) {
+  auto buffer = active_buffer;
+
+  if(is_one_of(buffer->file->buffer[buffer->cursor], stop_chars)) {
+    buffer->go_left(to_select);
+
+  } else {
+    int count = 0;
+    while(!is_one_of(buffer->file->buffer[buffer->cursor], stop_chars)) {
+      buffer->go_left(to_select);
+      count++;
+    }
+
+    if(count != 1) { buffer->go_right(to_select); }
+  }
+  if(buffer->file->buffer[buffer->cursor] == ' ') { buffer->go_left(to_select); }
+}
+
+void to_beginning_of_line(bool to_select) {
+  auto buffer = active_buffer;
+  while(buffer->n_character != 0) { buffer->go_left(to_select); }
+}
+
+void to_end_of_line(bool to_select) {
+  auto buffer = active_buffer;
+  while(buffer->file->buffer[buffer->cursor] != '\n') { buffer->go_right(to_select); }
 }
