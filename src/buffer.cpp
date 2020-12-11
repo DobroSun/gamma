@@ -131,6 +131,10 @@ buffer_t *get_current_buffer() {
   return active_buffer;
 }
 
+selection_buffer_t &get_selection() {
+  return selection;
+}
+
 static void read_entire_file(gap_buffer *ret, FILE *f) {
   assert(f);
   assert(ret);
@@ -471,7 +475,7 @@ void buffer_t::go_right(bool selecting) {
   if(number_lines_fits_in_window(this) + start_pos == n_line) {  
     shift_beginning_up();
   }
-
+#if 0
   if(selecting) {
     if(selection.direction == move_left) {
       selection.start_index = cursor;
@@ -497,6 +501,7 @@ void buffer_t::go_right(bool selecting) {
       selection.direction = none;
     }
   }
+#endif
 }
 
 
@@ -531,7 +536,7 @@ void buffer_t::go_left(bool selecting) {
   if(start_pos-1 == n_line && start_pos != 0) {
     shift_beginning_down();
   }
-
+#if 0
   if(selecting) {
     if(selection.direction == move_left) {
       selection.start_index = cursor;
@@ -559,6 +564,7 @@ void buffer_t::go_left(bool selecting) {
       selection.direction = none;
     }
   }
+#endif
 }
 
 void buffer_t::move_to(size_t index) {
@@ -640,6 +646,52 @@ void buffer_t::go_down(bool selecting) {
   }
 
   saved_pos = tmp_saved_pos;
+}
+
+// @RemoveME:
+int buffer_t::compute_go_down() {
+  if(n_line == total_lines-1) return 0;
+  int count = 0;
+
+  const size_t tmp_saved_pos = saved_pos;
+  const size_t prev_character_pos = n_character;
+  for(size_t i = cursor; file->buffer[i] != '\n'; i++) {
+    count++;
+  }
+
+  count++;
+  
+  const size_t go_till = max(prev_character_pos, tmp_saved_pos);
+  for(size_t i = 0; i < go_till; i++) {
+    if(file->buffer[cursor+count] == '\n') return count;
+    count++;
+  }
+  return count;
+}
+
+// @RemoveME:
+int buffer_t::compute_go_up() {
+  if(n_line == 0) return 0;
+  int count = 0;
+
+  const size_t tmp_saved_pos = saved_pos;
+  const size_t prev_character_pos = n_character;
+  for(auto i = 0u; i < prev_character_pos; i++) {
+    count++;
+  }
+  count++;
+
+  while(n_character > 0) { // go till the beginning of line.
+    count++;
+    if(file->buffer[cursor+count] == '\n') break;
+  }
+
+  const size_t go_till = max(prev_character_pos, tmp_saved_pos);
+  for(size_t i = 0; i < go_till; i++) { // from beginning to actual position.
+    if(file->buffer[cursor+count] == '\n') break;
+    count--;
+  }
+  return count;
 }
 
 void buffer_t::go_up(bool selecting) {

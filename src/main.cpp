@@ -188,6 +188,115 @@ static int quit(lua_State *L) {
   return 0;
 }
 
+static int get_cursor_pos(lua_State *L) {
+  int x = get_current_buffer()->n_character;
+  lua_pushnumber(L, x);
+  return 1;
+}
+
+static int get_cursor_index(lua_State *L) {
+  int x = get_current_buffer()->cursor;
+  lua_pushnumber(L, x);
+  return 1;
+}
+
+static int pass(lua_State *L) { return 0; }
+
+static int do_selection_to_left(lua_State *L) {
+  auto &selection = get_selection();
+  if(selection.direction == move_left) {
+    selection.start_index = get_current_buffer()->cursor;
+    selection.start_line  = get_current_buffer()->n_line;
+    selection.start_char  = get_current_buffer()->n_character;
+    selection.size++;
+
+  } else if(selection.direction == move_right) {
+    assert(selection.size > 0);
+    selection.size--;
+
+  } else {
+    assert(selection.direction == none && selection.size == 0);
+    selection.direction = move_left;
+
+    // Copy&Paste: of left case.
+    selection.start_index = get_current_buffer()->cursor;
+    selection.start_line  = get_current_buffer()->n_line;
+    selection.start_char  = get_current_buffer()->n_character;
+    selection.size++;
+    assert(selection.size == 1);
+  }
+
+  if(selection.size == 0) {
+    selection.direction = none;
+  }
+  return 0;
+}
+
+static int do_selection_to_right(lua_State *L) {
+  auto &selection = get_selection();
+  if(selection.direction == move_left) {
+    selection.start_index = get_current_buffer()->cursor;
+    selection.start_line  = get_current_buffer()->n_line;
+    selection.start_char  = get_current_buffer()->n_character;
+
+    assert(selection.size > 0);
+    selection.size--;
+
+  } else if(selection.direction == move_right) {
+    selection.size++;
+
+  } else {
+    assert(selection.direction == none && selection.size == 0);
+    selection.direction = move_right;
+
+    // Copy&Paste: of right case.
+    selection.size++;
+    assert(selection.size == 1);
+  }
+
+  if(selection.size == 0) {
+    selection.direction = none;
+  }
+  return 0;
+}
+
+static const int TO_RIGHT = 0;
+static const int TO_LEFT  = 1;
+
+template<int direction>
+static int do_action(lua_State *L) {
+  int (*f)(lua_State *) = lua_tocfunction(L, 1);
+  int  a = lua_tonumber(L,2);
+
+  assert(a > 0);
+  while(a) {
+    f(L);
+    if constexpr(direction == TO_RIGHT) {
+      get_current_buffer()->go_right();
+    } else {
+      static_assert(direction == TO_LEFT);
+      get_current_buffer()->go_left();
+    }
+    a--;
+  }
+  return 0;
+}
+static int do_action_to_right(lua_State *L) { return do_action<TO_RIGHT>(L); }
+static int do_action_to_left(lua_State *L)  { return do_action<TO_LEFT> (L); }
+
+
+static int compute_go_down(lua_State *L) {
+  int x = get_current_buffer()->compute_go_down();
+  lua_pushnumber(L, x);
+  return 1;
+}
+
+static int compute_go_up(lua_State *L) {
+  int x = get_current_buffer()->compute_go_up();
+  lua_pushnumber(L, x);
+  return 1;
+}
+
 static void interp_lua_table(lua_State *L, const char *name, int key) {
   const char b[] = { (char)key, '\0' };
   lua_getglobal(L, name);
@@ -236,6 +345,17 @@ int main(int argc, char **argv) {
   lua_register(L, "console_go_left", &console_go_left);
   lua_register(L, "console_eval", &console_eval);
 
+  lua_register(L, "get_cursor_pos", &get_cursor_pos);
+  lua_register(L, "get_cursor_index", &get_cursor_index);
+  lua_register(L, "do_action_to_right", &do_action_to_right);
+  lua_register(L, "do_action_to_left", &do_action_to_left);
+  lua_register(L, "do_selection_to_right", &do_selection_to_right);
+  lua_register(L, "do_selection_to_left", &do_selection_to_left);
+  lua_register(L, "pass", &pass);
+
+  lua_register(L, "compute_go_down", &compute_go_down);
+  lua_register(L, "compute_go_up", &compute_go_up);
+
   luaL_openlibs(L);
 
   if(check_lua(L, luaL_dofile(L, "my_first.lua"))) {
@@ -244,7 +364,6 @@ int main(int argc, char **argv) {
     lua_getglobal(L, "Width");
     if(lua_isnumber(L, -1)) { Width = lua_tonumber(L, -1); lua_pop(L, -1); }
     SDL_SetWindowSize(get_win(), Width, Height);
-
   }
 
   while(!should_quit) {

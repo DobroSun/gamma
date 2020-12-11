@@ -73,6 +73,11 @@ struct buffer_t {
   void put_tab();
   void put(char);
 
+  // @RemoveME:
+  int compute_go_down();
+  int compute_go_up();
+
+
   void move_to(size_t);
 
   void draw_cursor(char, int, int, SDL_Color, SDL_Color) const;
@@ -102,6 +107,7 @@ int number_chars_on_line_fits_in_window(const buffer_t *);
 
 tab_t *get_current_tab();
 buffer_t *get_current_buffer();
+selection_buffer_t &get_selection();
 
 void init(int, char**);
 void update();
