@@ -16,7 +16,7 @@ ARROW_RIGHT = 'O'
 ARROW_LEFT  = 'P'
 ARROW_UP    = 'R'
 ARROW_DOWN  = 'Q'
--- end
+-- 
 
 Height = 500
 Width  = 500
@@ -27,8 +27,16 @@ tabstop = 2
 editor_state = EDITOR
 mode         = NORMAL_MODE
 
-function min(a, b)  if a < b then return a else return b end end
-function max(a, b)  if a < b then return b else return a end end
+--function min(a, b)  if a < b then return a else return b end end
+--function max(a, b)  if a < b then return b else return a end end
+
+function pass() end
+function do_action(action_func, move_func, n)
+  for _ = 1,n do
+    action_func()
+    move_func()
+  end
+end
 
 
 function to_normal_mode()
@@ -55,7 +63,7 @@ end
 function on_a()
   if editor_state == EDITOR then
     if mode == NORMAL_MODE then
-      cursor_right()
+      go_right()
       to_insert_mode()
     end
   end
@@ -84,10 +92,11 @@ end
 function on_h() 
   if editor_state == EDITOR then
     if mode == NORMAL_MODE then
-      cursor_left(false)
+      go_left()
+
     elseif mode == VISUAL_MODE then
-      do_action_to_left(do_selection_to_left, 1)
-      --cursor_left(true)
+      select_to_left()
+      go_left()
     end
   end
 end
@@ -100,23 +109,23 @@ function on_i()
 end
 function on_j()
   if editor_state == EDITOR then
+    local n = compute_go_down()
     if mode == NORMAL_MODE then
-      go_down(false)
+      do_action(pass, go_right, n)
+
     elseif mode == VISUAL_MODE then
-      diff = compute_go_down()
-      do_action_to_right(do_selection_to_right, diff)
-      --go_down(true)
+      do_action(select_to_right, go_right, n)
     end
   end
 end
 function on_k() 
   if editor_state == EDITOR then
+    local n = compute_go_up()
     if mode == NORMAL_MODE then
-      go_up(false)
+      do_action(pass, go_left, n)
+
     elseif mode == VISUAL_MODE then
-      diff = compute_go_down()
-      do_action_to_left(do_selection_to_left, diff)
-      --go_up(true)
+      do_action(select_to_left, go_left, n)
     end
   end
 end
@@ -124,10 +133,11 @@ end
 function on_l() 
   if editor_state == EDITOR then
     if mode == NORMAL_MODE then
-      cursor_right(false)
+      go_right()
+
     elseif mode == VISUAL_MODE then
-      do_action_to_right(do_selection_to_right, 1)
-      --cursor_right(true)
+      select_to_right()
+      go_right()
     end
   end
 end
@@ -182,6 +192,7 @@ function on_x()
   if editor_state == EDITOR then
     if mode == NORMAL_MODE then
       put_delete()
+
     elseif mode == VISUAL_MODE then
       delete_selected()
       to_normal_mode()
@@ -199,6 +210,16 @@ function on_0()
   end
 end
 
+function on_space()
+  if editor_state == EDITOR then
+    if mode == NORMAL_MODE then
+      go_right()
+    elseif mode == VISUAL_MODE then
+      select_to_right()
+      go_right()
+    end
+  end
+end
 function on_tab()
   if editor_state == EDITOR then
     if mode == INSERT_MODE then
@@ -228,9 +249,10 @@ end
 function on_right_arrow()
   if editor_state == EDITOR then
     if mode == INSERT_MODE or mode == NORMAL_MODE then
-      cursor_right(false)
+      go_right()
     elseif mode == VISUAL_MODE then
-      cursor_right(true)
+      select_to_right()
+      go_right()
     end
   elseif editor_state == CONSOLE then
     console_go_right()
@@ -239,26 +261,29 @@ end
 function on_left_arrow()
   if editor_state == EDITOR then
     if mode == INSERT_MODE or mode == NORMAL_MODE then
-      cursor_left(false)
+      go_left()
     elseif mode == VISUAL_MODE then
-      cursor_left(true)
+      select_to_left()
+      go_left()
     end
   elseif editor_state == CONSOLE then
     console_go_left()
   end
 end
 function on_up_arrow()
+  local n = compute_go_up()
   if mode == INSERT_MODE or mode == NORMAL_MODE then
-    go_up(false)
+    do_action(pass, go_left, n)
   elseif mode == VISUAL_MODE then
-    go_up(true)
+    do_action(select_to_left, go_left, n)
   end
 end
 function on_down_arrow()
+  local n = compute_go_down()
   if mode == INSERT_MODE or mode == NORMAL_MODE then
-    go_down(false)
+    do_action(pass, go_right, n)
   elseif mode == VISUAL_MODE then
-    go_down(true)
+    do_action(select_to_right, go_right, n)
   end
 end
 function on_return()
@@ -275,7 +300,13 @@ function on_backspace()
   if editor_state == EDITOR then
     if mode == INSERT_MODE then
       put_backspace()
+    elseif mode == NORMAL_MODE then
+      go_left()
+    elseif mode == VISUAL_MODE then
+      select_to_left()
+      go_left()
     end
+
   elseif editor_state == CONSOLE then
     console_put_backspace()
   end
@@ -307,6 +338,7 @@ keys['y'] = on_y
 keys['w'] = on_w
 keys['x'] = on_x
 keys['0'] = on_0
+keys[' '] = on_space
 keys[TAB] = on_tab
 keys[ESCAPE] = on_escape
 keys[ARROW_RIGHT] = on_right_arrow

@@ -26,8 +26,8 @@ enum direction_t : char {
 };
 
 struct selection_buffer_t {
-  int start_index = -1, start_line, start_char;
-  size_t size = 0;
+  int start_index = -1;
+  size_t size     = 0;
   moving_direction_t direction = none;
 };
 
@@ -61,12 +61,10 @@ struct buffer_t {
   void on_resize(int,int,int,int);
 
   // @CleanUp all functions.
-  void scroll_down(bool selecting=false);
-  void scroll_up(bool selecting=false);
-  void go_down(bool selecting=false);
-  void go_up(bool selecting=false);
-  void go_right(bool selecting=false);
-  void go_left(bool selecting=false);
+  void scroll_down();
+  void scroll_up();
+  void go_right();
+  void go_left();
   void put_backspace();
   void put_return();
   void put_delete();
@@ -77,8 +75,6 @@ struct buffer_t {
   int compute_go_down();
   int compute_go_up();
 
-
-  void move_to(size_t);
 
   void draw_cursor(char, int, int, SDL_Color, SDL_Color) const;
   void draw_line(int, int, bool) const;
@@ -135,13 +131,10 @@ void change_buffer(buffer_t *, direction_t);
 
 void do_split(buffer_t *, buffer_t *, split_type_t);
 
-void cursor_right(bool);
-void cursor_left(bool);
+void to_beginning_of_line();
+void to_end_of_line();
 
-void to_beginning_of_line(bool);
-void to_end_of_line(bool);
-
-void go_word_forward(bool);
-void go_word_backwards(bool);
+void go_word_forward();
+void go_word_backwards();
 
 #endif

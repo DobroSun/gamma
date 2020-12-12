@@ -8,6 +8,23 @@
 #include <fcntl.h>
 
 
+static void go_down() {
+  auto buffer = get_current_buffer();
+  int n = buffer->compute_go_down();
+  while(n) {
+    buffer->go_right();
+    n--;
+  }
+}
+static void go_up() {
+  auto buffer = get_current_buffer();
+  int n = buffer->compute_go_up();
+  while(n) {
+    buffer->go_left();
+    n--;
+  }
+}
+
 // @Speed:
 // No need to iterate and get them 
 // each time, better solution is to keep 
@@ -455,7 +472,7 @@ int buffer_t::count_total_lines() const {
   return count;
 }
 
-void buffer_t::go_right(bool selecting) {
+void buffer_t::go_right() {
   if(cursor == file->buffer.size()-1) return;
 
   file->buffer.move_right();
@@ -475,37 +492,10 @@ void buffer_t::go_right(bool selecting) {
   if(number_lines_fits_in_window(this) + start_pos == n_line) {  
     shift_beginning_up();
   }
-#if 0
-  if(selecting) {
-    if(selection.direction == move_left) {
-      selection.start_index = cursor;
-      selection.start_line  = n_line;
-      selection.start_char  = n_character;
-
-      assert(selection.size > 0);
-      selection.size--;
-
-    } else if(selection.direction == move_right) {
-      selection.size++;
-
-    } else {
-      assert(selection.direction == none && selection.size == 0);
-      selection.direction = move_right;
-
-      // Copy&Paste: of right case.
-      selection.size++;
-      assert(selection.size == 1);
-    }
-
-    if(selection.size == 0) {
-      selection.direction = none;
-    }
-  }
-#endif
 }
 
 
-void buffer_t::go_left(bool selecting) {
+void buffer_t::go_left() {
   if(cursor == 0) return;
   assert(cursor > 0);
 
@@ -535,53 +525,6 @@ void buffer_t::go_left(bool selecting) {
 
   if(start_pos-1 == n_line && start_pos != 0) {
     shift_beginning_down();
-  }
-#if 0
-  if(selecting) {
-    if(selection.direction == move_left) {
-      selection.start_index = cursor;
-      selection.start_line  = n_line;
-      selection.start_char  = n_character;
-      selection.size++;
-
-    } else if(selection.direction == move_right) {
-      assert(selection.size > 0);
-      selection.size--;
-
-    } else {
-      assert(selection.direction == none && selection.size == 0);
-      selection.direction = move_left;
-
-      // Copy&Paste: of left case.
-      selection.start_index = cursor;
-      selection.start_line  = n_line;
-      selection.start_char  = n_character;
-      selection.size++;
-      assert(selection.size == 1);
-    }
-
-    if(selection.size == 0) {
-      selection.direction = none;
-    }
-  }
-#endif
-}
-
-void buffer_t::move_to(size_t index) {
-  if(cursor < index) {
-    size_t diff = index - cursor;
-    for(size_t i = 0; i < diff; i++) {
-      go_right();
-    }
-
-  } else if(cursor > index) {
-    size_t diff = cursor - index;
-    for(size_t i = 0; i < diff; i++) {
-      go_left();
-    }
-
-  } else {
-    assert(index == cursor);
   }
 }
 
@@ -627,115 +570,68 @@ void buffer_t::put(char c) {
   file->buffer.move_left();
 }
 
-void buffer_t::go_down(bool selecting) {
-  if(n_line == total_lines-1) return;
-
-  const size_t tmp_saved_pos = saved_pos;
-  const size_t prev_character_pos = n_character;
-  for(size_t i = cursor; file->buffer[i] != '\n'; i++) {
-    go_right(selecting);
-  }
-
-  go_right(selecting);
-  assert(n_character == 0 && offset_on_line == 0);
-  
-  const size_t go_till = max(prev_character_pos, tmp_saved_pos);
-  for(size_t i = 0; i < go_till; i++) {
-    if(file->buffer[cursor] == '\n') break;
-    go_right(selecting);
-  }
-
-  saved_pos = tmp_saved_pos;
-}
-
-// @RemoveME:
 int buffer_t::compute_go_down() {
   if(n_line == total_lines-1) return 0;
   int count = 0;
 
-  const size_t tmp_saved_pos = saved_pos;
   const size_t prev_character_pos = n_character;
   for(size_t i = cursor; file->buffer[i] != '\n'; i++) {
     count++;
   }
-
   count++;
   
-  const size_t go_till = max(prev_character_pos, tmp_saved_pos);
-  for(size_t i = 0; i < go_till; i++) {
+  for(size_t i = 0; i < prev_character_pos; i++) {
     if(file->buffer[cursor+count] == '\n') return count;
     count++;
   }
   return count;
 }
 
-// @RemoveME:
 int buffer_t::compute_go_up() {
   if(n_line == 0) return 0;
   int count = 0;
 
-  const size_t tmp_saved_pos = saved_pos;
   const size_t prev_character_pos = n_character;
   for(auto i = 0u; i < prev_character_pos; i++) {
     count++;
   }
+
+  count++;
+  assert(file->buffer[cursor-count] == '\n');
   count++;
 
-  while(n_character > 0) { // go till the beginning of line.
+  while(file->buffer[cursor-count] != '\n') { // go till the beginning of line.
     count++;
-    if(file->buffer[cursor+count] == '\n') break;
+    if(cursor == count) {
+      count++;
+      break;
+    }
   }
 
-  const size_t go_till = max(prev_character_pos, tmp_saved_pos);
-  for(size_t i = 0; i < go_till; i++) { // from beginning to actual position.
-    if(file->buffer[cursor+count] == '\n') break;
+  count--;
+  for(size_t i = 0; i < prev_character_pos; i++) { // from beginning to actual position.
+    if(file->buffer[cursor-count] == '\n') break;
     count--;
   }
+
+  if(cursor == count) return count+1;
+
   return count;
 }
 
-void buffer_t::go_up(bool selecting) {
-  if(n_line == 0) return;
-
-  const size_t tmp_saved_pos = saved_pos;
-  const size_t prev_character_pos = n_character;
-  for(auto i = 0u; i < prev_character_pos; i++) {
-    go_left(selecting);
-  }
-  assert(n_character == 0 && offset_on_line == 0 && n_line > 0);
-	go_left(selecting);
-
-  while(n_character > 0) { // go till the beginning of line.
-    go_left(selecting);
-    if(file->buffer[cursor] == '\n') break;
-  }
-
-  const size_t go_till = max(prev_character_pos, tmp_saved_pos);
-  for(size_t i = 0; i < go_till; i++) { // from beginning to actual position.
-    if(file->buffer[cursor] == '\n') break;
-    go_right(selecting);
-  }
-
-  saved_pos = tmp_saved_pos;
-}
-
-void buffer_t::scroll_down(bool selecting) {
+void buffer_t::scroll_down() {
   if(start_pos == total_lines-1) return;
 
-  if(start_pos == n_line) {
-    go_down(selecting);
-  }
-
+  if(start_pos == n_line) { go_down(); }
   shift_beginning_up();
 }
 
-void buffer_t::scroll_up(bool selecting) {
+void buffer_t::scroll_up() {
   if(offset_from_beginning == 0) return;
 
   if(number_lines_fits_in_window(this)+start_pos-1 == n_line) {
-    go_up(selecting);
+    go_up();
   }
-
   shift_beginning_down();
 }
 
@@ -780,7 +676,24 @@ selection_buffer_t *get_selection_buffer() {
 void delete_selected() {
   assert(selection.start_index != -1);
   auto buffer = active_buffer;
-  buffer->move_to(selection.start_index);
+
+  int cursor = buffer->cursor;
+  int index  = selection.start_index;
+
+  if(cursor < index) {
+    size_t diff = index - cursor;
+    for(size_t i = 0; i < diff; i++) {
+      buffer->go_right();
+    }
+
+  } else if(cursor > index) {
+    size_t diff = cursor - index;
+    for(size_t i = 0; i < diff; i++) {
+      buffer->go_left();
+    }
+  } else {
+    assert(index == cursor);
+  }
 
   for(size_t i = 0; i < selection.size+1; i++) {
     buffer->put_delete();
@@ -816,23 +729,21 @@ void paste_from_global_copy() {
 }
 
 void go_to_line(int line) {
-  auto buffer = active_buffer;
-  auto total_lines = buffer->total_lines;
+  auto total_lines = active_buffer->total_lines;
 
   if(line < 0) {
     line = total_lines + line;
     if(line <= 0) {
       line = 1;
     }
-
   } else if(line > total_lines) {
     line = total_lines;
   } else if(line == 0) {
     line++;
   }
 
-  while(line > (int)buffer->n_line+1) buffer->go_down();
-  while(line < (int)buffer->n_line+1) buffer->go_up();
+  while(line > (int)active_buffer->n_line+1) go_down();
+  while(line < (int)active_buffer->n_line+1) go_up();
 }
 
 
@@ -1106,59 +1017,46 @@ void do_split(buffer_t *p, buffer_t *n, split_type_t type) {
   n->split.fake_split = p;
 }
 
-void cursor_right(bool to_select) {
-  auto buffer = active_buffer;
-  if(buffer->file->buffer[buffer->cursor] == '\n') return; // '\n' means it's the last char on line.
-  buffer->go_right(to_select);
-}
-
-void cursor_left(bool to_select) {
-  auto buffer = active_buffer;
-  if(buffer->cursor == 0) return;
-  if(buffer->file->buffer[buffer->cursor-1] == '\n') return;
-  buffer->go_left(to_select);
-}
-
 static const char stop_chars[] = { ' ', '(', '{', ')', '}', '#', '\"', '\'', '/', '\\', '.', ';', '\n' };
-void go_word_forward(bool to_select) {
+void go_word_forward() {
   auto buffer = active_buffer;
 
   if(is_one_of(buffer->file->buffer[buffer->cursor], stop_chars)) {
-    buffer->go_right(to_select);
+    buffer->go_right();
 
   } else {
-    buffer->go_right(to_select);
+    buffer->go_right();
     while(!is_one_of(buffer->file->buffer[buffer->cursor], stop_chars)) {
-      buffer->go_right(to_select);
+      buffer->go_right();
     }
   }
-  if(buffer->file->buffer[buffer->cursor] == ' ') { buffer->go_right(to_select); }
+  if(buffer->file->buffer[buffer->cursor] == ' ') { buffer->go_right(); }
 }
 
-void go_word_backwards(bool to_select) {
+void go_word_backwards() {
   auto buffer = active_buffer;
 
   if(is_one_of(buffer->file->buffer[buffer->cursor], stop_chars)) {
-    buffer->go_left(to_select);
+    buffer->go_left();
 
   } else {
     int count = 0;
     while(!is_one_of(buffer->file->buffer[buffer->cursor], stop_chars)) {
-      buffer->go_left(to_select);
+      buffer->go_left();
       count++;
     }
 
-    if(count != 1) { buffer->go_right(to_select); }
+    if(count != 1) { buffer->go_right(); }
   }
-  if(buffer->file->buffer[buffer->cursor] == ' ') { buffer->go_left(to_select); }
+  if(buffer->file->buffer[buffer->cursor] == ' ') { buffer->go_left(); }
 }
 
-void to_beginning_of_line(bool to_select) {
+void to_beginning_of_line() {
   auto buffer = active_buffer;
-  while(buffer->n_character != 0) { buffer->go_left(to_select); }
+  while(buffer->n_character != 0) { buffer->go_left(); }
 }
 
-void to_end_of_line(bool to_select) {
+void to_end_of_line() {
   auto buffer = active_buffer;
-  while(buffer->file->buffer[buffer->cursor] != '\n') { buffer->go_right(to_select); }
+  while(buffer->file->buffer[buffer->cursor] != '\n') { buffer->go_right(); }
 }

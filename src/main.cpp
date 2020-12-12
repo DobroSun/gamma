@@ -11,12 +11,12 @@ extern "C" {
 }
 
 
-const int Editor  = 0;
-const int Console = 1;
+static const int Editor  = 0;
+static const int Console = 1;
 
-const int NormalMode = 0;
-const int InsertMode = 1;
-const int VisualMode = 2;
+static const int NormalMode = 0;
+static const int InsertMode = 1;
+static const int VisualMode = 2;
 
 
 static bool check_lua(lua_State *L, int r) {
@@ -55,62 +55,44 @@ static int put_delete(lua_State *L) {
 }
 
 static int go_right(lua_State *L) {
-  bool with_selection = lua_toboolean(L, 1);
-  get_current_buffer()->go_right(with_selection);
+  get_current_buffer()->go_right();
   return 0;
 }
 
 static int go_left(lua_State *L) {
-  bool with_selection = lua_toboolean(L, 1);
-  get_current_buffer()->go_left(with_selection);
+  get_current_buffer()->go_left();
   return 0;
 }
 
+#if 0
 static int go_up(lua_State *L) {
-  bool with_selection = lua_toboolean(L, 1);
-  get_current_buffer()->go_up(with_selection);
+  get_current_buffer()->go_up();
   return 0;
 }
 
 static int go_down(lua_State *L) {
-  bool with_selection = lua_toboolean(L, 1);
-  get_current_buffer()->go_down(with_selection);
+  get_current_buffer()->go_down();
   return 0;
 }
-
-static int cursor_right(lua_State *L) {
-  bool with_selection = lua_toboolean(L, 1);
-  cursor_right(with_selection);
-  return 0;
-}
-
-static int cursor_left(lua_State *L) {
-  bool with_selection = lua_toboolean(L, 1);
-  cursor_left(with_selection);
-  return 0;
-}
+#endif
 
 static int to_beginning_of_line(lua_State *L) {
-  bool with_selection = lua_toboolean(L, 1);
-  to_beginning_of_line(with_selection);
+  to_beginning_of_line();
   return 0;
 }
 
 static int to_end_of_line(lua_State *L) {
-  bool with_selection = lua_toboolean(L, 1);
-  to_end_of_line(with_selection);
+  to_end_of_line();
   return 0;
 }
 
 static int go_word_forward(lua_State *L) {
-  bool with_selection = lua_toboolean(L, 1);
-  go_word_forward(with_selection);
+  go_word_forward();
   return 0;
 }
 
 static int go_word_backwards(lua_State *L) {
-  bool with_selection = lua_toboolean(L, 1);
-  go_word_backwards(with_selection);
+  go_word_backwards();
   return 0;
 }
 
@@ -124,8 +106,6 @@ static int start_selection(lua_State *L) {
   auto buffer   = get_current_buffer(); 
 
   selected->start_index = buffer->cursor;
-  selected->start_line  = buffer->n_line;
-  selected->start_char  = buffer->n_character;
   selected->size        = 0;
   selected->direction   = none;
   return 0;
@@ -200,15 +180,14 @@ static int get_cursor_index(lua_State *L) {
   return 1;
 }
 
-static int pass(lua_State *L) { return 0; }
-
 static int do_selection_to_left(lua_State *L) {
   auto &selection = get_selection();
+  auto &cursor    = get_current_buffer()->cursor;
   if(selection.direction == move_left) {
-    selection.start_index = get_current_buffer()->cursor;
-    selection.start_line  = get_current_buffer()->n_line;
-    selection.start_char  = get_current_buffer()->n_character;
-    selection.size++;
+    if(cursor > 0) {
+      selection.start_index = cursor - 1;
+      selection.size++;
+    }
 
   } else if(selection.direction == move_right) {
     assert(selection.size > 0);
@@ -219,71 +198,45 @@ static int do_selection_to_left(lua_State *L) {
     selection.direction = move_left;
 
     // Copy&Paste: of left case.
-    selection.start_index = get_current_buffer()->cursor;
-    selection.start_line  = get_current_buffer()->n_line;
-    selection.start_char  = get_current_buffer()->n_character;
-    selection.size++;
-    assert(selection.size == 1);
+    if(cursor > 0) {
+      selection.start_index = cursor - 1;
+      selection.size++;
+      assert(selection.size == 1);
+    }
   }
 
-  if(selection.size == 0) {
-    selection.direction = none;
-  }
+  if(selection.size == 0) { selection.direction = none; }
   return 0;
 }
 
 static int do_selection_to_right(lua_State *L) {
   auto &selection = get_selection();
-  if(selection.direction == move_left) {
-    selection.start_index = get_current_buffer()->cursor;
-    selection.start_line  = get_current_buffer()->n_line;
-    selection.start_char  = get_current_buffer()->n_character;
 
+  auto buffer     = get_current_buffer();
+  auto &cursor    = buffer->cursor;
+  if(selection.direction == move_left) {
     assert(selection.size > 0);
+    selection.start_index = get_current_buffer()->cursor + 1;
     selection.size--;
 
   } else if(selection.direction == move_right) {
-    selection.size++;
+    if(cursor < buffer->file->buffer.size()-1) {
+      selection.size++;
+    }
 
   } else {
     assert(selection.direction == none && selection.size == 0);
     selection.direction = move_right;
 
     // Copy&Paste: of right case.
-    selection.size++;
-    assert(selection.size == 1);
-  }
-
-  if(selection.size == 0) {
-    selection.direction = none;
-  }
-  return 0;
-}
-
-static const int TO_RIGHT = 0;
-static const int TO_LEFT  = 1;
-
-template<int direction>
-static int do_action(lua_State *L) {
-  int (*f)(lua_State *) = lua_tocfunction(L, 1);
-  int  a = lua_tonumber(L,2);
-
-  assert(a > 0);
-  while(a) {
-    f(L);
-    if constexpr(direction == TO_RIGHT) {
-      get_current_buffer()->go_right();
-    } else {
-      static_assert(direction == TO_LEFT);
-      get_current_buffer()->go_left();
+    if(cursor < buffer->file->buffer.size()-1) {
+      selection.size++;
     }
-    a--;
   }
+
+  if(selection.size == 0) { selection.direction = none; }
   return 0;
 }
-static int do_action_to_right(lua_State *L) { return do_action<TO_RIGHT>(L); }
-static int do_action_to_left(lua_State *L)  { return do_action<TO_LEFT> (L); }
-
 
 static int compute_go_down(lua_State *L) {
   int x = get_current_buffer()->compute_go_down();
@@ -321,10 +274,6 @@ int main(int argc, char **argv) {
   lua_register(L, "quit", &quit);
   lua_register(L, "go_right", &go_right);
   lua_register(L, "go_left",  &go_left);
-  lua_register(L, "cursor_right", &cursor_right);
-  lua_register(L, "cursor_left",  &cursor_left);
-  lua_register(L, "go_down",  &go_down);
-  lua_register(L, "go_up",    &go_up);
   lua_register(L, "to_beginning_of_line", &to_beginning_of_line);
   lua_register(L, "to_end_of_line", &to_end_of_line);
   lua_register(L, "go_word_forward", &go_word_forward);
@@ -347,14 +296,11 @@ int main(int argc, char **argv) {
 
   lua_register(L, "get_cursor_pos", &get_cursor_pos);
   lua_register(L, "get_cursor_index", &get_cursor_index);
-  lua_register(L, "do_action_to_right", &do_action_to_right);
-  lua_register(L, "do_action_to_left", &do_action_to_left);
-  lua_register(L, "do_selection_to_right", &do_selection_to_right);
-  lua_register(L, "do_selection_to_left", &do_selection_to_left);
-  lua_register(L, "pass", &pass);
-
+  lua_register(L, "select_to_right", &do_selection_to_right);
+  lua_register(L, "select_to_left", &do_selection_to_left);
   lua_register(L, "compute_go_down", &compute_go_down);
   lua_register(L, "compute_go_up", &compute_go_up);
+
 
   luaL_openlibs(L);
 
@@ -432,12 +378,12 @@ int main(int argc, char **argv) {
 
           if(e.wheel.y > 0) {
             for(char i = 0; i < dt_scroll; i++) {
-              buffer->scroll_up(mode == VisualMode);
+              buffer->scroll_up();
             }
 
           } else if(e.wheel.y < 0) {
             for(char i = 0; i < dt_scroll; i++) {
-              buffer->scroll_down(mode == VisualMode);
+              buffer->scroll_down();
             }
 
           } else {
