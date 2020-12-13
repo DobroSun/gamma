@@ -64,28 +64,6 @@ static int go_left(lua_State *L) {
   return 0;
 }
 
-#if 0
-static int go_up(lua_State *L) {
-  get_current_buffer()->go_up();
-  return 0;
-}
-
-static int go_down(lua_State *L) {
-  get_current_buffer()->go_down();
-  return 0;
-}
-#endif
-
-static int to_beginning_of_line(lua_State *L) {
-  to_beginning_of_line();
-  return 0;
-}
-
-static int to_end_of_line(lua_State *L) {
-  to_end_of_line();
-  return 0;
-}
-
 static int go_word_forward(lua_State *L) {
   go_word_forward();
   return 0;
@@ -250,6 +228,18 @@ static int compute_go_up(lua_State *L) {
   return 1;
 }
 
+static int compute_to_beginning_of_line(lua_State *L) {
+  int x = compute_to_beginning_of_line();
+  lua_pushnumber(L, x);
+  return 1;
+}
+
+static int compute_to_end_of_line(lua_State *L) {
+  int x = compute_to_end_of_line();
+  lua_pushnumber(L, x);
+  return 1;
+}
+
 static void interp_lua_table(lua_State *L, const char *name, int key) {
   const char b[] = { (char)key, '\0' };
   lua_getglobal(L, name);
@@ -274,8 +264,6 @@ int main(int argc, char **argv) {
   lua_register(L, "quit", &quit);
   lua_register(L, "go_right", &go_right);
   lua_register(L, "go_left",  &go_left);
-  lua_register(L, "to_beginning_of_line", &to_beginning_of_line);
-  lua_register(L, "to_end_of_line", &to_end_of_line);
   lua_register(L, "go_word_forward", &go_word_forward);
   lua_register(L, "go_word_backwards", &go_word_backwards);
   lua_register(L, "put_return", &put_return);
@@ -300,6 +288,8 @@ int main(int argc, char **argv) {
   lua_register(L, "select_to_left", &do_selection_to_left);
   lua_register(L, "compute_go_down", &compute_go_down);
   lua_register(L, "compute_go_up", &compute_go_up);
+  lua_register(L, "compute_to_beginning_of_line", &compute_to_beginning_of_line);
+  lua_register(L, "compute_to_end_of_line", &compute_to_end_of_line);
 
 
   luaL_openlibs(L);
@@ -328,6 +318,7 @@ int main(int argc, char **argv) {
       mode = lua_tonumber(L, -1);
       lua_pop(L, -1);
     }
+
 
     SDL_Event e;
     while(SDL_PollEvent(&e)) {

@@ -31,10 +31,12 @@ mode         = NORMAL_MODE
 --function max(a, b)  if a < b then return b else return a end end
 
 function pass() end
-function do_action(action_func, move_func, n)
+function delete_action() end
+current_action = pass
+
+function do_action(n, func)
   for _ = 1,n do
-    action_func()
-    move_func()
+    func()
   end
 end
 
@@ -82,7 +84,17 @@ end
 function on_d() 
   if editor_state == EDITOR then
     if mode == NORMAL_MODE then
-      -- @Incomplete:
+      if current_action == delete_action then
+        on_0()
+        current_action = delete_action
+        on_dollar()
+        put_delete()
+
+      else
+        current_action = delete_action
+      end
+
+
     elseif mode == VISUAL_MODE then
       delete_selected()
       to_normal_mode()
@@ -92,7 +104,13 @@ end
 function on_h() 
   if editor_state == EDITOR then
     if mode == NORMAL_MODE then
-      go_left()
+      if current_action == delete_action then
+        put_backspace()
+      else
+        current_action()
+        go_left()
+      end
+      current_action = pass
 
     elseif mode == VISUAL_MODE then
       select_to_left()
@@ -111,10 +129,21 @@ function on_j()
   if editor_state == EDITOR then
     local n = compute_go_down()
     if mode == NORMAL_MODE then
-      do_action(pass, go_right, n)
+      if current_action == delete_action then
+        do_action(n, put_delete)
+      else
+        do_action(n, (function () 
+                        current_action() 
+                        go_right()
+                      end))
+      end
+      current_action = pass
 
     elseif mode == VISUAL_MODE then
-      do_action(select_to_right, go_right, n)
+      do_action(n, (function ()
+                      select_to_right()
+                      go_right() 
+                    end))
     end
   end
 end
@@ -122,10 +151,21 @@ function on_k()
   if editor_state == EDITOR then
     local n = compute_go_up()
     if mode == NORMAL_MODE then
-      do_action(pass, go_left, n)
+      if current_action == delete_action then
+        do_action(n, put_backspace)
+      else
+        do_action(n, (function ()
+                        current_action()
+                        go_left()
+                      end))
+      end
+      current_action = pass
 
     elseif mode == VISUAL_MODE then
-      do_action(select_to_left, go_left, n)
+      do_action(n, (function ()
+                      select_to_left()
+                      go_left()
+                    end))
     end
   end
 end
@@ -133,7 +173,13 @@ end
 function on_l() 
   if editor_state == EDITOR then
     if mode == NORMAL_MODE then
-      go_right()
+      if current_action == delete_action then
+        put_delete()
+      else
+        current_action()
+        go_right()
+      end
+      current_action = pass
 
     elseif mode == VISUAL_MODE then
       select_to_right()
@@ -144,7 +190,9 @@ end
 function on_o() 
   if editor_state == EDITOR then
     if mode == NORMAL_MODE then
-      to_end_of_line()
+      current_action = pass
+      on_dollar()
+
       put_return()
       to_insert_mode()
     end
@@ -201,11 +249,23 @@ function on_x()
 end
 function on_0()
   if editor_state == EDITOR then
+    local n = compute_to_beginning_of_line()
     if mode == NORMAL_MODE then
-      to_beginning_of_line(false)
+      if current_action == delete_action then
+        do_action(n, put_backspace)
+      else
+        do_action(n, (function ()
+                        current_action()
+                        go_left()
+                      end))
+      end
+      current_action = pass
 
     elseif mode == VISUAL_MODE then
-      to_beginning_of_line(true)
+      do_action(n, (function ()
+                      select_to_left()
+                      go_left()
+                    end))
     end
   end
 end
@@ -248,20 +308,35 @@ function on_escape()
 end
 function on_right_arrow()
   if editor_state == EDITOR then
-    if mode == INSERT_MODE or mode == NORMAL_MODE then
-      go_right()
+    if mode == NORMAL_MODE or mode == INSERT_MODE then
+      if current_action == delete_action then
+        put_delete()
+      else
+        current_action()
+        go_right()
+      end
+      current_action = pass
+
     elseif mode == VISUAL_MODE then
       select_to_right()
       go_right()
     end
+
   elseif editor_state == CONSOLE then
     console_go_right()
   end
 end
 function on_left_arrow()
   if editor_state == EDITOR then
-    if mode == INSERT_MODE or mode == NORMAL_MODE then
-      go_left()
+    if mode == NORMAL_MODE or mode == INSERT_MODE then
+      if current_action == delete_action then
+        put_backspace()
+      else
+        current_action()
+        go_left()
+      end
+      current_action = pass
+
     elseif mode == VISUAL_MODE then
       select_to_left()
       go_left()
@@ -272,24 +347,52 @@ function on_left_arrow()
 end
 function on_up_arrow()
   local n = compute_go_up()
-  if mode == INSERT_MODE or mode == NORMAL_MODE then
-    do_action(pass, go_left, n)
+  if mode == NORMAL_MODE or mode == INSERT_MODE then
+    if current_action == delete_action then
+      do_action(n, put_backspace)
+    else
+      do_action(n, (function ()
+                      current_action()
+                      go_left()
+                    end))
+    end
+    current_action = pass
+
   elseif mode == VISUAL_MODE then
-    do_action(select_to_left, go_left, n)
+    do_action(n, (function ()
+                    select_to_left()
+                    go_left()
+                  end))
   end
 end
 function on_down_arrow()
   local n = compute_go_down()
-  if mode == INSERT_MODE or mode == NORMAL_MODE then
-    do_action(pass, go_right, n)
+  if mode == NORMAL_MODE or mode == INSERT_MODE then
+    if current_action == delete_action then
+      do_action(n, put_delete)
+    else
+      do_action(n, (function ()
+                      current_action()
+                      go_right()
+                    end))
+    end
+    current_action = pass
+
   elseif mode == VISUAL_MODE then
-    do_action(select_to_right, go_right, n)
+    do_action(n, (function ()
+                    select_to_right()
+                    go_right()
+                  end))
   end
 end
 function on_return()
   if editor_state == EDITOR then
     if mode == INSERT_MODE then
       put_return()
+    elseif mode == NORMAL_MODE then
+      local n = compute_go_down()
+      do_action(n, go_right)
+
     end
   elseif editor_state == CONSOLE then
     console_eval()
@@ -356,17 +459,31 @@ function open_console()
 end
 function on_dollar()
   if editor_state == EDITOR then
+    local n = compute_to_end_of_line()
     if mode == NORMAL_MODE then
-      to_end_of_line(false)
+      if current_action == delete_action then
+        do_action(n, put_delete)
+      else
+        do_action(n, (function ()
+                        current_action()
+                        go_right()
+                      end))
+      end
+      current_action = pass
+
     elseif mode == VISUAL_MODE then
-      to_end_of_line(true)
+      do_action(n, (function ()
+                      select_to_right()
+                      go_right()
+                    end))
     end
   end
 end
 function on_A()
   if editor_state == EDITOR then
     if mode == NORMAL_MODE then
-      to_end_of_line(false)
+      current_action = pass
+      on_dollar()
       to_insert_mode()
 
     elseif mode == VISUAL_MODE then
@@ -376,10 +493,10 @@ function on_A()
 end
 function on_D()
   if editor_state == EDITOR then
-    --to_visual_mode()
-    --to_end_of_line(true)
-    --delete_selected()
-    --to_normal_mode()
+    if mode == NORMAL_MODE then
+      current_action = delete_action
+      on_dollar()
+    end
   end
 end
 
@@ -389,6 +506,7 @@ shift[';'] = open_console -- ':'
 shift['4'] = on_dollar    -- '$'
 shift['a'] = on_A         -- 'A'
 shift['d'] = on_D         -- 'D'
+shift[RETURN] = on_return
 shift[BACKSPACE] = on_backspace
 
 ctrl = {}

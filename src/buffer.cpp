@@ -600,22 +600,27 @@ int buffer_t::compute_go_up() {
   assert(file->buffer[cursor-count] == '\n');
   count++;
 
-  while(file->buffer[cursor-count] != '\n') { // go till the beginning of line.
-    count++;
-    if(cursor == count) {
+  if(cursor <= count) {
+    if(cursor == count && count == 2) count++;
+
+  } else {
+    while(file->buffer[cursor-count] != '\n') { // go till the beginning of line.
+      if(cursor == count) {
+        count++;
+        break;
+      }
       count++;
-      break;
     }
   }
 
   count--;
   for(size_t i = 0; i < prev_character_pos; i++) { // from beginning to actual position.
+    if(cursor < count) break;
     if(file->buffer[cursor-count] == '\n') break;
     count--;
   }
 
-  if(cursor == count) return count+1;
-
+  if(cursor == count) count++;
   return count;
 }
 
@@ -1051,12 +1056,11 @@ void go_word_backwards() {
   if(buffer->file->buffer[buffer->cursor] == ' ') { buffer->go_left(); }
 }
 
-void to_beginning_of_line() {
-  auto buffer = active_buffer;
-  while(buffer->n_character != 0) { buffer->go_left(); }
+int compute_to_beginning_of_line() {
+  return active_buffer->n_character; // Distance from current cursor position to the beginning of line.
 }
 
-void to_end_of_line() {
-  auto buffer = active_buffer;
-  while(buffer->file->buffer[buffer->cursor] != '\n') { buffer->go_right(); }
+int compute_to_end_of_line() {
+  assert(active_buffer->file->buffer[active_buffer->cursor-active_buffer->n_character + active_buffer->get_line_length(active_buffer->cursor-active_buffer->n_character) - 1] == '\n');
+  return active_buffer->get_line_length(active_buffer->cursor - active_buffer->n_character) - active_buffer->n_character - 1; // Distance from current cursor position to the end of line.
 }
