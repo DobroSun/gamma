@@ -72,10 +72,14 @@ function on_a()
 end
 function on_b()
   if editor_state == EDITOR then
+    local n = go_word_backwards()
     if mode == NORMAL_MODE then
-      go_word_backwards(false)
+      do_action(n, go_left)
     elseif mode == VISUAL_MODE then
-      go_word_backwards(true)
+      do_action(n, (function ()
+                      select_to_left()
+                      go_left()
+                    end))
     end
   end
 end
@@ -229,10 +233,14 @@ function on_y()
 end
 function on_w()
   if editor_state == EDITOR then
+    local n = go_word_forward()
     if mode == NORMAL_MODE then
-      go_word_forward(false)
+      do_action(n, go_right)
     elseif mode == VISUAL_MODE then
-      go_word_forward(true)
+      do_action(n, (function ()
+                      select_to_right()
+                      go_right()
+                    end))
     end
   end
 end

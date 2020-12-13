@@ -131,8 +131,8 @@ void change_buffer(buffer_t *, direction_t);
 
 void do_split(buffer_t *, buffer_t *, split_type_t);
 
-void go_word_forward();
-void go_word_backwards();
+int go_word_forward();
+int go_word_backwards();
 
 int compute_to_beginning_of_line();
 int compute_to_end_of_line();

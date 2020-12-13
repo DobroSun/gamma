@@ -65,13 +65,15 @@ static int go_left(lua_State *L) {
 }
 
 static int go_word_forward(lua_State *L) {
-  go_word_forward();
-  return 0;
+  int x = go_word_forward();
+  lua_pushnumber(L, x);
+  return 1;
 }
 
 static int go_word_backwards(lua_State *L) {
-  go_word_backwards();
-  return 0;
+  int x = go_word_backwards();
+  lua_pushnumber(L, x);
+  return 1;
 }
 
 static int delete_selected(lua_State *L) {

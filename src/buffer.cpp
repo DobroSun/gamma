@@ -1023,37 +1023,41 @@ void do_split(buffer_t *p, buffer_t *n, split_type_t type) {
 }
 
 static const char stop_chars[] = { ' ', '(', '{', ')', '}', '#', '\"', '\'', '/', '\\', '.', ';', '\n' };
-void go_word_forward() {
+int go_word_forward() {
   auto buffer = active_buffer;
 
-  if(is_one_of(buffer->file->buffer[buffer->cursor], stop_chars)) {
-    buffer->go_right();
+  int count = 0;
+  if(is_one_of(buffer->file->buffer[buffer->cursor+count], stop_chars)) {
+    count++;
 
   } else {
-    buffer->go_right();
-    while(!is_one_of(buffer->file->buffer[buffer->cursor], stop_chars)) {
-      buffer->go_right();
-    }
-  }
-  if(buffer->file->buffer[buffer->cursor] == ' ') { buffer->go_right(); }
-}
-
-void go_word_backwards() {
-  auto buffer = active_buffer;
-
-  if(is_one_of(buffer->file->buffer[buffer->cursor], stop_chars)) {
-    buffer->go_left();
-
-  } else {
-    int count = 0;
-    while(!is_one_of(buffer->file->buffer[buffer->cursor], stop_chars)) {
-      buffer->go_left();
+    count++;
+    while(!is_one_of(buffer->file->buffer[buffer->cursor+count], stop_chars)) {
       count++;
     }
-
-    if(count != 1) { buffer->go_right(); }
   }
-  if(buffer->file->buffer[buffer->cursor] == ' ') { buffer->go_left(); }
+  if(buffer->file->buffer[buffer->cursor+count] == ' ') { count++; }
+  return count;
+}
+
+int go_word_backwards() {
+  auto buffer = active_buffer;
+
+  int count = 0;
+  if(is_one_of(buffer->file->buffer[buffer->cursor-count], stop_chars)) {
+    count++;
+
+  } else {
+    int c = 0;
+    while(!is_one_of(buffer->file->buffer[buffer->cursor-count], stop_chars)) {
+      count++;
+      c++;
+    }
+
+    if(c != 1) { count--; }
+  }
+  if(buffer->file->buffer[buffer->cursor-count] == ' ') { count++; }
+  return count;
 }
 
 int compute_to_beginning_of_line() {
