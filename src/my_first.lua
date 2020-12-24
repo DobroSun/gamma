@@ -266,13 +266,19 @@ function on_u()
 end
 function on_v() 
   if editor_state == EDITOR then
-    save_current_state_for_undo()
     if mode == NORMAL_MODE then
+      save_current_state_for_undo()
       to_visual_mode()
       start_selection()
+
     elseif mode == VISUAL_MODE then
       to_normal_mode()
+
+      if not buffer_has_changed_from_last_undo() then
+        pop_from_undo()
+      end
     end
+
   end
 end
 function on_y() 
@@ -387,9 +393,7 @@ function on_tab()
 end
 function on_escape()
   if editor_state == EDITOR then
-
     if mode == INSERT_MODE then
-
       if not buffer_has_changed_from_last_undo() then
         pop_from_undo()
       end
@@ -530,7 +534,6 @@ function on_return()
 end
 function on_backspace()
   if editor_state == EDITOR then
-    save_current_state_for_undo()
     if mode == INSERT_MODE then
       put_backspace()
     elseif mode == NORMAL_MODE then
@@ -539,24 +542,14 @@ function on_backspace()
       select_to_left()
       go_left()
     end
-
-    if not buffer_has_changed_from_last_undo() then
-      pop_from_undo()
-    end
-
   elseif editor_state == CONSOLE then
     console_put_backspace()
   end
 end
 function on_delete()
   if editor_state == EDITOR then
-    save_current_state_for_undo()
     if mode == INSERT_MODE then
       put_delete()
-    end
-
-    if not buffer_has_changed_from_last_undo() then
-      pop_from_undo()
     end
   elseif editor_state == CONSOLE then
     console_put_delete()
@@ -649,6 +642,17 @@ shift['d'] = on_D         -- 'D'
 shift[RETURN] = on_return
 shift[BACKSPACE] = on_backspace
 
+
+function on_CtrlR()
+  if editor_state == EDITOR then
+    if mode == NORMAL_MODE then
+      redo()
+    end
+  end
+end
+
+
 ctrl = {}
+ctrl['r'] = on_CtrlR
 
 shift_ctrl = {}

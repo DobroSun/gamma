@@ -40,6 +40,7 @@ struct split_info_t {
 struct file_buffer_t {
   gap_buffer buffer;
   array<buffer_t *> undo;
+  array<buffer_t *> redo;
   bool is_used = false;
 };
 
@@ -148,6 +149,7 @@ int compute_to_beginning_of_line();
 int compute_to_end_of_line();
 
 void undo(buffer_t *);
+void redo(buffer_t *);
 void save_current_state_for_undo(buffer_t *);
 
 

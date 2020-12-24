@@ -235,6 +235,12 @@ static int undo(lua_State *L) {
   return 0;
 }
 
+static int redo(lua_State *L) {
+  redo(get_current_buffer());
+  return 0;
+}
+
+
 static int save_current_state_for_undo(lua_State *L) {
   save_current_state_for_undo(get_current_buffer());
   return 0;
@@ -307,6 +313,7 @@ int main(int argc, char **argv) {
   lua_register(L, "compute_to_beginning_of_line", &compute_to_beginning_of_line);
   lua_register(L, "compute_to_end_of_line", &compute_to_end_of_line);
   lua_register(L, "undo", &undo);
+  lua_register(L, "redo", &redo);
   lua_register(L, "save_current_state_for_undo", &save_current_state_for_undo);
   lua_register(L, "buffer_has_changed_from_last_undo", &buffer_has_changed_from_last_undo);
   lua_register(L, "pop_from_undo", &pop_from_undo);
@@ -439,6 +446,11 @@ int main(int argc, char **argv) {
       for(size_t j = 0; j < buffer->file->undo.size; j++) {
         delete buffer->file->undo[j]->file;
         delete buffer->file->undo[j];
+      }
+
+      for(size_t j = 0; j < buffer->file->redo.size; j++) {
+        delete buffer->file->redo[j]->file;
+        delete buffer->file->redo[j];
       }
 
       delete buffer->file;

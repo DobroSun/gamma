@@ -1068,32 +1068,48 @@ int compute_to_end_of_line() {
   return active_buffer->get_line_length(active_buffer->cursor - active_buffer->n_character) - active_buffer->n_character - 1;
 }
 
-void save_current_state_for_undo(buffer_t *b) {
+
+// Undo/Redo.
+static void save_current_state_for_backup(buffer_t *b, array<buffer_t *> *states) {
   buffer_t *a = new buffer_t;
   a->file     = new file_buffer_t;
 
   copy_gap_buffer(&a->file->buffer, &b->file->buffer);
   copy_window_position(a, b);
 
-  b->file->undo.add(a);
+  states->add(a);
 }
 
+static void to_previous_buffer_state(buffer_t *b, array<buffer_t *> *active_states, array<buffer_t *> *passive_states) {
+  if(active_states->empty()) { return; }
+  auto &state = active_states->pop();
 
-void undo(buffer_t *b) {
-  auto &undo_stack = b->file->undo;
-  if(undo_stack.empty()) { return; }
-
-  auto &undo   = undo_stack.pop();
+  save_current_state_for_backup(b, passive_states);
 
   auto tmp = new file_buffer_t;
-  move_gap_buffer(&tmp->buffer, &undo->file->buffer);
-  move_array(&tmp->undo, &undo_stack);
-  
+  move_gap_buffer(&tmp->buffer, &state->file->buffer);
+  move_array(&tmp->undo, &b->file->undo);
+  move_array(&tmp->redo, &b->file->redo);
+
   delete b->file;
   b->file = tmp;
 
-  copy_window_position(b, undo);
+  copy_window_position(b, state);
 
-  delete undo->file;
-  delete undo;
+  delete state->file;
+  delete state;
 }
+
+
+void save_current_state_for_undo(buffer_t *b) {
+  save_current_state_for_backup(b, &b->file->undo);
+}
+
+void undo(buffer_t *b) {
+  to_previous_buffer_state(b, &b->file->undo, &b->file->redo);
+}
+
+void redo(buffer_t *b) {
+  to_previous_buffer_state(b, &b->file->redo, &b->file->undo);
+}
+// end of Undo/Redo.
