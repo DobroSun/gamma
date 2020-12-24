@@ -33,12 +33,6 @@ static int save(lua_State *L) {
   return 0;
 }
 
-static int put(lua_State *L) {
-  const char *c = lua_tostring(L, 1);
-  get_current_buffer()->put(c[0]);
-  return 0;
-}
-
 static int put_return(lua_State *L) {
   get_current_buffer()->put_return();
   return 0;
@@ -103,12 +97,6 @@ static int paste_from_global(lua_State *L) {
 
 static int console_clear(lua_State *L) {
   console_clear();
-  return 0;
-}
-
-static int console_put(lua_State *L) {
-  const char *s = lua_tostring(L, 1);
-  console_put(s[0]);
   return 0;
 }
 
@@ -242,6 +230,11 @@ static int compute_to_end_of_line(lua_State *L) {
   return 1;
 }
 
+static int undo(lua_State *L) {
+  undo();
+  return 0;
+}
+
 static void interp_lua_table(lua_State *L, const char *name, int key) {
   const char b[] = { (char)key, '\0' };
   lua_getglobal(L, name);
@@ -262,7 +255,6 @@ int main(int argc, char **argv) {
 
   lua_State *L = luaL_newstate();
   lua_register(L, "save", &save);
-  lua_register(L, "put",  &put);
   lua_register(L, "quit", &quit);
   lua_register(L, "go_right", &go_right);
   lua_register(L, "go_left",  &go_left);
@@ -276,7 +268,6 @@ int main(int argc, char **argv) {
   lua_register(L, "copy_selected", &copy_selected);
   lua_register(L, "paste_from_global", &paste_from_global);
   lua_register(L, "console_put_text", &console_put_text);
-  lua_register(L, "console_put", &console_put);
   lua_register(L, "console_clear", &console_clear);
   lua_register(L, "console_put_backspace", &console_put_backspace);
   lua_register(L, "console_put_delete", &console_put_delete);
@@ -292,6 +283,7 @@ int main(int argc, char **argv) {
   lua_register(L, "compute_go_up", &compute_go_up);
   lua_register(L, "compute_to_beginning_of_line", &compute_to_beginning_of_line);
   lua_register(L, "compute_to_end_of_line", &compute_to_end_of_line);
+  lua_register(L, "undo", &undo);
 
 
   luaL_openlibs(L);
@@ -410,7 +402,30 @@ int main(int argc, char **argv) {
 
 
   lua_close(L);
-    
+
+  {
+    auto tab = get_current_tab();
+
+    buffer_t *used[tab->buffers.size];
+    size_t    size = 0;
+    for(size_t i = 0; i < arr_size(used); i++) {
+      if(tab->buffers[i]->is_used) {
+        used[size++] = tab->buffers[i];
+      }
+    }
+
+    for(size_t i = 0; i < size; i++) {
+      auto &buffer = used[i];
+
+      for(size_t j = 0; j < buffer->file->undo.size; j++) {
+        delete buffer->file->undo[j]->file;
+        delete buffer->file->undo[j];
+      }
+
+      delete buffer->file;
+      delete buffer;
+    }
+  }
   for(auto &pair: get_alphabet()) {
     SDL_DestroyTexture(pair.second);
   }

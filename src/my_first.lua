@@ -211,6 +211,13 @@ function on_p()
     end
   end
 end
+function on_u() 
+  if editor_state == EDITOR then
+    if mode == NORMAL_MODE then
+      undo()
+    end
+  end
+end
 function on_v() 
   if editor_state == EDITOR then
     if mode == NORMAL_MODE then
@@ -444,6 +451,7 @@ keys['k'] = on_k
 keys['l'] = on_l
 keys['o'] = on_o
 keys['p'] = on_p
+keys['u'] = on_u
 keys['v'] = on_v
 keys['y'] = on_y
 keys['w'] = on_w

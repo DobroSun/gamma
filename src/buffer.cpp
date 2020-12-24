@@ -7,7 +7,7 @@
 
 #include <fcntl.h>
 
-
+// @Temporary:
 static void go_down() {
   auto buffer = get_current_buffer();
   int n = buffer->compute_go_down();
@@ -31,20 +31,20 @@ static void go_up() {
 // an array of currently used bufs.
 // @Temporary:
 #define get_used_buffers(name, size_name, buffers) \
-  buffer_t *name[arr_size(buffers)]; \
+  buffer_t *name[buffers.size]; \
   size_t size_name = 0; \
-  for(size_t i = 0; i < arr_size(buffers); i++) { \
-    if(buffers[i].is_used) { \
-      name[size_name++] = &buffers[i]; \
+  for(size_t i = 0; i < buffers.size; i++) { \
+    if(buffers[i]->is_used) { \
+      name[size_name++] = buffers[i]; \
     } \
   } \
   assert(size_name > 0);
 #define get_const_buffers(name, size_name, buffers) \
-  const buffer_t *name[arr_size(buffers)]; \
+  const buffer_t *name[buffers.size]; \
   size_t size_name = 0; \
-  for(size_t i = 0; i < arr_size(buffers); i++) { \
-    if(buffers[i].is_used) { \
-      name[size_name++] = &buffers[i]; \
+  for(size_t i = 0; i < buffers.size; i++) { \
+    if(buffers[i]->is_used) { \
+      name[size_name++] = buffers[i]; \
     } \
   } \
   assert(size_name > 0);
@@ -58,35 +58,32 @@ static bool is_last_to_be_selected(const selection_buffer_t *s, const int ind) {
   return ind <= s->start_index+(int)s->size;
 }
 
-static tab_t    *active_tab = NULL;
+static tab_t    *active_tab    = NULL;
 static buffer_t *active_buffer = NULL;
-static buffer_t *head_buffer = NULL; // used for splits.
+static buffer_t *head_buffer   = NULL; // used only for splits.
 
 static tab_t tabs[12];
-static file_buffer_t bufs[48];
 static file_buffer_t global_copy_buffer;
 
-static file_buffer_t *get_free_file_buffer() {
-  for(size_t i = 0; i < arr_size(bufs); i++) {
-    if(!bufs[i].is_used) {
-      bufs[i].is_used = true;
-      return &bufs[i];
-    }
-  }
-  // @Incomplete: report error.
-  return nullptr;
-}
 
 static buffer_t *get_free_win_buffer() {
-  for(size_t i = 0; i < arr_size(active_tab->buffers); i++) {
+  buffer_t *ret = NULL;
+  for(size_t i = 0; i < active_tab->buffers.size; i++) {
     auto &buf = active_tab->buffers[i];
-    if(!buf.is_used) {
-      buf.is_used = true;
-      return &buf;
+    if(!buf->is_used) {
+      ret = buf;
     }
   }
-  // @Incomplete: report error.
-  return nullptr;
+
+  if(!ret) {
+    ret = new buffer_t;
+    active_tab->buffers.add(ret);
+
+  } else {
+    // Already found.
+  }
+  ret->is_used = true;
+  return ret;
 }
 
 static tab_t *get_free_tab() {
@@ -153,8 +150,7 @@ selection_buffer_t &get_selection() {
 }
 
 static void read_entire_file(gap_buffer *ret, FILE *f) {
-  assert(f);
-  assert(ret);
+  assert(ret && f);
 
   fseek(f, 0, SEEK_END);
   size_t size = ftell(f);
@@ -186,24 +182,22 @@ static FILE *get_file_or_create(const char *filename, const char *mods) {
 }
 
 
-void open_new_buffer(const literal &l) {
+void open_new_buffer(const string_t &s) {
   auto buffer = get_free_win_buffer();
   assert(buffer);
   active_buffer = buffer;
 
-  buffer->file = get_free_file_buffer();
-  assert(buffer->file);
+  buffer->file = new file_buffer_t;
 
-  if(!l.data) {
+  if(s.size() == 0) {
     buffer->filename = "";
     return;
   }
 
-  get_string_from_literal(filename, l);
-  if(FILE *f = fopen(filename, "r")) {
+  if(FILE *f = fopen(s.c_str(), "r")) {
     defer { fclose(f); };
     read_entire_file(&buffer->file->buffer, f);
-    buffer->filename = to_string(l);
+    buffer->filename = std::move(s);
   }
   buffer->total_lines = buffer->count_total_lines();
 }
@@ -229,14 +223,11 @@ void open_existing_or_new_buffer(const literal &filename) {
       return;
     }
   }
-  open_new_buffer(filename);
+
+  open_new_buffer(to_string(filename));
 }
 
 static void open_tab(const literal &filename) {
-  auto tab = get_free_tab();
-  assert(tab);
-  active_tab = tab;
-  open_new_buffer(filename); // @Incomplete: What if filename is already opened?
 }
 
 void tab_t::draw(bool selection_mode) const {
@@ -248,7 +239,8 @@ void tab_t::draw(bool selection_mode) const {
     auto *buffer = used_bufs[i];
     if(buffer->filename == active_buffer->filename &&
        active_buffer->n_line >= buffer->start_pos  &&
-       active_buffer->n_line <  buffer->start_pos + number_lines_fits_in_window(buffer)) {
+       active_buffer->n_line <  buffer->start_pos + number_lines_fits_in_window(buffer) &&
+       buffer->file->buffer.is_initialized()) {
 
       same_buffers[size++] = buffer;
     }
@@ -292,8 +284,6 @@ void buffer_t::draw_line(int beginning, int line_number, bool selecting) const {
   const gap_buffer &buffer = file->buffer;
   int i = beginning + offset_on_line, char_number = 0;
   while(buffer[i] != '\n') {
-    assert(i >= 0 && (size_t)i < buffer.size());
-
     const int px = get_relative_pos_x(char_number);
     const int py = get_relative_pos_y(line_number);
 
@@ -323,9 +313,6 @@ void buffer_t::draw_line(int beginning, int line_number, bool selecting) const {
   }
 
   // CleanUp: Copy&Paste: of code inside loop.
-  assert(i >= 0 && (size_t)i < buffer.size());
-  assert(buffer[i] == '\n');
-
   const int px = get_relative_pos_x(char_number);
   const int py = get_relative_pos_y(line_number);
 
@@ -376,7 +363,7 @@ void buffer_t::draw(bool selection_mode) const {
 #endif
 
   int i = offset_from_beginning, line = 0;
-  while((size_t)i < file->buffer.size()-1) {
+  while((size_t)i < file->buffer.size()) {
     assert(i >= 0 && (size_t)i < file->buffer.size()-1);
 
     if(get_relative_pos_y(line) >= get_console()->bottom_y - font_height) { 
@@ -565,7 +552,13 @@ void buffer_t::put_tab() {
 }
 
 void buffer_t::put(char c) {
+#if 0
+  buffer_t *a = new buffer_t;
+  copy_buffer(a, this);
+  file->undo.add(a);
+#endif
   file->buffer.add(c);
+
   go_right();
   file->buffer.move_left();
 }
@@ -664,13 +657,19 @@ void init(int argc, char **argv) {
     // filename.data == nullptr.
   }
 
-  open_tab(to_literal(filename));
+  auto tab = get_free_tab();
+  assert(tab);
+  active_tab = tab;
+  open_new_buffer(filename); // @Incomplete: What if filename is already opened?
+
   make_font();
 
   auto buffer = active_buffer;
 
-  console_init(Height);
-  buffer->filename = filename;
+  console_init();
+  console_on_resize(Height);
+
+  //buffer->filename = filename;
   buffer->init(0, 0, Width, get_console()->bottom_y);
 }
 
@@ -1061,10 +1060,29 @@ int go_word_backwards() {
 }
 
 int compute_to_beginning_of_line() {
-  return active_buffer->n_character; // Distance from current cursor position to the beginning of line.
+  return active_buffer->n_character;
 }
 
 int compute_to_end_of_line() {
   assert(active_buffer->file->buffer[active_buffer->cursor-active_buffer->n_character + active_buffer->get_line_length(active_buffer->cursor-active_buffer->n_character) - 1] == '\n');
-  return active_buffer->get_line_length(active_buffer->cursor - active_buffer->n_character) - active_buffer->n_character - 1; // Distance from current cursor position to the end of line.
+  return active_buffer->get_line_length(active_buffer->cursor - active_buffer->n_character) - active_buffer->n_character - 1;
+}
+
+void undo() {
+/*
+  auto &undo_stack = active_buffer->file->undo;
+  if(undo_stack.empty()) { return; }
+
+  auto &undo = undo_stack.pop();
+  print(undo_stack.size, " : ", undo_stack.capacity);
+
+  //move_buffer(active_buffer, undo);
+  memcpy(active_buffer, undo, sizeof(buffer_t));
+  move_gap_buffer(&active_buffer->file->buffer, &undo->file->buffer);
+  //move_array(&active_buffer->file->undo, &undo->file->undo);
+  //active_buffer->filename = std::move(undo->filename);
+
+  //delete undo->file;
+  //delete undo;
+*/
 }

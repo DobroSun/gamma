@@ -8,53 +8,40 @@ static console_t console;
 static bool is_input = false;
 
 
-static void inc_cursor(unsigned *c, unsigned size) {
-  if(*c == size) {
-  } else {
-    (*c)++;
-  }
-}
-
-static void dec_cursor(unsigned *c, unsigned size) {
-  if(*c == size) {
-  } else {
-    (*c)--;
-  }
-}
-
-void console_init(int x) {
-  console_on_resize(x);
+void console_init() {
+  console.buffer.chars.resize_with_no_init(console.buffer.gap_len);
 }
 
 void console_draw() {
   unsigned cursor = console.cursor;
-  auto *buffer = &console.buffer;
+  auto &buffer = console.buffer;
+  if(!buffer.is_initialized()) { return; }
 
   unsigned i = 0;
-  for( ; i < buffer->size(); i++) {
+  for( ; i < buffer.size(); i++) {
     int px = i*font_width;
     int py = console.bottom_y;
 
-    char c = (*buffer)[i];
+    char c = buffer[i];
     auto t = get_alphabet()[c];
     assert(t);
 
     copy_texture(t, px, py);
 
     if(i == cursor && is_input) {
-      char c[2] = { (*buffer)[cursor], '\0'};
-      if((*buffer)[cursor] == '\n') {
+      char c[] = { buffer[cursor], '\0'};
+      if(buffer[cursor] == '\n') {
         c[0] = ' ';
       }
       draw_text_shaded(get_font(), (const char *)(&c), WhiteColor, BlackColor, px, py);
     }
   }
 
-  if(cursor == buffer->size() && is_input) {
+  if(cursor == buffer.size() && is_input) {
     int px = i*font_width;
     int py = console.bottom_y;
 
-    char c[2] = {' ', '\0'};
+    char c[] = {' ', '\0'};
     draw_text_shaded(get_font(), (const char *)(&c), WhiteColor, BlackColor, px, py);
   }
 }
@@ -85,7 +72,7 @@ void console_put_text(const char *t) {
 
 void console_backspace() {
   console.buffer.backspace();
-  dec_cursor(&console.cursor, 0);
+  if(console.cursor > 0) { console.cursor--; }
 }
 
 void console_run_command() {
@@ -101,13 +88,16 @@ void console_del() {
 
 void console_go_left() {
   console.buffer.move_left();
-  dec_cursor(&console.cursor, 0);
+  if(console.cursor > 0) { console.cursor--; }
 }
 
 
 void console_go_right() {
   console.buffer.move_right();
-  inc_cursor(&console.cursor, console.buffer.size());
+
+  if(console.cursor != console.buffer.size()) {
+    console.cursor++;
+  }
 }
 
 void console_on_resize(int n_height) {

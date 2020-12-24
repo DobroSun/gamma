@@ -39,8 +39,11 @@ struct split_info_t {
 
 struct file_buffer_t {
   gap_buffer buffer;
+  array<buffer_t *> undo;
   bool is_used = false;
 };
+
+
 
 struct buffer_t {
   file_buffer_t *file;
@@ -53,6 +56,12 @@ struct buffer_t {
   int start_x, start_y, width, height;
   unsigned cursor = 0, n_character = 0, n_line = 0, total_lines = 0;
   unsigned offset_on_line = 0, offset_from_beginning = 0, start_pos = 0, saved_pos = 0;
+
+  buffer_t() = default;
+  buffer_t(const buffer_t &) = delete;
+  buffer_t &operator=(const buffer_t &) = delete;
+  buffer_t(buffer_t &&) = delete;
+  buffer_t &operator=(buffer_t &&) = delete;
 
 
   void init(int,int,int,int);
@@ -90,8 +99,9 @@ struct buffer_t {
   int get_relative_pos_y(int) const;
 };
 
+
 struct tab_t {
-  buffer_t buffers[4];
+  array<buffer_t *> buffers;
   bool is_used = false;
 
   void on_resize(int,int);
@@ -108,8 +118,8 @@ selection_buffer_t &get_selection();
 void init(int, char**);
 void update();
 
-void open_new_buffer(const literal&);
-void open_existing_or_new_buffer(const literal&);
+void open_new_buffer(const string_t &);
+void open_existing_or_new_buffer(const literal &);
 void open_existing_buffer(buffer_t *);
 
 selection_buffer_t *get_selection_buffer();
@@ -136,5 +146,38 @@ int go_word_backwards();
 
 int compute_to_beginning_of_line();
 int compute_to_end_of_line();
+
+void undo();
+
+
+
+
+
+
+
+
+#if 0
+inline void copy_buffer(buffer_t *&dest, const buffer_t *src) {
+  memcpy(dest, src, sizeof(buffer_t));
+
+  dest->file = new file_buffer_t;
+
+  copy_gap_buffer(&dest->file->buffer, &src->file->buffer);
+  copy_array(&dest->file->undo, &src->file->undo);
+}
+
+inline void move_buffer(buffer_t *&dest, buffer_t *src) {
+  memcpy(dest, src, sizeof(buffer_t));
+
+  dest->file     = std::move(src->file);
+  #if 0
+  move_gap_buffer(&dest->file->buffer, &src->file->buffer);
+  move_array(&dest->file->undo, &src->file->undo);
+  dest->file->is_used = true;
+  #endif
+
+  dest->filename = std::move(src->filename);
+}
+#endif
 
 #endif

@@ -1,20 +1,17 @@
 #ifndef GAMMA_UTILITY_H
 #define GAMMA_UTILITY_H
-#include <iostream> // for print, and printFPS.
-#include <chrono>
-#include <cstring> // strncmp.
-#include <unistd.h>
 
 inline char *concat(const char *a, const char *b) {
   char *ret;
-  auto s1 = strlen(a);
-  auto s2 = strlen(b);
+  const size_t s1 = strlen(a);
+  const size_t s2 = strlen(b);
 
   ret = (char *)malloc(sizeof(char) * (s1 + s2 + 1));
   assert(ret);
 
   memcpy(ret, a, sizeof(char) * s1);
   memcpy(ret + s1, b, sizeof(char) * s2);
+  ret[s1+s2] = '\0';
 
   return ret;
 }
@@ -105,6 +102,15 @@ inline bool operator==(const literal &l1, const literal &l2) {
   }
 }
 
+inline string_t to_string(const literal &l) {
+  string_t s;
+  s.resize(l.size);
+
+  memcpy(s.data(), l.data, sizeof(char)*l.size);
+
+  return s;
+}
+
 #define to_literal(a) literal{a.data(), a.size()}
 inline bool operator==(const literal &l, const string_t &s) {
   return to_literal(s) == l;
@@ -114,20 +120,11 @@ inline bool operator==(const string_t &s, const literal &l) {
 }
 
 inline std::ostream& operator<<(std::ostream &os, const literal &l) {
-  for(auto i = 0u; i < l.size; i++) {
+  for(size_t i = 0; i < l.size; i++) {
     os << l.data[i];
   }
   return os;
 }
-
-inline string_t to_string(const literal &l) {
-  string_t r;
-  for(size_t i = 0; i < l.size; i++) {
-    r.push_back(l.data[i]);
-  }
-  return r;
-}
-
 
 #define get_string_from_literal(name, l) \
   char name[l.size+1]; \
