@@ -102,16 +102,8 @@ inline bool operator==(const literal &l1, const literal &l2) {
   }
 }
 
-inline string_t to_string(const literal &l) {
-  string_t s;
-  s.resize(l.size);
 
-  memcpy(s.data(), l.data, sizeof(char)*l.size);
-
-  return s;
-}
-
-#define to_literal(a) literal{a.data(), a.size()}
+#define to_literal(a) literal{a.data, a.size}
 inline bool operator==(const literal &l, const string_t &s) {
   return to_literal(s) == l;
 }

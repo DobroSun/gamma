@@ -9,7 +9,7 @@ static bool is_input = false;
 
 
 void console_init() {
-  console.buffer.chars.resize(console.buffer.gap_len);
+  console.buffer.chars.resize_with_no_init(console.buffer.gap_len);
 }
 
 void console_draw() {
@@ -76,15 +76,9 @@ void console_backspace() {
 }
 
 void console_run_command() {
-  size_t size = console.buffer.size();
-
-  char cmd[size];
-  for(size_t i = 0; i < size; i++) {
-    cmd[i] = console.buffer[i];
-  }
-  cmd[size] = '\0';
-
-  interp((const char*)cmd);
+  char f[MAX_CONSOLE_COMMAND_SIZE];
+  console.buffer.to_string((char*)&f, MAX_CONSOLE_COMMAND_SIZE);
+  interp((const char*)f);
 }
 
 

@@ -118,7 +118,7 @@ selection_buffer_t &get_selection();
 void init(int, char**);
 void update();
 
-void open_new_buffer(const string_t &);
+void open_new_buffer(string_t &);
 void open_existing_or_new_buffer(const literal &);
 void open_existing_buffer(buffer_t *);
 
@@ -148,6 +148,13 @@ int compute_to_beginning_of_line();
 int compute_to_end_of_line();
 
 void undo();
+
+
+
+
+
+
+
 
 #if 0
 inline void copy_buffer(buffer_t *&dest, const buffer_t *src) {

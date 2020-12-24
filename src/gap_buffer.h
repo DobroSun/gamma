@@ -2,7 +2,7 @@
 #define GAMMA_GAP_BUFFER_H
 
 struct gap_buffer {
-  array<char> chars;
+  string_t chars;
   size_t pre_len = 0;
   size_t gap_len = 12; // @SpeedUp: Check on the best default value for gap_len.
 
@@ -17,7 +17,7 @@ struct gap_buffer {
 
   void move_right() {
     auto post_start = pre_len + gap_len;
-    if(chars.size() == post_start) {
+    if(chars.size == post_start) {
       return;
     }
     chars[pre_len++] = chars[post_start];
@@ -74,13 +74,13 @@ struct gap_buffer {
       // [1, 2, [' ', ' ', ' ', ' ', ' '], 3, 4, 5]
       //         moving gap(3 times left).
     */
-      size_t size     = chars.size();
+      size_t size     = chars.size;
       size_t post_len = size - pre_len;
       pre_len = size;
       gap_len = size;
 
-      assert(chars.capacity() == size);
-      chars.resize(size*2);
+      assert(chars.capacity == size);
+      chars.resize_with_no_init(size*2);
       for(size_t i = 0; i < post_len; i++) {
         move_left();
       }
@@ -101,13 +101,13 @@ struct gap_buffer {
   void del() {
     // [1, 2, [' ', ' '], 3, 4, 5]
     // [1, 2, [' ', ' ', ' '], 4, 5] // delete.
-    auto post_len = chars.size() - pre_len - gap_len;
+    auto post_len = chars.size - pre_len - gap_len;
     if(post_len == 0) return;
     gap_len++;
   }
 
   void clear() {
-    auto post_len = chars.size() - pre_len - gap_len;
+    auto post_len = chars.size - pre_len - gap_len;
     del();
     while(post_len > 1) {
       del();
@@ -121,7 +121,7 @@ struct gap_buffer {
   }
 
   char &operator[](size_t i) {
-    assert(is_initialized() && i < chars.size() - gap_len);
+    assert(is_initialized() && i < chars.size-gap_len);
     if(i < pre_len) {
       return chars[i];
     } else {
@@ -131,7 +131,7 @@ struct gap_buffer {
 
   const char &operator[](size_t i) const {
     // Copy&Paste.
-    assert(is_initialized() && i < chars.size() - gap_len);
+    assert(is_initialized() && i < chars.size-gap_len);
     if(i < pre_len) {
       return chars[i];
     } else {
@@ -141,7 +141,7 @@ struct gap_buffer {
 
   size_t size() const {
     assert(is_initialized());
-    return chars.size() - gap_len;
+    return chars.size - gap_len;
   }
 
   bool empty() const {
@@ -150,8 +150,33 @@ struct gap_buffer {
   }
 
   bool is_initialized() const {
-    return chars.data() != NULL;
+    return chars.data != NULL;
+  }
+
+  void to_string(char *dst, size_t s) { // @Now.
+    size_t i = 0;
+    for( ; i < size(); i++) {
+      if(i == s) break;
+      dst[i] = (*this)[i];
+    }
+    dst[i] = '\0';
   }
 };
+
+inline void copy_gap_buffer(gap_buffer *a, const gap_buffer *b) {
+  copy_array(&a->chars, &b->chars);
+  a->pre_len = b->pre_len;
+  a->gap_len = b->gap_len;
+}
+
+inline void move_gap_buffer(gap_buffer *a, gap_buffer *b) {
+  move_array(&a->chars, &b->chars);
+  a->pre_len = b->pre_len;
+  a->gap_len = b->gap_len;
+
+  assert(b->chars.data == NULL);
+  b->pre_len = 0;
+  b->gap_len = 0;
+}
 
 #endif

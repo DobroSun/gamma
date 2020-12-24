@@ -31,18 +31,18 @@ static void go_up() {
 // an array of currently used bufs.
 // @Temporary:
 #define get_used_buffers(name, size_name, buffers) \
-  buffer_t *name[buffers.size()]; \
+  buffer_t *name[buffers.size]; \
   size_t size_name = 0; \
-  for(size_t i = 0; i < buffers.size(); i++) { \
+  for(size_t i = 0; i < buffers.size; i++) { \
     if(buffers[i]->is_used) { \
       name[size_name++] = buffers[i]; \
     } \
   } \
   assert(size_name > 0);
 #define get_const_buffers(name, size_name, buffers) \
-  const buffer_t *name[buffers.size()]; \
+  const buffer_t *name[buffers.size]; \
   size_t size_name = 0; \
-  for(size_t i = 0; i < buffers.size(); i++) { \
+  for(size_t i = 0; i < buffers.size; i++) { \
     if(buffers[i]->is_used) { \
       name[size_name++] = buffers[i]; \
     } \
@@ -68,7 +68,7 @@ static file_buffer_t global_copy_buffer;
 
 static buffer_t *get_free_win_buffer() {
   buffer_t *ret = NULL;
-  for(size_t i = 0; i < active_tab->buffers.size(); i++) {
+  for(size_t i = 0; i < active_tab->buffers.size; i++) {
     auto &buf = active_tab->buffers[i];
     if(!buf->is_used) {
       ret = buf;
@@ -77,7 +77,7 @@ static buffer_t *get_free_win_buffer() {
 
   if(!ret) {
     ret = new buffer_t;
-    active_tab->buffers.push_back(ret);
+    active_tab->buffers.add(ret);
 
   } else {
     // Already found.
@@ -105,7 +105,7 @@ static void finish_file(file_buffer_t *f) {
 
 static void finish_buffer(buffer_t *b) {
   b->is_used  = false;
-  b->filename = "";
+  b->filename.clear();
   b->split.split_with = NULL;
 
   if(b == head_buffer) {
@@ -155,10 +155,10 @@ static void read_entire_file(gap_buffer *ret, FILE *f) {
   fseek(f, 0, SEEK_END);
   size_t size = ftell(f);
 
-  ret->chars.resize(size + ret->gap_len);
+  ret->chars.resize_with_no_init(size + ret->gap_len);
 
   rewind(f);
-  auto res = fread(ret->chars.data() + ret->gap_len, sizeof(char), size, f);
+  auto res = fread(ret->chars.data + ret->gap_len, sizeof(char), size, f);
 
   if(res != size) {
     fprintf(stderr, "@Incomplete\n");
@@ -182,22 +182,23 @@ static FILE *get_file_or_create(const char *filename, const char *mods) {
 }
 
 
-void open_new_buffer(const string_t &s) {
+void open_new_buffer(array<char> &s) {
   auto buffer = get_free_win_buffer();
   assert(buffer);
   active_buffer = buffer;
 
   buffer->file = new file_buffer_t;
 
-  if(s.size() == 0) {
-    buffer->filename = "";
+  if(s.data == NULL) {
     return;
   }
 
-  if(FILE *f = fopen(s.c_str(), "r")) {
+  to_c_string(&s, name);
+  if(FILE *f = fopen(name, "r")) {
     defer { fclose(f); };
     read_entire_file(&buffer->file->buffer, f);
-    buffer->filename = std::move(s);
+
+    move_string(&buffer->filename, &s);
   }
   buffer->total_lines = buffer->count_total_lines();
 }
@@ -208,7 +209,8 @@ void open_existing_buffer(buffer_t *prev) {
   active_buffer = buffer;
 
   buffer->file     = prev->file;
-  buffer->filename = prev->filename;
+
+  copy_string(&buffer->filename, &prev->filename);
 
   buffer->file->buffer.move_until(0);
 }
@@ -223,7 +225,10 @@ void open_existing_or_new_buffer(const literal &filename) {
       return;
     }
   }
-  open_new_buffer(to_string(filename));
+
+  array<char> name;
+  from_c_string(&name, filename.data, filename.size);
+  open_new_buffer(name);
 }
 
 static void open_tab(const literal &filename) {
@@ -244,7 +249,6 @@ void tab_t::draw(bool selection_mode) const {
       same_buffers[size++] = buffer;
     }
   }
-
 
   // Updating only same buffers, as active_buffer.
   for(size_t i = 0; i < size; i++) {
@@ -648,9 +652,9 @@ int number_chars_on_line_fits_in_window(const buffer_t *b) {
 void init(int argc, char **argv) {
   init_var_table();
 
-  string_t filename;
+  array<char> filename;
   if(argc > 1) {
-    filename = argv[1];
+    from_c_string(&filename, argv[1]);
   } else {
     // No positional arguments provided.
     // filename.data == nullptr.
@@ -757,7 +761,9 @@ void save() {
 
   } else {
     assert(!buffer->filename.empty());
-    FILE *f = get_file_or_create(buffer->filename.c_str(), "w");
+
+    to_c_string(&buffer->filename, name);
+    FILE *f = get_file_or_create(name, "w");
     defer { fclose(f); };
 
     if(!f) {
