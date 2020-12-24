@@ -149,13 +149,6 @@ int compute_to_end_of_line();
 
 void undo();
 
-
-
-
-
-
-
-
 #if 0
 inline void copy_buffer(buffer_t *&dest, const buffer_t *src) {
   memcpy(dest, src, sizeof(buffer_t));

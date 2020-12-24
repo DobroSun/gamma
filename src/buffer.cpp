@@ -31,18 +31,18 @@ static void go_up() {
 // an array of currently used bufs.
 // @Temporary:
 #define get_used_buffers(name, size_name, buffers) \
-  buffer_t *name[buffers.size]; \
+  buffer_t *name[buffers.size()]; \
   size_t size_name = 0; \
-  for(size_t i = 0; i < buffers.size; i++) { \
+  for(size_t i = 0; i < buffers.size(); i++) { \
     if(buffers[i]->is_used) { \
       name[size_name++] = buffers[i]; \
     } \
   } \
   assert(size_name > 0);
 #define get_const_buffers(name, size_name, buffers) \
-  const buffer_t *name[buffers.size]; \
+  const buffer_t *name[buffers.size()]; \
   size_t size_name = 0; \
-  for(size_t i = 0; i < buffers.size; i++) { \
+  for(size_t i = 0; i < buffers.size(); i++) { \
     if(buffers[i]->is_used) { \
       name[size_name++] = buffers[i]; \
     } \
@@ -68,7 +68,7 @@ static file_buffer_t global_copy_buffer;
 
 static buffer_t *get_free_win_buffer() {
   buffer_t *ret = NULL;
-  for(size_t i = 0; i < active_tab->buffers.size; i++) {
+  for(size_t i = 0; i < active_tab->buffers.size(); i++) {
     auto &buf = active_tab->buffers[i];
     if(!buf->is_used) {
       ret = buf;
@@ -77,7 +77,7 @@ static buffer_t *get_free_win_buffer() {
 
   if(!ret) {
     ret = new buffer_t;
-    active_tab->buffers.add(ret);
+    active_tab->buffers.push_back(ret);
 
   } else {
     // Already found.
@@ -155,10 +155,10 @@ static void read_entire_file(gap_buffer *ret, FILE *f) {
   fseek(f, 0, SEEK_END);
   size_t size = ftell(f);
 
-  ret->chars.resize_with_no_init(size + ret->gap_len);
+  ret->chars.resize(size + ret->gap_len);
 
   rewind(f);
-  auto res = fread(ret->chars.data + ret->gap_len, sizeof(char), size, f);
+  auto res = fread(ret->chars.data() + ret->gap_len, sizeof(char), size, f);
 
   if(res != size) {
     fprintf(stderr, "@Incomplete\n");
@@ -223,7 +223,6 @@ void open_existing_or_new_buffer(const literal &filename) {
       return;
     }
   }
-
   open_new_buffer(to_string(filename));
 }
 

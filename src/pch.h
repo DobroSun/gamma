@@ -4,10 +4,11 @@
 #include <cassert>
 #include <unordered_map> // @Temporary.
 #include <algorithm>     // @Temporary.
+#include <vector>
+#include <string>
 
 #include <iostream> // for print, and printFPS.
 #include <chrono>
-#include <string>
 #include <cstring> // strncmp.
 
 #include <SDL2/SDL.h>
@@ -15,7 +16,6 @@
 
 #include "fwd.h"
 #include "globals.h"
-#include "array.h"
 #include "gap_buffer.h"
 #include "utility.h"
 

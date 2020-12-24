@@ -406,7 +406,7 @@ int main(int argc, char **argv) {
   {
     auto tab = get_current_tab();
 
-    buffer_t *used[tab->buffers.size];
+    buffer_t *used[tab->buffers.size()];
     size_t    size = 0;
     for(size_t i = 0; i < arr_size(used); i++) {
       if(tab->buffers[i]->is_used) {
@@ -417,7 +417,7 @@ int main(int argc, char **argv) {
     for(size_t i = 0; i < size; i++) {
       auto &buffer = used[i];
 
-      for(size_t j = 0; j < buffer->file->undo.size; j++) {
+      for(size_t j = 0; j < buffer->file->undo.size(); j++) {
         delete buffer->file->undo[j]->file;
         delete buffer->file->undo[j];
       }

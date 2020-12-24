@@ -10,7 +10,7 @@ typedef struct _TTF_Font TTF_Font;
 typedef Sint32 SDL_Keycode;
 
 template<class T>
-struct array;
+using array = std::vector<T>;
 
 struct string;
 
