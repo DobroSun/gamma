@@ -76,9 +76,15 @@ void console_backspace() {
 }
 
 void console_run_command() {
-  char f[MAX_CONSOLE_COMMAND_SIZE];
-  console.buffer.to_string((char*)&f, MAX_CONSOLE_COMMAND_SIZE);
-  interp((const char*)f);
+  size_t size = console.buffer.size();
+  char   cmd[size];
+
+  for(size_t i = 0; i < size; i++) {
+    cmd[i] = console.buffer[i];
+  }
+  cmd[size] = '\0';
+
+  interp((const char*)cmd);
 }
 
 

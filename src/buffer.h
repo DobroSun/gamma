@@ -154,30 +154,20 @@ void undo();
 
 
 
-
-
-#if 0
-inline void copy_buffer(buffer_t *&dest, const buffer_t *src) {
-  memcpy(dest, src, sizeof(buffer_t));
-
-  dest->file = new file_buffer_t;
-
-  copy_gap_buffer(&dest->file->buffer, &src->file->buffer);
-  copy_array(&dest->file->undo, &src->file->undo);
+inline void copy_window_position(buffer_t *a, const buffer_t *b) {
+  a->is_used = b->is_used;
+  a->start_x = b->start_x;
+  a->start_y = b->start_y;
+  a->width   = b->width;
+  a->height  = b->height;
+  a->cursor = b->cursor;
+  a->n_character = b->n_character;
+  a->n_line = b->n_line;
+  a->total_lines = b->total_lines;
+  a->offset_on_line = b->offset_on_line;
+  a->offset_from_beginning = b->offset_from_beginning;
+  a->start_pos = b->start_pos;
+  a->saved_pos = b->saved_pos;
 }
-
-inline void move_buffer(buffer_t *&dest, buffer_t *src) {
-  memcpy(dest, src, sizeof(buffer_t));
-
-  dest->file     = std::move(src->file);
-  #if 0
-  move_gap_buffer(&dest->file->buffer, &src->file->buffer);
-  move_array(&dest->file->undo, &src->file->undo);
-  dest->file->is_used = true;
-  #endif
-
-  dest->filename = std::move(src->filename);
-}
-#endif
 
 #endif

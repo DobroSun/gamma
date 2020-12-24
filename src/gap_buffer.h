@@ -152,15 +152,6 @@ struct gap_buffer {
   bool is_initialized() const {
     return chars.data != NULL;
   }
-
-  void to_string(char *dst, size_t s) { // @Now.
-    size_t i = 0;
-    for( ; i < size(); i++) {
-      if(i == s) break;
-      dst[i] = (*this)[i];
-    }
-    dst[i] = '\0';
-  }
 };
 
 inline void copy_gap_buffer(gap_buffer *a, const gap_buffer *b) {

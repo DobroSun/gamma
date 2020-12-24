@@ -138,7 +138,19 @@ struct array {
   }
 };
 
-inline bool operator==(const array<char> &a, const array<char> &b) {
+template<class T>
+bool operator==(const array<T> &a, const array<T> &b) {
+  if(a.size == b.size) {
+    for(size_t i = 0; i < a.size; i++) {
+      if(a[i] != b[i]) { return false; }
+    }
+    return true;
+  } else {
+    return false;
+  }
+}
+
+inline bool operator==(const string_t &a, const string_t &b) {
   if(a.size == b.size) {
     return !strncmp(a.data, b.data, a.size);
   } else {
@@ -148,12 +160,14 @@ inline bool operator==(const array<char> &a, const array<char> &b) {
 
 template<class T>
 void copy_array(array<T> *a, const array<T> *b) {
-  assert(b->size <= b->capacity);
+  if(a->capacity <= b->size) {
+    free(a->data);
+    a->data = (T *)malloc(sizeof(T) * b->size);
+    a->capacity = b->size;
+  } else {
+  }
 
-  a->data = (T *)malloc(sizeof(T) * b->capacity);
   memcpy(a->data, b->data, sizeof(T) * b->size);
-
-  a->capacity = b->capacity;
   a->size     = b->size;
 }
 
@@ -190,7 +204,7 @@ inline void from_c_string(string_t *s, const char *c_string) {
 #define move_string(s1, s2) move_array(s1, s2)
 #define copy_string(s1, s2) copy_array(s1, s2)
 
-inline std::ostream &operator<<(std::ostream &os, const array<char> &s) {
+inline std::ostream &operator<<(std::ostream &os, const string_t &s) {
   assert(s.size <= s.capacity);
   for(size_t i = 0; i < s.size; i++) {
     os << s[i];

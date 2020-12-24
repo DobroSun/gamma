@@ -182,7 +182,7 @@ static FILE *get_file_or_create(const char *filename, const char *mods) {
 }
 
 
-void open_new_buffer(array<char> &s) {
+void open_new_buffer(string_t &s) {
   auto buffer = get_free_win_buffer();
   assert(buffer);
   active_buffer = buffer;
@@ -226,7 +226,7 @@ void open_existing_or_new_buffer(const literal &filename) {
     }
   }
 
-  array<char> name;
+  string_t name;
   from_c_string(&name, filename.data, filename.size);
   open_new_buffer(name);
 }
@@ -555,11 +555,15 @@ void buffer_t::put_tab() {
 }
 
 void buffer_t::put(char c) {
-#if 0
+
+  // copy_buffer for undo.
   buffer_t *a = new buffer_t;
-  copy_buffer(a, this);
+  a->file     = new file_buffer_t;
+  copy_gap_buffer(&a->file->buffer, &file->buffer);
+  copy_window_position(a, this);
+  // 
+
   file->undo.add(a);
-#endif
   file->buffer.add(c);
 
   go_right();
@@ -652,7 +656,7 @@ int number_chars_on_line_fits_in_window(const buffer_t *b) {
 void init(int argc, char **argv) {
   init_var_table();
 
-  array<char> filename;
+  string_t filename;
   if(argc > 1) {
     from_c_string(&filename, argv[1]);
   } else {
@@ -1074,20 +1078,21 @@ int compute_to_end_of_line() {
 }
 
 void undo() {
-/*
   auto &undo_stack = active_buffer->file->undo;
   if(undo_stack.empty()) { return; }
 
   auto &undo = undo_stack.pop();
-  print(undo_stack.size, " : ", undo_stack.capacity);
+  auto &buffer = active_buffer;
 
-  //move_buffer(active_buffer, undo);
-  memcpy(active_buffer, undo, sizeof(buffer_t));
-  move_gap_buffer(&active_buffer->file->buffer, &undo->file->buffer);
-  //move_array(&active_buffer->file->undo, &undo->file->undo);
-  //active_buffer->filename = std::move(undo->filename);
+  auto tmp = new file_buffer_t;
+  move_gap_buffer(&tmp->buffer, &undo->file->buffer);
+  move_array(&tmp->undo, &undo_stack);
+  
+  delete buffer->file;
+  buffer->file = tmp;
 
-  //delete undo->file;
-  //delete undo;
-*/
+  copy_window_position(buffer, undo);
+
+  delete undo->file;
+  delete undo;
 }
