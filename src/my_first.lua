@@ -64,14 +64,20 @@ end
 
 function on_a()
   if editor_state == EDITOR then
+    save_current_state_for_undo()
     if mode == NORMAL_MODE then
       go_right()
       to_insert_mode()
+    end
+
+    if not buffer_has_changed_from_last_undo() then
+      pop_from_undo()
     end
   end
 end
 function on_b()
   if editor_state == EDITOR then
+    save_current_state_for_undo()
     local n = go_word_backwards()
     if mode == NORMAL_MODE then
       do_action(n, go_left)
@@ -80,6 +86,10 @@ function on_b()
                       select_to_left()
                       go_left()
                     end))
+    end
+
+    if not buffer_has_changed_from_last_undo() then
+      pop_from_undo()
     end
   end
 end
@@ -95,6 +105,7 @@ function on_d()
         put_delete()
 
       else
+        save_current_state_for_undo()
         current_action = delete_action
       end
 
@@ -103,10 +114,15 @@ function on_d()
       delete_selected()
       to_normal_mode()
     end
+
+    if not buffer_has_changed_from_last_undo() then
+      pop_from_undo()
+    end
   end
 end
 function on_h() 
   if editor_state == EDITOR then
+    save_current_state_for_undo()
     if mode == NORMAL_MODE then
       if current_action == delete_action then
         put_backspace()
@@ -120,10 +136,15 @@ function on_h()
       select_to_left()
       go_left()
     end
+
+    if not buffer_has_changed_from_last_undo() then
+      pop_from_undo()
+    end
   end
 end
 function on_i() 
   if editor_state == EDITOR then
+    save_current_state_for_undo()
     if mode == NORMAL_MODE then
       to_insert_mode()
     end
@@ -131,6 +152,7 @@ function on_i()
 end
 function on_j()
   if editor_state == EDITOR then
+    save_current_state_for_undo()
     local n = compute_go_down()
     if mode == NORMAL_MODE then
       if current_action == delete_action then
@@ -149,10 +171,15 @@ function on_j()
                       go_right() 
                     end))
     end
+
+    if not buffer_has_changed_from_last_undo() then
+      pop_from_undo()
+    end
   end
 end
 function on_k() 
   if editor_state == EDITOR then
+    save_current_state_for_undo()
     local n = compute_go_up()
     if mode == NORMAL_MODE then
       if current_action == delete_action then
@@ -171,11 +198,16 @@ function on_k()
                       go_left()
                     end))
     end
+
+    if not buffer_has_changed_from_last_undo() then
+      pop_from_undo()
+    end
   end
 end
 
 function on_l() 
   if editor_state == EDITOR then
+    save_current_state_for_undo()
     if mode == NORMAL_MODE then
       if current_action == delete_action then
         put_delete()
@@ -189,10 +221,15 @@ function on_l()
       select_to_right()
       go_right()
     end
+
+    if not buffer_has_changed_from_last_undo() then
+      pop_from_undo()
+    end
   end
 end
 function on_o() 
   if editor_state == EDITOR then
+    save_current_state_for_undo()
     if mode == NORMAL_MODE then
       current_action = pass
       on_dollar()
@@ -200,14 +237,23 @@ function on_o()
       put_return()
       to_insert_mode()
     end
+
+    if not buffer_has_changed_from_last_undo() then
+      pop_from_undo()
+    end
   end
 end
 function on_p() 
   if editor_state == EDITOR then
+    save_current_state_for_undo()
     if mode == NORMAL_MODE then
       paste_from_global()
     elseif mode == VISUAL_MODE then
       paste_from_global()
+    end
+
+    if not buffer_has_changed_from_last_undo() then
+      pop_from_undo()
     end
   end
 end
@@ -220,6 +266,7 @@ function on_u()
 end
 function on_v() 
   if editor_state == EDITOR then
+    save_current_state_for_undo()
     if mode == NORMAL_MODE then
       to_visual_mode()
       start_selection()
@@ -230,16 +277,22 @@ function on_v()
 end
 function on_y() 
   if editor_state == EDITOR then
+    save_current_state_for_undo()
     if mode == NORMAL_MODE then
       -- @Incomplete:
     elseif mode == VISUAL_MODE then
       copy_selected();
       to_normal_mode()
     end
+
+    if not buffer_has_changed_from_last_undo() then
+      pop_from_undo()
+    end
   end
 end
 function on_w()
   if editor_state == EDITOR then
+    save_current_state_for_undo()
     local n = go_word_forward()
     if mode == NORMAL_MODE then
       do_action(n, go_right)
@@ -249,10 +302,15 @@ function on_w()
                       go_right()
                     end))
     end
+
+    if not buffer_has_changed_from_last_undo() then
+      pop_from_undo()
+    end
   end
 end
 function on_x()
   if editor_state == EDITOR then
+    save_current_state_for_undo()
     if mode == NORMAL_MODE then
       put_delete()
 
@@ -260,10 +318,15 @@ function on_x()
       delete_selected()
       to_normal_mode()
     end
+
+    if not buffer_has_changed_from_last_undo() then
+      pop_from_undo()
+    end
   end
 end
 function on_0()
   if editor_state == EDITOR then
+    save_current_state_for_undo()
     local n = compute_to_beginning_of_line()
     if mode == NORMAL_MODE then
       if current_action == delete_action then
@@ -282,25 +345,39 @@ function on_0()
                       go_left()
                     end))
     end
+
+    if not buffer_has_changed_from_last_undo() then
+      pop_from_undo()
+    end
   end
 end
 
 function on_space()
   if editor_state == EDITOR then
+    save_current_state_for_undo()
     if mode == NORMAL_MODE then
       go_right()
     elseif mode == VISUAL_MODE then
       select_to_right()
       go_right()
     end
+
+    if not buffer_has_changed_from_last_undo() then
+      pop_from_undo()
+    end
   end
 end
 function on_tab()
   if editor_state == EDITOR then
+    save_current_state_for_undo()
     if mode == INSERT_MODE then
       for _ = 1,tabstop,1 do
         put(' ')
       end
+    end
+
+    if not buffer_has_changed_from_last_undo() then
+      pop_from_undo()
     end
   elseif editor_state == CONSOLE then
     for _ = 1,tabstop,1 do
@@ -310,12 +387,23 @@ function on_tab()
 end
 function on_escape()
   if editor_state == EDITOR then
+
     if mode == INSERT_MODE then
+
+      if not buffer_has_changed_from_last_undo() then
+        pop_from_undo()
+      end
       to_normal_mode()
+
     elseif mode == NORMAL_MODE then
       quit() -- @Temporary:
     elseif mode == VISUAL_MODE then
+
+      if not buffer_has_changed_from_last_undo() then
+        pop_from_undo()
+      end
       to_normal_mode()
+
     end
   elseif editor_state == CONSOLE then
     editor_state = EDITOR
@@ -323,6 +411,7 @@ function on_escape()
 end
 function on_right_arrow()
   if editor_state == EDITOR then
+    save_current_state_for_undo()
     if mode == NORMAL_MODE or mode == INSERT_MODE then
       if current_action == delete_action then
         put_delete()
@@ -337,12 +426,18 @@ function on_right_arrow()
       go_right()
     end
 
+    if not buffer_has_changed_from_last_undo() then
+      pop_from_undo()
+    end
+
   elseif editor_state == CONSOLE then
     console_go_right()
   end
+
 end
 function on_left_arrow()
   if editor_state == EDITOR then
+    save_current_state_for_undo()
     if mode == NORMAL_MODE or mode == INSERT_MODE then
       if current_action == delete_action then
         put_backspace()
@@ -356,11 +451,17 @@ function on_left_arrow()
       select_to_left()
       go_left()
     end
+
+    if not buffer_has_changed_from_last_undo() then
+      pop_from_undo()
+    end
   elseif editor_state == CONSOLE then
     console_go_left()
   end
+
 end
 function on_up_arrow()
+  save_current_state_for_undo()
   local n = compute_go_up()
   if mode == NORMAL_MODE or mode == INSERT_MODE then
     if current_action == delete_action then
@@ -379,8 +480,13 @@ function on_up_arrow()
                     go_left()
                   end))
   end
+
+  if not buffer_has_changed_from_last_undo() then
+    pop_from_undo()
+  end
 end
 function on_down_arrow()
+  save_current_state_for_undo()
   local n = compute_go_down()
   if mode == NORMAL_MODE or mode == INSERT_MODE then
     if current_action == delete_action then
@@ -399,15 +505,23 @@ function on_down_arrow()
                     go_right()
                   end))
   end
+
+  if not buffer_has_changed_from_last_undo() then
+    pop_from_undo()
+  end
 end
 function on_return()
   if editor_state == EDITOR then
+    save_current_state_for_undo()
     if mode == INSERT_MODE then
       put_return()
     elseif mode == NORMAL_MODE then
       local n = compute_go_down()
       do_action(n, go_right)
+    end
 
+    if not buffer_has_changed_from_last_undo() then
+      pop_from_undo()
     end
   elseif editor_state == CONSOLE then
     console_eval()
@@ -416,6 +530,7 @@ function on_return()
 end
 function on_backspace()
   if editor_state == EDITOR then
+    save_current_state_for_undo()
     if mode == INSERT_MODE then
       put_backspace()
     elseif mode == NORMAL_MODE then
@@ -425,14 +540,23 @@ function on_backspace()
       go_left()
     end
 
+    if not buffer_has_changed_from_last_undo() then
+      pop_from_undo()
+    end
+
   elseif editor_state == CONSOLE then
     console_put_backspace()
   end
 end
 function on_delete()
   if editor_state == EDITOR then
+    save_current_state_for_undo()
     if mode == INSERT_MODE then
       put_delete()
+    end
+
+    if not buffer_has_changed_from_last_undo() then
+      pop_from_undo()
     end
   elseif editor_state == CONSOLE then
     console_put_delete()

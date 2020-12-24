@@ -154,6 +154,23 @@ struct gap_buffer {
   }
 };
 
+inline bool operator==(const gap_buffer &a, const gap_buffer &b) {
+  if(a.size() == b.size()) {
+    for(size_t i = 0; i < a.size(); i++) {
+      if(a[i] != b[i]) {
+        return false;
+      }
+    }
+    return true;
+  } else {
+    return false;
+  }
+}
+
+inline bool operator!=(const gap_buffer &a, const gap_buffer &b) {
+  return !(a == b);
+}
+
 inline void copy_gap_buffer(gap_buffer *a, const gap_buffer *b) {
   copy_array(&a->chars, &b->chars);
   a->pre_len = b->pre_len;

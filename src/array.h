@@ -70,6 +70,14 @@ struct array {
     return data[--size];
   }
 
+  T &first() {
+    return data[0];
+  }
+
+  T &last() {
+    return data[size-1];
+  }
+
   void reserve(size_t new_cap=0) {
     if(!data) {
       assert(!capacity && !size && !data);

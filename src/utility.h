@@ -147,7 +147,13 @@ struct Timer {
     end = std::chrono::steady_clock::now(); 
   
     double delta = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
-    print(delta);
+    if(delta < 1000) {
+      print("ns: ", delta);
+    } else if(delta >= 1000 && delta < 1000000) {
+      print("us: ", delta/1000.);
+    } else {
+      print("ms: ", delta/1000000.);
+    }
   }
 };
 

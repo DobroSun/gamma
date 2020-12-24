@@ -147,7 +147,8 @@ int go_word_backwards();
 int compute_to_beginning_of_line();
 int compute_to_end_of_line();
 
-void undo();
+void undo(buffer_t *);
+void save_current_state_for_undo(buffer_t *);
 
 
 

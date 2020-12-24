@@ -231,7 +231,30 @@ static int compute_to_end_of_line(lua_State *L) {
 }
 
 static int undo(lua_State *L) {
-  undo();
+  undo(get_current_buffer());
+  return 0;
+}
+
+static int save_current_state_for_undo(lua_State *L) {
+  save_current_state_for_undo(get_current_buffer());
+  return 0;
+}
+
+static int buffer_has_changed_from_last_undo(lua_State *L) {
+  bool x;
+  if(get_current_buffer()->file->undo.empty()) {
+    x = false;
+  } else {
+    x = (get_current_buffer()->file->buffer != get_current_buffer()->file->undo.last()->file->buffer);
+  }
+  lua_pushboolean(L, x);
+  return 1;
+}
+
+static int pop_from_undo(lua_State *L) {
+  auto b = get_current_buffer()->file->undo.pop();
+  delete b->file;
+  delete b;
   return 0;
 }
 
@@ -284,8 +307,10 @@ int main(int argc, char **argv) {
   lua_register(L, "compute_to_beginning_of_line", &compute_to_beginning_of_line);
   lua_register(L, "compute_to_end_of_line", &compute_to_end_of_line);
   lua_register(L, "undo", &undo);
-
-
+  lua_register(L, "save_current_state_for_undo", &save_current_state_for_undo);
+  lua_register(L, "buffer_has_changed_from_last_undo", &buffer_has_changed_from_last_undo);
+  lua_register(L, "pop_from_undo", &pop_from_undo);
+  
   luaL_openlibs(L);
 
   if(check_lua(L, luaL_dofile(L, "my_first.lua"))) {
@@ -341,7 +366,9 @@ int main(int argc, char **argv) {
 
         case SDL_TEXTINPUT: {
           if(editor_state == Editor) {
-            if(mode == InsertMode) { get_current_buffer()->put(e.text.text[0]); }
+            if(mode == InsertMode) { 
+              get_current_buffer()->put(e.text.text[0]);
+            }
 
           } else if(editor_state == Console) {
               console_put(e.text.text[0]); 

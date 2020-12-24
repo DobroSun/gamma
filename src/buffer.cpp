@@ -555,15 +555,6 @@ void buffer_t::put_tab() {
 }
 
 void buffer_t::put(char c) {
-
-  // copy_buffer for undo.
-  buffer_t *a = new buffer_t;
-  a->file     = new file_buffer_t;
-  copy_gap_buffer(&a->file->buffer, &file->buffer);
-  copy_window_position(a, this);
-  // 
-
-  file->undo.add(a);
   file->buffer.add(c);
 
   go_right();
@@ -1077,21 +1068,31 @@ int compute_to_end_of_line() {
   return active_buffer->get_line_length(active_buffer->cursor - active_buffer->n_character) - active_buffer->n_character - 1;
 }
 
-void undo() {
-  auto &undo_stack = active_buffer->file->undo;
+void save_current_state_for_undo(buffer_t *b) {
+  buffer_t *a = new buffer_t;
+  a->file     = new file_buffer_t;
+
+  copy_gap_buffer(&a->file->buffer, &b->file->buffer);
+  copy_window_position(a, b);
+
+  b->file->undo.add(a);
+}
+
+
+void undo(buffer_t *b) {
+  auto &undo_stack = b->file->undo;
   if(undo_stack.empty()) { return; }
 
-  auto &undo = undo_stack.pop();
-  auto &buffer = active_buffer;
+  auto &undo   = undo_stack.pop();
 
   auto tmp = new file_buffer_t;
   move_gap_buffer(&tmp->buffer, &undo->file->buffer);
   move_array(&tmp->undo, &undo_stack);
   
-  delete buffer->file;
-  buffer->file = tmp;
+  delete b->file;
+  b->file = tmp;
 
-  copy_window_position(buffer, undo);
+  copy_window_position(b, undo);
 
   delete undo->file;
   delete undo;
