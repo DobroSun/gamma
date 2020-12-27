@@ -34,8 +34,8 @@ static void go_up() {
   buffer_t *name[buffers.size]; \
   size_t size_name = 0; \
   for(size_t i = 0; i < buffers.size; i++) { \
-    if(buffers[i]->is_used) { \
-      name[size_name++] = buffers[i]; \
+    if(buffers[i].is_used) { \
+      name[size_name++] = &buffers[i]; \
     } \
   } \
   assert(size_name > 0);
@@ -43,8 +43,8 @@ static void go_up() {
   const buffer_t *name[buffers.size]; \
   size_t size_name = 0; \
   for(size_t i = 0; i < buffers.size; i++) { \
-    if(buffers[i]->is_used) { \
-      name[size_name++] = buffers[i]; \
+    if(buffers[i].is_used) { \
+      name[size_name++] = &buffers[i]; \
     } \
   } \
   assert(size_name > 0);
@@ -62,40 +62,33 @@ static tab_t    *active_tab    = NULL;
 static buffer_t *active_buffer = NULL;
 static buffer_t *head_buffer   = NULL; // used only for splits.
 
-static tab_t tabs[12];
+static array<tab_t> tabs;
 static file_buffer_t global_copy_buffer;
 
-
-static tab_t *get_free_tab() {
-  for(size_t i = 0; i < arr_size(tabs); i++) {
-    if(!tabs[i].is_used) {
-      tabs[i].is_used = true;
-      return &tabs[i];
-    }
-  }
-  // @Incomplete: report error.
-  return nullptr;
-}
-
-static buffer_t *get_free_buffer() {
-  buffer_t *ret = NULL;
-  for(size_t i = 0; i < active_tab->buffers.size; i++) {
-    auto &buf = active_tab->buffers[i];
-    if(!buf->is_used) {
-      ret = buf;
+template<class T>
+T *get_free_source(array<T> &source) {
+  T *ret = NULL;
+  for(size_t i = 0; i < source.size; i++) {
+    if(!source[i].is_used) {
+      ret = &source[i];
+      break;
     }
   }
 
   if(!ret) {
-    ret = new buffer_t;
-    active_tab->buffers.add(ret);
+    ret = &source.add();
+    new (ret) T();
 
   } else {
     // Already found.
   }
+  assert(ret);
   ret->is_used = true;
   return ret;
 }
+
+static tab_t *get_free_tab()       { return get_free_source(tabs); }
+static buffer_t *get_free_buffer() { return get_free_source(active_tab->buffers); }
 
 static void finish_file(file_buffer_t *f) {
   f->buffer.clear();
@@ -1062,19 +1055,19 @@ int compute_to_end_of_line() {
 
 
 // Undo/Redo.
-static void save_current_state_for_backup(buffer_t *b, array<buffer_t *> *states) {
-  buffer_t *a = new buffer_t;
-  a->file     = new file_buffer_t;
+static void save_current_state_for_backup(buffer_t *b, array<buffer_t> *states) {
+  auto a  = &states->add();
+  new (a) buffer_t();
+
+  a->file = new file_buffer_t;
 
   copy_gap_buffer(&a->file->buffer, &b->file->buffer);
   copy_window_position(a, b);
-
-  states->add(a);
 }
 
-static void to_previous_buffer_state(buffer_t *b, array<buffer_t *> *active_states, array<buffer_t *> *passive_states) {
+static void to_previous_buffer_state(buffer_t *b, array<buffer_t> *active_states, array<buffer_t> *passive_states) {
   if(active_states->empty()) { return; }
-  auto &state = active_states->pop();
+  auto state = &active_states->pop();
 
   save_current_state_for_backup(b, passive_states);
 
@@ -1083,14 +1076,11 @@ static void to_previous_buffer_state(buffer_t *b, array<buffer_t *> *active_stat
   move_array(&tmp->undo, &b->file->undo);
   move_array(&tmp->redo, &b->file->redo);
 
-
   delete b->file;
   b->file = tmp;
 
   copy_window_position(b, state);
-
   delete state->file;
-  delete state;
 }
 
 

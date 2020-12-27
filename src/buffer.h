@@ -39,8 +39,8 @@ struct split_info_t {
 
 struct file_buffer_t {
   gap_buffer buffer;
-  array<buffer_t *> undo;
-  array<buffer_t *> redo;
+  array<buffer_t> undo;
+  array<buffer_t> redo;
 };
 
 
@@ -99,7 +99,7 @@ struct buffer_t {
 
 
 struct tab_t {
-  array<buffer_t *> buffers;
+  array<buffer_t> buffers;
   bool is_used = false;
 
   void on_resize(int,int);

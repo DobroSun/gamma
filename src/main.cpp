@@ -251,16 +251,15 @@ static int buffer_has_changed_from_last_undo(lua_State *L) {
   if(get_current_buffer()->file->undo.empty()) {
     x = false;
   } else {
-    x = (get_current_buffer()->file->buffer != get_current_buffer()->file->undo.last()->file->buffer);
+    x = (get_current_buffer()->file->buffer != get_current_buffer()->file->undo.last().file->buffer);
   }
   lua_pushboolean(L, x);
   return 1;
 }
 
 static int pop_from_undo(lua_State *L) {
-  auto b = get_current_buffer()->file->undo.pop();
-  delete b->file;
-  delete b;
+  auto &b = get_current_buffer()->file->undo.pop();
+  delete b.file;
   return 0;
 }
 
@@ -443,18 +442,15 @@ int main(int argc, char **argv) {
     for(size_t i = 0; i < tab->buffers.size; i++) {
       auto &buffer = tab->buffers[i];
 
-      for(size_t j = 0; j < buffer->file->undo.size; j++) {
-        delete buffer->file->undo[j]->file;
-        delete buffer->file->undo[j];
+      for(size_t j = 0; j < buffer.file->undo.size; j++) {
+        delete buffer.file->undo[j].file;
       }
 
-      for(size_t j = 0; j < buffer->file->redo.size; j++) {
-        delete buffer->file->redo[j]->file;
-        delete buffer->file->redo[j];
+      for(size_t j = 0; j < buffer.file->redo.size; j++) {
+        delete buffer.file->redo[j].file;
       }
 
-      delete buffer->file;
-      delete buffer;
+      delete buffer.file;
     }
   }
   for(auto &pair: get_alphabet()) {
