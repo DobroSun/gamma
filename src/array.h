@@ -31,17 +31,14 @@ struct array {
   }
 
   T &add(const T &val) {
-    auto &p = add();
-    p = val;
-    return p;
+    return add() = val;
   }
 
   T &add(T &&val) {
-    auto &p = add();
-    p = std::move(val);
-    return p;
+    return add() = std::move(val);
   }
 
+#if 0
   T &insert(size_t index) {
     assert(index < size);
 
@@ -55,28 +52,16 @@ struct array {
   }
 
   T &insert(const T &c, size_t index) {
-    auto &p = insert(index);
-    p = c;
-    return p;
+    return insert(index) = c;
   }
 
   T &insert(T &&c, size_t index) {
-    auto &p = insert(index);
-    p = std::move(c);
-    return p;
+    return insert(index) = std::move(c);
   }
-
-  T &pop() {
-    return data[--size];
-  }
-
-  T &first() {
-    return data[0];
-  }
-
-  T &last() {
-    return data[size-1];
-  }
+#endif
+  T &pop()   { return data[--size]; }
+  T &first() { return data[0]; }
+  T &last()  { return data[size-1]; }
 
   void reserve(size_t new_cap=0) {
     if(!data) {

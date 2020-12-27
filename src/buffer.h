@@ -77,10 +77,8 @@ struct buffer_t {
   void put_backspace();
   void put_return();
   void put_delete();
-  void put_tab();
   void put(char);
 
-  // @RemoveME:
   int compute_go_down();
   int compute_go_up();
 

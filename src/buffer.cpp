@@ -25,11 +25,11 @@ static void go_up() {
   }
 }
 
+
 // @Speed:
 // No need to iterate and get them 
 // each time, better solution is to keep 
 // an array of currently used bufs.
-// @Temporary:
 #define get_used_buffers(name, size_name, buffers) \
   buffer_t *name[buffers.size]; \
   size_t size_name = 0; \
@@ -66,7 +66,18 @@ static tab_t tabs[12];
 static file_buffer_t global_copy_buffer;
 
 
-static buffer_t *get_free_win_buffer() {
+static tab_t *get_free_tab() {
+  for(size_t i = 0; i < arr_size(tabs); i++) {
+    if(!tabs[i].is_used) {
+      tabs[i].is_used = true;
+      return &tabs[i];
+    }
+  }
+  // @Incomplete: report error.
+  return nullptr;
+}
+
+static buffer_t *get_free_buffer() {
   buffer_t *ret = NULL;
   for(size_t i = 0; i < active_tab->buffers.size; i++) {
     auto &buf = active_tab->buffers[i];
@@ -84,17 +95,6 @@ static buffer_t *get_free_win_buffer() {
   }
   ret->is_used = true;
   return ret;
-}
-
-static tab_t *get_free_tab() {
-  for(size_t i = 0; i < arr_size(tabs); i++) {
-    if(!tabs[i].is_used) {
-      tabs[i].is_used = true;
-      return &tabs[i];
-    }
-  }
-  // @Incomplete: report error.
-  return nullptr;
 }
 
 static void finish_file(file_buffer_t *f) {
@@ -183,7 +183,7 @@ static FILE *get_file_or_create(const char *filename, const char *mods) {
 
 
 void open_new_buffer(string_t &s) {
-  auto buffer = get_free_win_buffer();
+  auto buffer = get_free_buffer();
   assert(buffer);
   active_buffer = buffer;
 
@@ -204,7 +204,7 @@ void open_new_buffer(string_t &s) {
 }
 
 void open_existing_buffer(buffer_t *prev) {
-  auto buffer = get_free_win_buffer();
+  auto buffer = get_free_buffer();
   assert(buffer);
   active_buffer = buffer;
 
@@ -524,7 +524,7 @@ void buffer_t::put_backspace() {
   } else {
     // We don't need to move gap at all,
     // but since go_left calls       gap_buffer.move_left(),
-    // we have to compencate it with gap_buffer.move_right().
+    // we have to compensate it with gap_buffer.move_right().
     file->buffer.move_right();
     go_left();
   }
@@ -533,7 +533,7 @@ void buffer_t::put_backspace() {
 }
 
 void buffer_t::put_delete() {
-  if(cursor == file->buffer.size()-1) return; // @Hack: @CleanUp: on for last character.
+  if(cursor == file->buffer.size()-1) return;
   if(file->buffer[cursor] == '\n') total_lines--;
 
   file->buffer.del();
@@ -546,12 +546,6 @@ void buffer_t::put_return() {
   go_right();
   file->buffer.move_left(); // Same hack as for ::put_backspace().
   assert(offset_on_line == 0);
-}
-
-void buffer_t::put_tab() {
-  for(char i = 0; i < tabstop; i++) {
-    put(' ');
-  }
 }
 
 void buffer_t::put(char c) {
@@ -617,7 +611,6 @@ int buffer_t::compute_go_up() {
 
 void buffer_t::scroll_down() {
   if(start_pos == total_lines-1) return;
-
   if(start_pos == n_line) { go_down(); }
   shift_beginning_up();
 }
@@ -667,7 +660,6 @@ void init(int argc, char **argv) {
   console_init();
   console_on_resize(Height);
 
-  //buffer->filename = filename;
   buffer->init(0, 0, Width, get_console()->bottom_y);
 }
 
