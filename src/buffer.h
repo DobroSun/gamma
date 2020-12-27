@@ -41,7 +41,6 @@ struct file_buffer_t {
   gap_buffer buffer;
   array<buffer_t *> undo;
   array<buffer_t *> redo;
-  bool is_used = false;
 };
 
 

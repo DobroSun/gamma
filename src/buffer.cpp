@@ -97,10 +97,10 @@ static tab_t *get_free_tab() {
   return nullptr;
 }
 
-
 static void finish_file(file_buffer_t *f) {
-  f->is_used = false;
   f->buffer.clear();
+  // @Incomplete:
+  // free undo/redo arrays.
 }
 
 static void finish_buffer(buffer_t *b) {
@@ -1090,6 +1090,7 @@ static void to_previous_buffer_state(buffer_t *b, array<buffer_t *> *active_stat
   move_gap_buffer(&tmp->buffer, &state->file->buffer);
   move_array(&tmp->undo, &b->file->undo);
   move_array(&tmp->redo, &b->file->redo);
+
 
   delete b->file;
   b->file = tmp;
