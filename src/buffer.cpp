@@ -65,6 +65,10 @@ static buffer_t *head_buffer   = NULL; // used only for splits.
 static array<tab_t> tabs;
 static file_buffer_t global_copy_buffer;
 
+
+
+
+
 template<class T>
 T *get_free_source(array<T> &source) {
   T *ret = NULL;
@@ -78,7 +82,6 @@ T *get_free_source(array<T> &source) {
   if(!ret) {
     ret = &source.add();
     new (ret) T();
-
   } else {
     // Already found.
   }
@@ -129,6 +132,9 @@ static void finish_buffer_and_file(buffer_t *b) {
 }
 
 
+array<tab_t> &get_tabs() {
+  return tabs;
+}
 
 tab_t *get_current_tab() {
   return active_tab;
@@ -144,14 +150,14 @@ selection_buffer_t &get_selection() {
 
 static void read_entire_file(gap_buffer *ret, FILE *f) {
   assert(ret && f);
-
   fseek(f, 0, SEEK_END);
   size_t size = ftell(f);
 
   ret->chars.resize_with_no_init(size + ret->gap_len);
+  assert(ret->pre_len == 0);
 
   rewind(f);
-  auto res = fread(ret->chars.data + ret->gap_len, sizeof(char), size, f);
+  size_t res = fread(ret->chars.data + ret->gap_len, sizeof(char), size, f);
 
   if(res != size) {
     fprintf(stderr, "@Incomplete\n");
@@ -182,15 +188,12 @@ void open_new_buffer(string_t &s) {
 
   buffer->file = new file_buffer_t;
 
-  if(s.data == NULL) {
-    return;
-  }
+  if(s.data == NULL) { return; }
 
   to_c_string(&s, name);
   if(FILE *f = fopen(name, "r")) {
     defer { fclose(f); };
     read_entire_file(&buffer->file->buffer, f);
-
     move_string(&buffer->filename, &s);
   }
   buffer->total_lines = buffer->count_total_lines();
@@ -198,13 +201,10 @@ void open_new_buffer(string_t &s) {
 
 void open_existing_buffer(buffer_t *prev) {
   auto buffer = get_free_buffer();
-  assert(buffer);
   active_buffer = buffer;
 
   buffer->file     = prev->file;
-
   copy_string(&buffer->filename, &prev->filename);
-
   buffer->file->buffer.move_until(0);
 }
 
@@ -224,12 +224,16 @@ void open_existing_or_new_buffer(const literal &filename) {
   open_new_buffer(name);
 }
 
-static void open_tab(const literal &filename) {
-}
-
 void tab_t::draw(bool selection_mode) const {
   get_const_buffers(used_bufs, used_size, buffers);
 
+  for(size_t i = 0; i < used_size; i++) {
+    auto buffer = used_bufs[i];
+    draw_rect(buffer->start_x, buffer->start_y, buffer->width, buffer->height, WhiteColor);
+    buffer->draw(selection_mode);
+  }
+
+#if 0
   const buffer_t *same_buffers[used_size];
   size_t size = 0;
   for(size_t i = 0; i < used_size; i++) {
@@ -249,7 +253,7 @@ void tab_t::draw(bool selection_mode) const {
     draw_rect(buffer->start_x, buffer->start_y, buffer->width, buffer->height, WhiteColor);
     buffer->draw(selection_mode);
   }
-
+#endif
 
   // Update cursor.
   char s = active_buffer->file->buffer[active_buffer->cursor];
@@ -272,7 +276,7 @@ void tab_t::on_resize(int n_width, int n_height) {
   }
 }
 
-
+// @CleanUp:
 static bool is_selection = false;
 void buffer_t::draw_line(int beginning, int line_number, bool selecting) const {
   if(get_line_length(beginning) <= (int)offset_on_line) { return; }
@@ -642,7 +646,6 @@ void init(int argc, char **argv) {
   }
 
   auto tab = get_free_tab();
-  assert(tab);
   active_tab = tab;
   open_new_buffer(filename); // @Incomplete: What if filename is already opened?
 
@@ -772,6 +775,8 @@ static int compute_start_to_up(int current, buffer_t *b)    { return current - b
 static int compute_start_to_down(int current, buffer_t *b)  { return b->start_y - current; }
 
 void change_buffer(buffer_t *p, direction_t d) {
+  assert(d != none); // Doesn't make any sense to call this with none.
+
   get_used_buffers(used_bufs, usize, active_tab->buffers);
   if(usize == 1) return;
 
@@ -800,6 +805,7 @@ void change_buffer(buffer_t *p, direction_t d) {
     case right : compute_buffer_start_position = &compute_start_to_right; break;
     case up    : compute_buffer_start_position = &compute_start_to_up; break;
     case down  : compute_buffer_start_position = &compute_start_to_down; break;
+    case none  : assert(0); break;
   }
 
   int starts[usize];

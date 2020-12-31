@@ -377,18 +377,14 @@ function on_tab()
   if editor_state == EDITOR then
     save_current_state_for_undo()
     if mode == INSERT_MODE then
-      for _ = 1,tabstop,1 do
-        put(' ')
-      end
+      -- @Incomplete:
     end
 
     if not buffer_has_changed_from_last_undo() then
       pop_from_undo()
     end
   elseif editor_state == CONSOLE then
-    for _ = 1,tabstop,1 do
-      console_put(' ')
-    end
+    -- @Incomplete:
   end
 end
 function on_escape()

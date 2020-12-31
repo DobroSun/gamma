@@ -18,7 +18,13 @@ static const int NormalMode = 0;
 static const int InsertMode = 1;
 static const int VisualMode = 2;
 
+static int  editor_state = Editor;
+static int  mode         = NormalMode;
 
+static bool allow_console_input = false;
+static bool allow_editor_input  = false;
+
+#if 0
 static bool check_lua(lua_State *L, int r) {
   bool ok = (r == LUA_OK);
   if(!ok) {
@@ -147,23 +153,27 @@ static int get_cursor_index(lua_State *L) {
   lua_pushnumber(L, x);
   return 1;
 }
+#endif
 
 static int do_selection_to_left(lua_State *L) {
   auto &selection = get_selection();
   auto &cursor    = get_current_buffer()->cursor;
-  if(selection.direction == move_left) {
+
+  assert(selection.direction != down && selection.direction != up);
+
+  if(selection.direction == left) {
     if(cursor > 0) {
       selection.start_index = cursor - 1;
       selection.size++;
     }
 
-  } else if(selection.direction == move_right) {
+  } else if(selection.direction == right) {
     assert(selection.size > 0);
     selection.size--;
 
   } else {
     assert(selection.direction == none && selection.size == 0);
-    selection.direction = move_left;
+    selection.direction = left;
 
     // Copy&Paste: of left case.
     if(cursor > 0) {
@@ -180,21 +190,23 @@ static int do_selection_to_left(lua_State *L) {
 static int do_selection_to_right(lua_State *L) {
   auto &selection = get_selection();
 
+  assert(selection.direction != down && selection.direction != up);
+
   auto buffer     = get_current_buffer();
   auto &cursor    = buffer->cursor;
-  if(selection.direction == move_left) {
+  if(selection.direction == left) {
     assert(selection.size > 0);
     selection.start_index = get_current_buffer()->cursor + 1;
     selection.size--;
 
-  } else if(selection.direction == move_right) {
+  } else if(selection.direction == right) {
     if(cursor < buffer->file->buffer.size()-1) {
       selection.size++;
     }
 
   } else {
     assert(selection.direction == none && selection.size == 0);
-    selection.direction = move_right;
+    selection.direction = right;
 
     // Copy&Paste: of right case.
     if(cursor < buffer->file->buffer.size()-1) {
@@ -206,6 +218,7 @@ static int do_selection_to_right(lua_State *L) {
   return 0;
 }
 
+#if 0
 static int compute_go_down(lua_State *L) {
   int x = get_current_buffer()->compute_go_down();
   lua_pushnumber(L, x);
@@ -276,11 +289,99 @@ static void interp_lua_table(lua_State *L, const char *name, int key) {
     }
   }
 }
+#endif
+
+void on_i() {
+  mode = InsertMode;
+  allow_editor_input = false;
+}
+
+void on_colon() {
+  switch(mode) {
+    case NormalMode: { console_clear(); editor_state = Console; break; }
+    default: break;
+  }
+}
+
+void on_left_arrow()  { change_buffer(get_current_buffer(), left); }
+void on_right_arrow() { change_buffer(get_current_buffer(), right); }
+void on_down_arrow()  { change_buffer(get_current_buffer(), down); }
+void on_up_arrow()    { change_buffer(get_current_buffer(), up); }
+
+void on_escape() {
+  switch(mode) {
+    case NormalMode: should_quit = true; break;
+    case InsertMode: mode = NormalMode;  break;
+    default: break;
+  }
+}
+
+void on_return() {
+  switch(editor_state) {
+    case NormalMode: get_current_buffer()->put_return(); break;
+    case InsertMode: console_run_command();              break;
+    default: break;
+  }
+}
+
+void on_backspace() {
+  switch(editor_state) {
+    case NormalMode: get_current_buffer()->go_left();       break;
+    case InsertMode: get_current_buffer()->put_backspace(); break;
+    default: break;
+  }
+}
+
+void on_delete() {
+  switch(editor_state) {
+    case InsertMode: get_current_buffer()->put_delete(); break;
+    default: break;
+  }
+}
+
+void on_console_escape() { should_quit = true; }
+void on_console_return() {
+  console_run_command();
+  editor_state = Editor;
+  allow_console_input = false;
+}
+void on_console_backspace() { console_backspace(); }
+
+
+static std::unordered_map<int, void (*)()> on_shifted_keydown = {
+  {';', &on_colon}, // ':'
+};
+
+static std::unordered_map<int, void (*)()> on_keydown  = {
+  {'i', &on_i},
+  {SDLK_LEFT,   &on_left_arrow},
+  {SDLK_RIGHT,  &on_right_arrow},
+  {SDLK_DOWN,   &on_down_arrow},
+  {SDLK_UP,     &on_up_arrow},
+  {SDLK_ESCAPE, &on_escape},
+  {SDLK_RETURN, &on_return},
+  {SDLK_BACKSPACE, &on_backspace},
+  {SDLK_DELETE, &on_delete},
+};
+
+static std::unordered_map<int, void (*)()> on_console_keydown  = {
+  {SDLK_ESCAPE, &on_console_escape},
+  {SDLK_RETURN, &on_console_return},
+  {SDLK_BACKSPACE, &on_console_backspace},
+};
+
+
+void do_command(const std::unordered_map<int, void (*)()> &commands, const int key) {
+  auto func = commands.find(key);
+  if(func != commands.end()) { func->second(); }
+}
+
 
 int main(int argc, char **argv) {
   if(Init_SDL()) return 1;
   init(argc, argv);
 
+#if 0
   lua_State *L = luaL_newstate();
   lua_register(L, "save", &save);
   lua_register(L, "quit", &quit);
@@ -326,10 +427,11 @@ int main(int argc, char **argv) {
     if(lua_isnumber(L, -1)) { Width = lua_tonumber(L, -1); lua_pop(L, -1); }
     SDL_SetWindowSize(get_win(), Width, Height);
   }
+#endif
 
   while(!should_quit) {
-    // measure_scope();
-
+    measure_scope();
+#if 0
     int editor_state;
     lua_getglobal(L, "editor_state");
     if(lua_isnumber(L, -1)) {
@@ -343,7 +445,7 @@ int main(int argc, char **argv) {
       mode = lua_tonumber(L, -1);
       lua_pop(L, -1);
     }
-
+#endif
 
     SDL_Event e;
     while(SDL_PollEvent(&e)) {
@@ -357,29 +459,50 @@ int main(int argc, char **argv) {
           auto mod = e.key.keysym.mod;
 
           if(mod & KMOD_CTRL && mod & KMOD_SHIFT) {
-            interp_lua_table(L, "shift_ctrl", key);
+            switch(editor_state) {
+              case Editor : break;
+              case Console: break;
+            }
 
           } else if(mod & KMOD_SHIFT) {
-            interp_lua_table(L, "shift", key);
+            switch(editor_state) {
+              case Editor : do_command(on_shifted_keydown, key); break;
+              case Console:                                      break;
+            }
 
           } else if(mod & KMOD_CTRL) {
-            interp_lua_table(L, "ctrl", key);
+            switch(editor_state) {
+              case Editor : break;
+              case Console: break;
+            }
 
           } else { // no mod.
-            interp_lua_table(L, "keys", key);
+            switch(editor_state) {
+              case Editor : do_command(on_keydown,         key); break;
+              case Console: do_command(on_console_keydown, key); break;
+            }
           }
         } break;
 
         case SDL_TEXTINPUT: {
-          if(editor_state == Editor) {
-            if(mode == InsertMode) { 
-              get_current_buffer()->put(e.text.text[0]);
+          switch(editor_state) {
+            case Editor : {
+              if(mode != InsertMode) break;
+              switch(allow_editor_input) {
+                case true : get_current_buffer()->put(e.text.text[0]); break;
+                case false: allow_editor_input = true;                 break;
+              }
+
+              break;
             }
 
-          } else if(editor_state == Console) {
-              console_put(e.text.text[0]); 
-
-          } else {
+            case Console: {
+              switch(allow_console_input) {
+                case true : console_put(e.text.text[0]); break;
+                case false: allow_console_input = true;  break;
+              }
+              break;
+            }
           }
         } break;
 
@@ -434,25 +557,48 @@ int main(int argc, char **argv) {
   }
 
 
-  lua_close(L);
+  //lua_close(L);
 
   {
-    auto tab = get_current_tab();
+    auto &tabs = get_tabs();
+    for(size_t k = 0; k < tabs.size; k++) {
+      auto tab = &tabs[k];
 
-    for(size_t i = 0; i < tab->buffers.size; i++) {
-      auto &buffer = tab->buffers[i];
+      // @Incomplete:
+      // If same file_buffer_t is used in different tabs,
+      // This will cause double free of file_buffer_t,
+      // Cause now we're freeing same buffers only for one tab.
+      file_buffer_t *all_files[tab->buffers.size];
+      size_t files_size = 0;
 
-      for(size_t j = 0; j < buffer.file->undo.size; j++) {
-        delete buffer.file->undo[j].file;
+      for(size_t i = 0; i < tab->buffers.size; i++) {
+        auto file_buffer = tab->buffers[i].file;
+
+
+        // Check if file_buffer is already in all_files.
+        bool already_in_files = false;
+        for(size_t j = 0; j < files_size; j++) {
+          if(file_buffer == all_files[j]) { already_in_files = true; break; }
+        }
+        // 
+
+        if(already_in_files) {
+          // Nothing.
+        } else {
+          all_files[files_size++] = file_buffer;
+        }
       }
 
-      for(size_t j = 0; j < buffer.file->redo.size; j++) {
-        delete buffer.file->redo[j].file;
-      }
+      for(size_t i = 0; i < files_size; i++) {
+        auto file = all_files[i];
 
-      delete buffer.file;
+        for(size_t j = 0; j < file->undo.size; j++) { delete file->undo[j].file; }
+        for(size_t j = 0; j < file->redo.size; j++) { delete file->redo[j].file; }
+        delete file;
+      }
     }
   }
+
   for(auto &pair: get_alphabet()) {
     SDL_DestroyTexture(pair.second);
   }

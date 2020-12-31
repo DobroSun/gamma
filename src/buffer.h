@@ -6,29 +6,18 @@ enum split_type_t : char {
   vsp_type,
 };
 
-enum editing_mode_t : char {
-  normal_m,
-  insert_m,
-  select_m,
-};
-
-enum moving_direction_t : char {
-  move_left,
-  move_right,
-  none,
-};
-
 enum direction_t : char {
   left,
   right,
   up,
   down,
+  none,
 };
 
 struct selection_buffer_t {
   int start_index = -1;
   size_t size     = 0;
-  moving_direction_t direction = none;
+  direction_t direction = none;
 };
 
 struct split_info_t {
@@ -109,6 +98,7 @@ struct tab_t {
 int number_lines_fits_in_window(const buffer_t *);
 int number_chars_on_line_fits_in_window(const buffer_t *);
 
+array<tab_t> &get_tabs();
 tab_t *get_current_tab();
 buffer_t *get_current_buffer();
 selection_buffer_t &get_selection();
@@ -132,10 +122,9 @@ void save();
 
 void close_buffer(buffer_t *);
 void change_buffer(buffer_t *, direction_t);
-#define change_buffer_to_left(b)  change_buffer(b, left)
-#define change_buffer_to_right(b) change_buffer(b, right)
-#define change_buffer_to_up(b)    change_buffer(b, up)
-#define change_buffer_to_down(b)  change_buffer(b, down)
+
+
+
 
 void do_split(buffer_t *, buffer_t *, split_type_t);
 

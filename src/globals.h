@@ -2,7 +2,6 @@
 #define GAMMA_GLOBALS_H
 
 const int MaxHeight = 1025;
-inline bool should_quit = false;
 
 inline int Width = 1200;
 inline int Height = 800;
@@ -18,10 +17,9 @@ inline char TextBottomBound = 50;
 inline char tabstop = 2;
 inline char dt_scroll = 3;
 
-inline bool show_fps = false;
+inline bool show_fps    = false;
+inline bool should_quit = false;
 
-
-// @CleanUp.
 inline const char *assets_fonts = "/gamma/assets/fonts/";
 
 

@@ -130,13 +130,10 @@ inline std::ostream& operator<<(std::ostream &os, const literal &l) {
 #define arr_size(x) (sizeof((x)) / sizeof(*(x)))
 
 template<class T, class U>
-T max(T a, U b) {
-  return static_cast<T>((a < (T)b)? b: a);
-}
+T max(T a, U b) { return static_cast<T>((a < static_cast<T>(b))? b: a); }
+
 template<class T, class U>
-T min(T a, U b) {
-  return static_cast<T>((a < (T)b)? a: b);
-}
+T min(T a, U b) { return static_cast<T>((a < static_cast<T>(b))? a: b); }
 
 struct Timer {
   std::chrono::_V2::steady_clock::time_point start;
@@ -158,6 +155,7 @@ struct Timer {
 };
 
 #define measure_scope() Timer ANONYMOUS_NAME;
+
 
 template<class T, size_t N>
 bool is_one_of(T c, const T (&x)[N]) {

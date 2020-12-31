@@ -84,7 +84,7 @@ struct Token {
   TokenType type = EndOfLineType;
 
   union {
-    RValue value;
+    RValue  value;
     literal string_literal;
   };
 };
@@ -106,22 +106,22 @@ struct Ast_Expression {
   }
 };
 
-struct Ast_Set: public Ast_Expression {
+struct Ast_Set : public Ast_Expression {
   using Ast_Expression::Ast_Expression;
   literal name;
   Var     var;
 };
 
-struct Ast_Split: public Ast_Expression {
+struct Ast_Split : public Ast_Expression {
   using Ast_Expression::Ast_Expression;
   literal path;
   split_type_t split_type;
 };
 
 
-static Token current_tok;
-static int found_keyword;
-static const char *cursor = nullptr;
+static Token       current_tok;
+static int         found_keyword;
+static const char *cursor;
 
 struct Keyword_Def {
   literal   name;
@@ -290,7 +290,7 @@ static Ast_Expression *parse() {
 
   } else if(tok->type == SetCommandType) {
     auto expr = NEW_AST(Ast_Set);
-    defer { if(failed) { DELETE_AST(expr); expr = nullptr; }};
+    defer { if(failed) { DELETE_AST(expr); expr = NULL; }};
 
     tok = get_next_token();
     if(tok->type != IdentifierType) {
@@ -343,14 +343,14 @@ static Ast_Expression *parse() {
     auto expr = NEW_AST(Ast_Split);
     expr->split_type = hsp_type;
 
-    defer { if(failed) DELETE_AST(expr); expr = nullptr; };
+    defer { if(failed) DELETE_AST(expr); expr = NULL; };
 
     tok = get_next_token();
     if(tok->type == LiteralType) {
       expr->path = tok->string_literal;
 
     } else if(tok->type == EndOfLineType) {
-      expr->path.data = nullptr;
+      expr->path.data = NULL;
       
     } else {
       // @Incomplete: report error.
@@ -362,14 +362,14 @@ static Ast_Expression *parse() {
     auto expr = NEW_AST(Ast_Split);
     expr->split_type = vsp_type;
 
-    defer { if(failed) DELETE_AST(expr); expr = nullptr; };
+    defer { if(failed) DELETE_AST(expr); expr = NULL; };
 
     tok = get_next_token();
     if(tok->type == LiteralType) {
       expr->path = tok->string_literal;
 
     } else if(tok->type == EndOfLineType) {
-      expr->path.data = nullptr;
+      expr->path.data = NULL;
       
     } else {
       // @Incomplete: report error.
@@ -386,7 +386,7 @@ static Ast_Expression *parse() {
     report_error("Oh, no doesn't expect an identifier");
     failed = true;
   }
-  return nullptr;
+  return NULL;
 }
 
 #define DEALLOC_JUST(ast_type) \
@@ -475,5 +475,6 @@ void interp(const char *s) {
       } break;
     }
   }
-  cursor = nullptr;
+
+  cursor = NULL;
 }
