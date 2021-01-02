@@ -38,7 +38,7 @@ struct array {
     return add() = std::move(val);
   }
 
-  void find(T *iter, size_t *index, const T &val) {
+  void find(T *&iter, size_t *index, const T &val) {
     for(size_t i = 0; i < size; i++) {
       if(this->operator[](i) == val) {
         iter   = &this->operator[](i);

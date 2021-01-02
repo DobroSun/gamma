@@ -37,8 +37,8 @@ static void go_up() {
     if(buffers[i].is_used) { \
       name[size_name++] = &buffers[i]; \
     } \
-  } \
-  assert(size_name > 0);
+  }
+
 #define get_const_buffers(name, size_name, buffers) \
   const buffer_t *name[buffers.size]; \
   size_t size_name = 0; \
@@ -46,8 +46,7 @@ static void go_up() {
     if(buffers[i].is_used) { \
       name[size_name++] = &buffers[i]; \
     } \
-  } \
-  assert(size_name > 0);
+  }
 
 
 static selection_buffer_t selection;
@@ -60,7 +59,6 @@ static bool is_last_to_be_selected(const selection_buffer_t *s, const int ind) {
 
 static tab_t    *active_tab    = NULL;
 static buffer_t *active_buffer = NULL;
-static buffer_t *head_buffer   = NULL; // used only for splits.
 
 static array<tab_t> tabs;
 static file_buffer_t global_copy_buffer;
@@ -86,6 +84,7 @@ T *get_free_source(array<T> &source) {
   } else {
     // Already found.
   }
+
   assert(ret);
   ret->is_used = true;
   return ret;
@@ -96,41 +95,31 @@ static buffer_t *get_free_buffer() { return get_free_source(active_tab->buffers)
 
 
 static void finish_file(file_buffer_t *f) {
-  f->buffer.clear();
-  // @Incomplete:
-  // free undo/redo arrays.
+  for(size_t i = 0; i < f->undo.size; i++) {
+    assert(f->undo[i].file && !f->undo[i].file->undo.size);
+    delete f->undo[i].file;
+  }
+  for(size_t i = 0; i < f->redo.size; i++) {
+    assert(f->redo[i].file && !f->redo[i].file->redo.size);
+    delete f->redo[i].file;
+  }
+  delete f;
 }
 
 static void finish_buffer(buffer_t *b) {
-  b->is_used  = false;
+  b->file = NULL;
+  b->is_used = false;
   b->filename.clear();
-  b->split.split_with = NULL;
 
-  if(b == head_buffer) {
-    head_buffer = head_buffer->split.fake_split;
-
-  } else {
-    // Delete b from fake splits.
-    auto *tmp      = head_buffer;
-    auto *&current = head_buffer;
-    while(current != NULL) {
-      auto *next = current->split.fake_split;
-      if(next == b) {
-        current->split.fake_split = next->split.fake_split;
-      }
-      current = current->split.fake_split;
-    }
-    head_buffer = tmp;
-  }
-
+  b->start_x = 0; b->start_y = 0; b->width = 0; b->height = 0;
   b->cursor = 0; b->n_character = 0; b->n_line = 0; 
   b->offset_on_line = 0; b->offset_from_beginning = 0;
-  b->start_pos = 0;
+  b->start_pos = 0; b->saved_pos = 0;
 }
 
 static void finish_buffer_and_file(buffer_t *b) {
-  finish_buffer(b);
   finish_file(b->file);
+  finish_buffer(b);
 }
 
 
@@ -255,15 +244,19 @@ void tab_t::draw(bool selection_mode) const {
   }
 #endif
 
-  // Update cursor.
-  char s = active_buffer->file->buffer[active_buffer->cursor];
-  s = (s == '\n')? ' ': s;
-  int px = active_buffer->get_relative_pos_x(active_buffer->n_character-active_buffer->offset_on_line);
-  int py = active_buffer->get_relative_pos_y(active_buffer->n_line-active_buffer->start_pos);
-  active_buffer->draw_cursor(s, px, py, WhiteColor, BlackColor);
+  if(used_size == 0) {
 
-  draw_rect(0, get_console()->bottom_y, Width, font_height, WhiteColor);
-  console_draw();
+  } else {
+    // Update cursor.
+    char s = active_buffer->file->buffer[active_buffer->cursor];
+    s = (s == '\n')? ' ': s;
+    int px = active_buffer->get_relative_pos_x(active_buffer->n_character-active_buffer->offset_on_line);
+    int py = active_buffer->get_relative_pos_y(active_buffer->n_line-active_buffer->start_pos);
+    active_buffer->draw_cursor(s, px, py, WhiteColor, BlackColor);
+
+    draw_rect(0, get_console()->bottom_y, Width, font_height, WhiteColor);
+    console_draw();
+  }
 }
 
 void tab_t::on_resize(int n_width, int n_height) {
@@ -773,11 +766,14 @@ void save() {
   }
 }
 
+
+
+
+// Splits.
 static int compute_start_to_left(int current, buffer_t *b)  { return current - b->start_x; }
 static int compute_start_to_right(int current, buffer_t *b) { return b->start_x - current; }
 static int compute_start_to_up(int current, buffer_t *b)    { return current - b->start_y; }
 static int compute_start_to_down(int current, buffer_t *b)  { return b->start_y - current; }
-
 
 void change_split(buffer_t *p, direction_t d) {
   assert(d != none); // Doesn't make any sense to call this with none.
@@ -920,16 +916,27 @@ void change_split(buffer_t *p, direction_t d) {
 
 void close_split(buffer_t *current) {
   auto &splits = active_tab->splits;
-  if(splits.size == 1) { should_quit = true; return; }
+
+  if(splits.size == 1) { 
+    auto tmp = splits.pop();
+    assert(current == tmp);
+
+    finish_buffer_and_file(current);
+
+    active_buffer = NULL;
+    should_quit   = true; 
+    return;
+  }
+
   assert(splits.size > 1);
 
-  size_t index = splits.remove(active_buffer);
+  size_t index = splits.remove(current);
   splits[0]->init(0, 0, Width, get_console()->bottom_y);
 
   for(size_t i = 0; i < splits.size-1; i++) {
     auto p = splits[i];
     auto n = splits[i+1];
-    do_split(p, n, n->split.type, true);
+    do_split(p, n, n->split_type, true);
   }
 
   if(index == splits.size) {
@@ -937,15 +944,10 @@ void close_split(buffer_t *current) {
   } else {
     active_buffer = splits[index];
   }
-  current->is_used = false;
-  
 
-#if 0
-  // 
-  // @Incompelte:
-  // Buffer is still is_used, so we can't reuse it.
-  // 
-  // Check for buffers opened multiple times.
+
+
+  get_used_buffers(used_bufs, usize, active_tab->buffers);
   size_t size = 0;
   for(size_t i = 0; i < usize; i++) {
     if(used_bufs[i]->filename == current->filename) {
@@ -953,13 +955,12 @@ void close_split(buffer_t *current) {
     }
   }
 
-  if(size == 1) { // there is no same buffer on window.
+  if(size == 1) {  // Check for buffers opened multiple times.
     finish_buffer_and_file(current);
   } else {
-    if(next->filename == current->filename) { next->file->buffer.move_until(next->cursor); }
+    if(active_buffer->filename == current->filename) { active_buffer->file->buffer.move_until(active_buffer->cursor); }
     finish_buffer(current);
   }
-#endif
 }
 
 
@@ -979,9 +980,10 @@ void do_split(buffer_t *p, buffer_t *n, split_type_t type, bool resize_only) {
 
   if(!resize_only) {
     active_tab->splits.insert(n, ++active_tab->insert_to);
-    n->split.type = type;
+    n->split_type = type;
   }
 }
+// end of Splits.
 
 static const char stop_chars[] = { ' ', '(', '{', ')', '}', '#', '\"', '\'', '/', '\\', '.', ';', '\n' };
 int go_word_forward() {

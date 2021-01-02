@@ -20,11 +20,6 @@ struct selection_buffer_t {
   direction_t direction = none;
 };
 
-struct split_info_t {
-  buffer_t *split_with = NULL;
-  buffer_t *fake_split = NULL;
-  split_type_t type;
-};
 
 struct file_buffer_t {
   gap_buffer buffer;
@@ -32,14 +27,12 @@ struct file_buffer_t {
   array<buffer_t> redo;
 };
 
-
-
 struct buffer_t {
-  file_buffer_t *file;
+  file_buffer_t *file = NULL;
   bool is_used = false;
   string_t filename;
 
-  split_info_t split;
+  split_type_t split_type;
 
 
   // Position on the window.
@@ -93,8 +86,8 @@ struct tab_t {
   array<buffer_t*> splits;
   size_t insert_to = 0;
 
-
   bool is_used = false;
+
 
   void on_resize(int,int);
   void draw(bool) const;
@@ -142,10 +135,6 @@ int compute_to_end_of_line();
 void undo(buffer_t *);
 void redo(buffer_t *);
 void save_current_state_for_undo(buffer_t *);
-
-
-
-
 
 
 inline void copy_window_position(buffer_t *a, const buffer_t *b) {

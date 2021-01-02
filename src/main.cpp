@@ -564,12 +564,13 @@ int main(int argc, char **argv) {
       // @Incomplete:
       // If same file_buffer_t is used in different tabs,
       // This will cause double free of file_buffer_t,
-      // Cause now we're freeing same buffers only for one tab.
+      // Cause now we're freeing same buffers only for single tab.
       file_buffer_t *all_files[tab->buffers.size];
       size_t files_size = 0;
 
       for(size_t i = 0; i < tab->buffers.size; i++) {
         auto file_buffer = tab->buffers[i].file;
+        if (!file_buffer) continue;
 
         // Check if file_buffer is already in all_files.
         bool already_in_files = false;
@@ -588,10 +589,19 @@ int main(int argc, char **argv) {
       for(size_t i = 0; i < files_size; i++) {
         auto file = all_files[i];
 
-        for(size_t j = 0; j < file->undo.size; j++) { delete file->undo[j].file; }
-        for(size_t j = 0; j < file->redo.size; j++) { delete file->redo[j].file; }
+        for(size_t j = 0; j < file->undo.size; j++) { assert(file->undo[j].file); delete file->undo[j].file; }
+        for(size_t j = 0; j < file->redo.size; j++) { assert(file->redo[j].file); delete file->redo[j].file; }
         delete file;
       }
+    }
+
+    for(size_t k = 0; k < tabs.size; k++) {
+      auto tab = &tabs[k];
+      for(size_t i = 0; i < tab->buffers.size; i++) {
+        auto buffer = &tab->buffers[i];
+        buffer->~buffer_t();
+      }
+      tab->~tab_t();
     }
   }
 
