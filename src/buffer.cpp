@@ -82,6 +82,7 @@ T *get_free_source(array<T> &source) {
   if(!ret) {
     ret = &source.add();
     new (ret) T();
+
   } else {
     // Already found.
   }
@@ -92,6 +93,7 @@ T *get_free_source(array<T> &source) {
 
 static tab_t *get_free_tab()       { return get_free_source(tabs); }
 static buffer_t *get_free_buffer() { return get_free_source(active_tab->buffers); }
+
 
 static void finish_file(file_buffer_t *f) {
   f->buffer.clear();
@@ -183,9 +185,6 @@ static FILE *get_file_or_create(const char *filename, const char *mods) {
 
 void open_new_buffer(string_t &s) {
   auto buffer = get_free_buffer();
-  assert(buffer);
-  active_buffer = buffer;
-
   buffer->file = new file_buffer_t;
 
   if(s.data == NULL) { return; }
@@ -197,15 +196,18 @@ void open_new_buffer(string_t &s) {
     move_string(&buffer->filename, &s);
   }
   buffer->total_lines = buffer->count_total_lines();
+
+  active_buffer = buffer;
 }
 
 void open_existing_buffer(buffer_t *prev) {
   auto buffer = get_free_buffer();
-  active_buffer = buffer;
 
-  buffer->file     = prev->file;
+  buffer->file = prev->file;
   copy_string(&buffer->filename, &prev->filename);
   buffer->file->buffer.move_until(0);
+
+  active_buffer = buffer;
 }
 
 void open_existing_or_new_buffer(const literal &filename) {
@@ -228,9 +230,7 @@ void tab_t::draw(bool selection_mode) const {
   get_const_buffers(used_bufs, used_size, buffers);
 
   for(size_t i = 0; i < used_size; i++) {
-    auto buffer = used_bufs[i];
-    draw_rect(buffer->start_x, buffer->start_y, buffer->width, buffer->height, WhiteColor);
-    buffer->draw(selection_mode);
+    used_bufs[i]->draw(selection_mode);
   }
 
 #if 0
@@ -649,14 +649,18 @@ void init(int argc, char **argv) {
   active_tab = tab;
   open_new_buffer(filename); // @Incomplete: What if filename is already opened?
 
-  make_font();
+  tab->splits.add(active_buffer); 
+  tab->insert_to++;
 
   auto buffer = active_buffer;
 
+  make_font();
+
+
   console_init();
   console_on_resize(Height);
-
   buffer->init(0, 0, Width, get_console()->bottom_y);
+
 }
 
 selection_buffer_t *get_selection_buffer() {
@@ -774,7 +778,8 @@ static int compute_start_to_right(int current, buffer_t *b) { return b->start_x 
 static int compute_start_to_up(int current, buffer_t *b)    { return current - b->start_y; }
 static int compute_start_to_down(int current, buffer_t *b)  { return b->start_y - current; }
 
-void change_buffer(buffer_t *p, direction_t d) {
+
+void change_split(buffer_t *p, direction_t d) {
   assert(d != none); // Doesn't make any sense to call this with none.
 
   get_used_buffers(used_bufs, usize, active_tab->buffers);
@@ -902,95 +907,63 @@ void change_buffer(buffer_t *p, direction_t d) {
 
   }
   assert(n && n != p);
+
+  auto &splits = active_tab->splits;
+
+  buffer_t **iter; size_t index;
+  splits.find(iter, &index, n);
+  assert(iter);
+
+  active_tab->insert_to = index;
   active_buffer = n;
-
-
-  {
-    // Resetting all splits.
-    auto *tmp      = head_buffer;
-    auto *&current = head_buffer;
-    while(current != NULL) {
-      current->split.split_with = current->split.fake_split;
-      current = current->split.fake_split;
-    }
-    head_buffer = tmp;
-  }
-
-  {
-    // Reverse linked list of splits.
-    auto *tmp      = head_buffer;
-    auto *&prev    = n->split.split_with;
-    auto *&current = head_buffer;
-    while(current != n) {
-      auto *next = current->split.split_with;
-      current->split.split_with = prev;
-      prev    = current;
-      current = next;
-    }
-    // 
-    head_buffer = tmp;
-  }
 }
 
-void close_buffer(buffer_t *p) {
-  get_used_buffers(used_bufs, usize, active_tab->buffers);
-  if(usize == 1) { should_quit = true; return; }
+void close_split(buffer_t *current) {
+  auto &splits = active_tab->splits;
+  if(splits.size == 1) { should_quit = true; return; }
+  assert(splits.size > 1);
 
-  auto n = p->split.split_with;
-  assert(n);
+  size_t index = splits.remove(active_buffer);
+  splits[0]->init(0, 0, Width, get_console()->bottom_y);
 
-  auto start_x = min(p->start_x, n->start_x);
-  auto start_y = min(p->start_y, n->start_y);
-  n->init(start_x, start_y, p->width, p->height);
+  for(size_t i = 0; i < splits.size-1; i++) {
+    auto p = splits[i];
+    auto n = splits[i+1];
+    do_split(p, n, n->split.type, true);
+  }
+
+  if(index == splits.size) {
+    active_buffer = splits[index-1];
+  } else {
+    active_buffer = splits[index];
+  }
+  current->is_used = false;
+  
 
 #if 0
-  auto *prev = n;
-  auto *next = n->split.split_with;
-  auto base_type = n->split.type;
-  while(next != NULL) {
-    
-    switch(next->split.type) {
-      case hsp_type: {
-        if(base_type == hsp_type) {
-
-        } else {
-        }
-        break;
-      }
-
-      case vsp_type: {
-        if(base_type == vsp_type) {
-        } else {
-
-        }
-        break;
-      }
-    }
-    next = next->split.split_with;
-  }
-#endif
-
-
-  // @Speed: 
-  // Can have this values as members of buffer_t.
+  // 
+  // @Incompelte:
+  // Buffer is still is_used, so we can't reuse it.
+  // 
+  // Check for buffers opened multiple times.
   size_t size = 0;
   for(size_t i = 0; i < usize; i++) {
-    if(used_bufs[i]->filename == p->filename) {
+    if(used_bufs[i]->filename == current->filename) {
       size++;
     }
   }
 
   if(size == 1) { // there is no same buffer on window.
-    finish_buffer_and_file(p);
+    finish_buffer_and_file(current);
   } else {
-    if(n->filename == p->filename) { n->file->buffer.move_until(n->cursor); }
-    finish_buffer(p);
+    if(next->filename == current->filename) { next->file->buffer.move_until(next->cursor); }
+    finish_buffer(current);
   }
-  active_buffer = n;
+#endif
 }
 
 
-void do_split(buffer_t *p, buffer_t *n, split_type_t type) {
+void do_split(buffer_t *p, buffer_t *n, split_type_t type, bool resize_only) {
   switch(type) {
     case hsp_type: {
       n->init(p->start_x, p->start_y + p->height/2., p->width, p->height/2.);
@@ -1004,12 +977,10 @@ void do_split(buffer_t *p, buffer_t *n, split_type_t type) {
     }
   }
 
-  assert(n == active_buffer);
-  head_buffer = active_buffer;
-
-  n->split.split_with = p;
-  n->split.type = type;
-  n->split.fake_split = p;
+  if(!resize_only) {
+    active_tab->splits.insert(n, ++active_tab->insert_to);
+    n->split.type = type;
+  }
 }
 
 static const char stop_chars[] = { ' ', '(', '{', ')', '}', '#', '\"', '\'', '/', '\\', '.', ';', '\n' };

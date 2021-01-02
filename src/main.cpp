@@ -303,10 +303,10 @@ void on_colon() {
   }
 }
 
-void on_left_arrow()  { change_buffer(get_current_buffer(), left); }
-void on_right_arrow() { change_buffer(get_current_buffer(), right); }
-void on_down_arrow()  { change_buffer(get_current_buffer(), down); }
-void on_up_arrow()    { change_buffer(get_current_buffer(), up); }
+void on_left_arrow()  { change_split(get_current_buffer(), left); }
+void on_right_arrow() { change_split(get_current_buffer(), right); }
+void on_down_arrow()  { change_split(get_current_buffer(), down); }
+void on_up_arrow()    { change_split(get_current_buffer(), up); }
 
 void on_escape() {
   switch(mode) {
@@ -430,7 +430,7 @@ int main(int argc, char **argv) {
 #endif
 
   while(!should_quit) {
-    measure_scope();
+    // measure_scope();
 #if 0
     int editor_state;
     lua_getglobal(L, "editor_state");
@@ -532,9 +532,6 @@ int main(int argc, char **argv) {
           }
         } break;
 
-        case SDL_MOUSEBUTTONDOWN: {
-        } break;
-
         default: {
         } break;
       }
@@ -543,7 +540,7 @@ int main(int argc, char **argv) {
     // update.
     switch(editor_state) {
       case Editor: {
-
+        draw_rect(0, 0, Width, get_console()->bottom_y, WhiteColor);
         get_current_tab()->draw(mode == VisualMode);
         SDL_RenderPresent(get_renderer());
       } break;
@@ -573,7 +570,6 @@ int main(int argc, char **argv) {
 
       for(size_t i = 0; i < tab->buffers.size; i++) {
         auto file_buffer = tab->buffers[i].file;
-
 
         // Check if file_buffer is already in all_files.
         bool already_in_files = false;

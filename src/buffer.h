@@ -41,6 +41,7 @@ struct buffer_t {
 
   split_info_t split;
 
+
   // Position on the window.
   int start_x, start_y, width, height;
   unsigned cursor = 0, n_character = 0, n_line = 0, total_lines = 0;
@@ -88,7 +89,11 @@ struct buffer_t {
 
 
 struct tab_t {
-  array<buffer_t> buffers;
+  array<buffer_t>  buffers;
+  array<buffer_t*> splits;
+  size_t insert_to = 0;
+
+
   bool is_used = false;
 
   void on_resize(int,int);
@@ -120,13 +125,13 @@ void paste_from_global_copy();
 void go_to_line(int);
 void save();
 
-void close_buffer(buffer_t *);
-void change_buffer(buffer_t *, direction_t);
+void close_split(buffer_t *);
+void change_split(buffer_t *, direction_t);
 
 
 
 
-void do_split(buffer_t *, buffer_t *, split_type_t);
+void do_split(buffer_t *, buffer_t *, split_type_t, bool resize_only=false);
 
 int go_word_forward();
 int go_word_backwards();

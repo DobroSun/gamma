@@ -66,12 +66,12 @@ struct Var {
     literal l = (#val); \
     attach_table[l] = r; \
   }
+
 #define push_int_value(val) \
   push_to_table(val, integer_value, IntegerType)
 #define push_bool_value(val) \
   push_to_table(val, boolean_value, BooleanType)
   
-
 
 
 static std::unordered_map<literal, Var> attach_table;
@@ -281,7 +281,7 @@ static Ast_Expression *parse() {
   if(tok->type == QuitCommandType) {
     tok = get_next_token();
     if(tok->type == EndOfLineType) {
-      close_buffer(get_current_buffer());
+      close_split(get_current_buffer());
       
     } else {
       // report error.

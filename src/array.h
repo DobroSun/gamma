@@ -38,16 +38,42 @@ struct array {
     return add() = std::move(val);
   }
 
-#if 0
+  void find(T *iter, size_t *index, const T &val) {
+    for(size_t i = 0; i < size; i++) {
+      if(this->operator[](i) == val) {
+        iter   = &this->operator[](i);
+        *index = i;
+        return;
+      }
+    }
+    iter = NULL;
+  }
+
+  size_t remove(const T &val) {
+    T *iter; size_t index;
+    find(iter, &index, val);
+
+    assert(iter);
+
+    memcpy(data+index, data+index+1, sizeof(T) * (size-index-1));
+    size--;
+
+    return index;
+  }
+
   T &insert(size_t index) {
-    assert(index < size);
+    if(index >= size) { return add(); }
 
     if(size == capacity) { reserve(); }
 
-    const size_t copied_size = size - index;
-    T tmp[copied_size];
-    memcpy(tmp, data + copied_size, sizeof(tmp));
-    memcpy(data + copied_size + 1, tmp, sizeof(tmp));
+    const size_t size_to_copy = size - index;
+    size++;
+
+    T tmp[size_to_copy];
+
+    memcpy(tmp, data + index, sizeof(tmp));
+    memcpy(data + index + 1, tmp, sizeof(tmp));
+
     return data[index];
   }
 
@@ -58,7 +84,8 @@ struct array {
   T &insert(T &&c, size_t index) {
     return insert(index) = std::move(c);
   }
-#endif
+
+
   T &pop()   { return data[--size]; }
   T &first() { return data[0]; }
   T &last()  { return data[size-1]; }
