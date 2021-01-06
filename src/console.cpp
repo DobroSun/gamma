@@ -77,7 +77,7 @@ void console_backspace() {
 
 void console_run_command() {
   size_t size = console.buffer.size();
-  char   cmd[size];
+  char   cmd[size+1];
 
   for(size_t i = 0; i < size; i++) {
     cmd[i] = console.buffer[i];

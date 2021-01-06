@@ -7,23 +7,6 @@
 
 #include <fcntl.h>
 
-// @Temporary:
-static void go_down() {
-  auto buffer = get_current_buffer();
-  int n = buffer->compute_go_down();
-  while(n) {
-    buffer->go_right();
-    n--;
-  }
-}
-static void go_up() {
-  auto buffer = get_current_buffer();
-  int n = buffer->compute_go_up();
-  while(n) {
-    buffer->go_left();
-    n--;
-  }
-}
 
 
 // @Speed:
@@ -49,16 +32,10 @@ static void go_up() {
   }
 
 
-static selection_buffer_t selection;
-static bool is_in_selected(const selection_buffer_t *s, const int ind) {
-  return s->start_index <= ind && ind <= s->start_index+(int)s->size;
-}
-static bool is_last_to_be_selected(const selection_buffer_t *s, const int ind) {
-  return ind <= s->start_index+(int)s->size;
-}
-
 static tab_t    *active_tab    = NULL;
 static buffer_t *active_buffer = NULL;
+
+static selection_buffer_t selection;
 
 static array<tab_t> tabs;
 static file_buffer_t global_copy_buffer;
@@ -107,7 +84,7 @@ static void finish_file(file_buffer_t *f) {
 }
 
 static void finish_buffer(buffer_t *b) {
-  b->file = NULL;
+  b->file    = NULL;
   b->is_used = false;
   b->filename.clear();
 
@@ -269,69 +246,8 @@ void tab_t::on_resize(int n_width, int n_height) {
   }
 }
 
-// @CleanUp:
-static bool is_selection = false;
-void buffer_t::draw_line(int beginning, int line_number, bool selecting) const {
-  if(get_line_length(beginning) <= (int)offset_on_line) { return; }
 
-  const gap_buffer &buffer = file->buffer;
-  int i = beginning + offset_on_line, char_number = 0;
-  while(buffer[i] != '\n') {
-    const int px = get_relative_pos_x(char_number);
-    const int py = get_relative_pos_y(line_number);
-
-    const char c = buffer[i];
-    const auto t = get_alphabet()[c];
-    assert(t);
-
-    if(px > start_x+width-font_width) {
-      return;
-    }
-
-    if(selecting) {
-      if(is_in_selected(&selection, i)) { is_selection= true; }
-      if(is_selection) {
-        draw_cursor(c, px, py, WhiteColor, BlackColor);
-      } else {
-        copy_texture(t, px, py);
-      }
-      if(is_last_to_be_selected(&selection, i)) { is_selection = false; }
-
-    } else {
-      copy_texture(t, px, py);
-    }
-
-    i++;
-    char_number++;
-  }
-
-  // CleanUp: Copy&Paste: of code inside loop.
-  const int px = get_relative_pos_x(char_number);
-  const int py = get_relative_pos_y(line_number);
-
-  const char c = ' ';
-  const auto t = get_alphabet()[c];
-  assert(t);
-
-  if(px > start_x+width-font_width) {
-    return;
-  }
-
-  if(selecting) {
-    if(is_in_selected(&selection, i)) { is_selection= true; }
-    if(is_selection) {
-      draw_cursor(c, px, py, WhiteColor, BlackColor);
-    } else {
-      copy_texture(t, px, py);
-    }
-    if(is_last_to_be_selected(&selection, i)) { is_selection = false; }
-
-  } else {
-    copy_texture(t, px, py);
-  }
-}
-
-void buffer_t::draw(bool selection_mode) const {
+void buffer_t::draw(bool selecting) const {
 #if 0
   // @Note:
   // When we split on current window and start editing text,
@@ -341,9 +257,10 @@ void buffer_t::draw(bool selection_mode) const {
   // `another window`. 
 
   // The problem is current draw function updates every frame,
-  // and not when text is changed, so it's impossible to don't
-  // get that behavior.
+  // even when text doesn't change, so it's impossible to not
+  // have that behavior, until we do partial drawing.
   //
+
   bool no_update = false;
   if(this != active_buffer) {
     // Handles cases, when we split on current buffer, and trying to edit text
@@ -355,22 +272,47 @@ void buffer_t::draw(bool selection_mode) const {
   }
 #endif
 
-  int i = offset_from_beginning, line = 0;
-  while((size_t)i < file->buffer.size()) {
-    assert(i >= 0 && (size_t)i < file->buffer.size()-1);
+  size_t i = offset_from_beginning, line_number = 0;
+  while(i < file->buffer.size()) {
+    if(get_relative_pos_y(line_number) >= get_console()->bottom_y - font_height) { break; }
 
-    if(get_relative_pos_y(line) >= get_console()->bottom_y - font_height) { 
-      // If we are out of window.
-      break;
+    const int current_line_length = get_line_length(i);
+
+    defer {
+      i += current_line_length;
+      line_number++;
+    };
+
+    if(current_line_length <= (int)offset_on_line) { continue; }
+
+
+    const auto &buffer = file->buffer;
+    int j = i + offset_on_line, char_number = 0;
+    
+    while(buffer[j] != '\n') {
+      const int px = get_relative_pos_x(char_number);
+      const int py = get_relative_pos_y(line_number);
+
+      const char c = buffer[j];
+      const auto t = get_alphabet()[c];
+      assert(t);
+
+      if(px > start_x+width-font_width) { break; }
+
+      {
+        const int start_index    = selection.start_index;
+        const int selection_size = selection.size;
+        if(selecting && (j >= start_index && j <= start_index+selection_size)) {
+          draw_cursor(c, px, py, WhiteColor, BlackColor);
+        } else {
+          copy_texture(t, px, py);
+        }
+      }
+
+      j++;
+      char_number++;
     }
-
-    draw_line(i, line, selection_mode);
-    i += get_line_length(i);
-    line++;
   }
-
-  // @Hack: when inside draw_line we never reach the 
-  is_selection = false;
 }
 
 void buffer_t::draw_cursor(char c, int px, int py, SDL_Color color1, SDL_Color color2) const {
@@ -517,9 +459,10 @@ void buffer_t::put_backspace() {
     // we have to compensate it with gap_buffer.move_right().
     file->buffer.move_right();
     go_left();
+
+    if(file->buffer[cursor] == '\n') total_lines--;
+    file->buffer.backspace();
   }
-  if(file->buffer[cursor] == '\n') total_lines--;
-  file->buffer.backspace();
 }
 
 void buffer_t::put_delete() {
@@ -543,6 +486,25 @@ void buffer_t::put(char c) {
 
   go_right();
   file->buffer.move_left();
+}
+
+// @Temporary: @RemoveMe:
+void buffer_t::go_down() {
+  auto buffer = get_current_buffer();
+  int n = buffer->compute_go_down();
+  while(n) {
+    buffer->go_right();
+    n--;
+  }
+}
+
+void buffer_t::go_up()   {
+  auto buffer = get_current_buffer();
+  int n = buffer->compute_go_up();
+  while(n) {
+    buffer->go_left();
+    n--;
+  }
 }
 
 int buffer_t::compute_go_down() {
@@ -729,8 +691,8 @@ void go_to_line(int line) {
     line++;
   }
 
-  while(line > (int)active_buffer->n_line+1) go_down();
-  while(line < (int)active_buffer->n_line+1) go_up();
+  while(line > (int)active_buffer->n_line+1) active_buffer->go_down();
+  while(line < (int)active_buffer->n_line+1) active_buffer->go_up();
 }
 
 

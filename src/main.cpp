@@ -18,13 +18,7 @@ static const int NormalMode = 0;
 static const int InsertMode = 1;
 static const int VisualMode = 2;
 
-static int  editor_state = Editor;
-static int  mode         = NormalMode;
 
-static bool allow_console_input = false;
-static bool allow_editor_input  = false;
-
-#if 0
 static bool check_lua(lua_State *L, int r) {
   bool ok = (r == LUA_OK);
   if(!ok) {
@@ -153,7 +147,6 @@ static int get_cursor_index(lua_State *L) {
   lua_pushnumber(L, x);
   return 1;
 }
-#endif
 
 static int do_selection_to_left(lua_State *L) {
   auto &selection = get_selection();
@@ -218,7 +211,6 @@ static int do_selection_to_right(lua_State *L) {
   return 0;
 }
 
-#if 0
 static int compute_go_down(lua_State *L) {
   int x = get_current_buffer()->compute_go_down();
   lua_pushnumber(L, x);
@@ -289,99 +281,13 @@ static void interp_lua_table(lua_State *L, const char *name, int key) {
     }
   }
 }
-#endif
 
-void on_i() {
-  mode = InsertMode;
-  allow_editor_input = false;
-}
-
-void on_colon() {
-  switch(mode) {
-    case NormalMode: { console_clear(); editor_state = Console; break; }
-    default: break;
-  }
-}
-
-void on_left_arrow()  { change_split(get_current_buffer(), left); }
-void on_right_arrow() { change_split(get_current_buffer(), right); }
-void on_down_arrow()  { change_split(get_current_buffer(), down); }
-void on_up_arrow()    { change_split(get_current_buffer(), up); }
-
-void on_escape() {
-  switch(mode) {
-    case NormalMode: should_quit = true; break;
-    case InsertMode: mode = NormalMode;  break;
-    default: break;
-  }
-}
-
-void on_return() {
-  switch(editor_state) {
-    case NormalMode: get_current_buffer()->put_return(); break;
-    case InsertMode: console_run_command();              break;
-    default: break;
-  }
-}
-
-void on_backspace() {
-  switch(editor_state) {
-    case NormalMode: get_current_buffer()->go_left();       break;
-    case InsertMode: get_current_buffer()->put_backspace(); break;
-    default: break;
-  }
-}
-
-void on_delete() {
-  switch(editor_state) {
-    case InsertMode: get_current_buffer()->put_delete(); break;
-    default: break;
-  }
-}
-
-void on_console_escape() { should_quit = true; }
-void on_console_return() {
-  console_run_command();
-  editor_state = Editor;
-  allow_console_input = false;
-}
-void on_console_backspace() { console_backspace(); }
-
-
-static std::unordered_map<int, void (*)()> on_shifted_keydown = {
-  {';', &on_colon}, // ':'
-};
-
-static std::unordered_map<int, void (*)()> on_keydown  = {
-  {'i', &on_i},
-  {SDLK_LEFT,   &on_left_arrow},
-  {SDLK_RIGHT,  &on_right_arrow},
-  {SDLK_DOWN,   &on_down_arrow},
-  {SDLK_UP,     &on_up_arrow},
-  {SDLK_ESCAPE, &on_escape},
-  {SDLK_RETURN, &on_return},
-  {SDLK_BACKSPACE, &on_backspace},
-  {SDLK_DELETE, &on_delete},
-};
-
-static std::unordered_map<int, void (*)()> on_console_keydown  = {
-  {SDLK_ESCAPE, &on_console_escape},
-  {SDLK_RETURN, &on_console_return},
-  {SDLK_BACKSPACE, &on_console_backspace},
-};
-
-
-void do_command(const std::unordered_map<int, void (*)()> &commands, const int key) {
-  auto func = commands.find(key);
-  if(func != commands.end()) { func->second(); }
-}
 
 
 int main(int argc, char **argv) {
   if(Init_SDL()) return 1;
   init(argc, argv);
 
-#if 0
   lua_State *L = luaL_newstate();
   lua_register(L, "save", &save);
   lua_register(L, "quit", &quit);
@@ -427,11 +333,10 @@ int main(int argc, char **argv) {
     if(lua_isnumber(L, -1)) { Width = lua_tonumber(L, -1); lua_pop(L, -1); }
     SDL_SetWindowSize(get_win(), Width, Height);
   }
-#endif
 
   while(!should_quit) {
     // measure_scope();
-#if 0
+
     int editor_state;
     lua_getglobal(L, "editor_state");
     if(lua_isnumber(L, -1)) {
@@ -445,7 +350,6 @@ int main(int argc, char **argv) {
       mode = lua_tonumber(L, -1);
       lua_pop(L, -1);
     }
-#endif
 
     SDL_Event e;
     while(SDL_PollEvent(&e)) {
@@ -459,48 +363,29 @@ int main(int argc, char **argv) {
           auto mod = e.key.keysym.mod;
 
           if(mod & KMOD_CTRL && mod & KMOD_SHIFT) {
-            switch(editor_state) {
-              case Editor : break;
-              case Console: break;
-            }
+            interp_lua_table(L, "shift_ctrl", key);
 
           } else if(mod & KMOD_SHIFT) {
-            switch(editor_state) {
-              case Editor : do_command(on_shifted_keydown, key); break;
-              case Console:                                      break;
-            }
+            interp_lua_table(L, "shift", key);
 
           } else if(mod & KMOD_CTRL) {
-            switch(editor_state) {
-              case Editor : break;
-              case Console: break;
-            }
+            interp_lua_table(L, "ctrl", key);
 
           } else { // no mod.
-            switch(editor_state) {
-              case Editor : do_command(on_keydown,         key); break;
-              case Console: do_command(on_console_keydown, key); break;
-            }
+            interp_lua_table(L, "keys", key);
           }
         } break;
 
         case SDL_TEXTINPUT: {
           switch(editor_state) {
-            case Editor : {
+            case Editor: {
               if(mode != InsertMode) break;
-              switch(allow_editor_input) {
-                case true : get_current_buffer()->put(e.text.text[0]); break;
-                case false: allow_editor_input = true;                 break;
-              }
-
+              get_current_buffer()->put(e.text.text[0]);
               break;
             }
 
             case Console: {
-              switch(allow_console_input) {
-                case true : console_put(e.text.text[0]); break;
-                case false: allow_console_input = true;  break;
-              }
+              console_put(e.text.text[0]);
               break;
             }
           }
@@ -554,7 +439,7 @@ int main(int argc, char **argv) {
   }
 
 
-  //lua_close(L);
+  lua_close(L);
 
   {
     auto &tabs = get_tabs();

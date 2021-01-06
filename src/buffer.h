@@ -62,6 +62,11 @@ struct buffer_t {
   void put_delete();
   void put(char);
 
+
+  // @Temporary: @RemoveMe:
+  void go_down();
+  void go_up();
+
   int compute_go_down();
   int compute_go_up();
 
