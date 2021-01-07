@@ -20,16 +20,14 @@ void draw_rect(int x, int y, int w, int h, SDL_Color c) {
 
 void draw_text(TTF_Font *font, const char *text, SDL_Color c, int p1, int p2) {
   auto txt = render_text_solid(font, text, c);
-  defer { SDL_DestroyTexture(txt); };
-
   copy_texture(txt, p1, p2);
+  SDL_DestroyTexture(txt);
 }
 
 void draw_text_shaded(TTF_Font *font, const char *text, SDL_Color c1, SDL_Color c2, int p1, int p2) {
   auto txt = render_text_shaded(font, text, c1, c2);
-  defer { SDL_DestroyTexture(txt); };
-
   copy_texture(txt, p1, p2);
+  SDL_DestroyTexture(txt);
 }
 
 
@@ -46,12 +44,10 @@ TTF_Font *load_font(const char *font_name, int ptsize) {
 SDL_Texture *render_text_solid(TTF_Font *font, const char *text, SDL_Color color) {
   assert(font);
 
-  SDL_Surface *surf = TTF_RenderText_Solid(font, text, color);
-  defer { SDL_FreeSurface(surf); };
-  assert(surf);
-
-  SDL_Texture *txt = SDL_CreateTextureFromSurface(get_renderer(), surf);
-  assert(txt);
+  SDL_Surface *surf = TTF_RenderText_Solid(font, text, color); assert(surf);
+  SDL_Texture *txt  = SDL_CreateTextureFromSurface(get_renderer(), surf); assert(txt);
+  
+  SDL_FreeSurface(surf);
   return txt;
 }
 
@@ -59,12 +55,10 @@ SDL_Texture *render_text_solid(TTF_Font *font, const char *text, SDL_Color color
 SDL_Texture *render_text_shaded(TTF_Font *font, const char *s, SDL_Color c1, SDL_Color c2) {
   assert(font);
 
-  SDL_Surface *surf = TTF_RenderText_Shaded(font, s, c1, c2);
-  defer { SDL_FreeSurface(surf); };
-  assert(surf);
+  SDL_Surface *surf = TTF_RenderText_Shaded(font, s, c1, c2); assert(surf);
+  SDL_Texture *txt  = SDL_CreateTextureFromSurface(get_renderer(), surf); assert(txt);
 
-  SDL_Texture *txt = SDL_CreateTextureFromSurface(get_renderer(), surf);
-  assert(txt);
+  SDL_FreeSurface(surf);
   return txt;
 }
 
@@ -79,10 +73,8 @@ texture_map &get_alphabet() {
 void make_alphabet(SDL_Color color) {
   assert(active_font);
   for_each(chars) {
-    char c[2];
-    c[0] = *it;
-    c[1] = '\0';
-    alphabet.insert(std::make_pair(c[0], render_text_solid(active_font, reinterpret_cast<const char *>(&c), color)));
+    char c[] = {*it, '\0'};
+    alphabet.insert(std::make_pair(c[0], render_text_solid(active_font, (const char *)(&c), color)));
   }
 }
 
@@ -97,10 +89,7 @@ void clear_font() {
 }
 
 void make_font() {
-  active_font = load_font("Courier-Regular.ttf", 25);
-  assert(active_font);
-
+  active_font = load_font("Courier-Regular.ttf", 25); assert(active_font);
   TTF_SizeText(active_font, "G", &font_width, &font_height);
-
   make_alphabet(BlackColor);
 }

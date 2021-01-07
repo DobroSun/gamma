@@ -6,7 +6,7 @@
 
 
 // @CleanUp: @Temporary:
-size_t hash_literal(const literal &l) {
+static size_t hash_literal(const literal &l) {
 	const size_t prime = 31;
 	size_t result = 0;
 	for (size_t i = 0; i < l.size; ++i) {
@@ -25,37 +25,9 @@ namespace std {
 } // namespace std
 //
 
-enum TokenType {
-  IdentiferType  = 256,
-  EndOfLineType  = 257,
 
-  IntegerType    = 258,
-  BooleanType    = 259,
-  Float32Type    = 260,
-  Float64Type    = 261,
-  IdentifierType = 262,
-  LiteralType    = 263,
+static int nline = 1, nchar = 1;
 
-  QuitCommandType = 400,
-  SetCommandType  = 401,
-  HSplitCommandType = 402,
-  VSplitCommandType = 403,
-};
-
-union RValue {
-  bool   boolean_value;
-  char   char_value;
-  int    integer_value;
-  float  float32_value;
-  double float64_value;
-  unsigned unsigned_value;
-};
-
-
-struct Var {
-  TokenType type = EndOfLineType; // @Hack: only need int, bool, ...
-  RValue    value;
-};
 
 
 #define push_to_table(val, member, type_t) \
@@ -67,27 +39,14 @@ struct Var {
     attach_table[l] = r; \
   }
 
-#define push_int_value(val) \
-  push_to_table(val, integer_value, IntegerType)
-#define push_bool_value(val) \
-  push_to_table(val, boolean_value, BooleanType)
+#define push_int_value(val)  push_to_table(val, integer_value, IntegerType)
+#define push_bool_value(val) push_to_table(val, boolean_value, BooleanType)
   
-
 
 static std::unordered_map<literal, Var> attach_table;
 void init_var_table() {
   push_bool_value(show_fps);
 }
-
-
-struct Token {
-  TokenType type = EndOfLineType;
-
-  union {
-    RValue  value;
-    literal string_literal;
-  };
-};
 
 
 #define NEW_AST(ast_type) new ast_type(ast_type##_Type)
@@ -128,18 +87,26 @@ struct Keyword_Def {
   TokenType type;
 };
 
+
+// @Speed: Actually needs to be a hashtable O(1) lookup.
 static const Keyword_Def table[] = {
   {"quit", QuitCommandType},
   {"q",    QuitCommandType},
 
-  {"set", SetCommandType},
+  {"set",  SetCommandType},
 
   {"hsplit", HSplitCommandType},
-  {"vsplit", VSplitCommandType},
   {"hsp",    HSplitCommandType},
-  {"vsp",    VSplitCommandType},
   {"sp",     HSplitCommandType},
+  {"vsplit", VSplitCommandType},
+  {"vsp",    VSplitCommandType},
 
+  {"int",    IntegerType},
+  {"bool",   BooleanType},
+  {"void",   VoidType},
+  {"const",  ConstType},
+  {"static", StaticType},
+  {"extern", ExternType},
 };
 
 static void set_keyword_token(const literal &l, const TokenType t) {
@@ -149,49 +116,64 @@ static void set_keyword_token(const literal &l, const TokenType t) {
 }
 
 static bool is_boolean(const char *c) {
-  return (c == literal{"true"} || c == literal{"false"});
+  return (c == "true" || c == "false");
 }
 
 static void set_bool_token(const char *&c) {
   current_tok.type = BooleanType;
   if(c[0] == 't') {
+    assert(c == "true");
     c += 4;
     current_tok.value.boolean_value = true;
+    current_tok.string_literal = "true";
 
   } else if(c[0] == 'f') {
+    assert(c == "false");
     c += 5;
     current_tok.value.boolean_value = false;
+    current_tok.string_literal = "false";
 
   } else {
     assert(0);
   }
 }
 
-static void set_token(const TokenType t) {
-  current_tok.type = t;
+static void set_token(const char *c) {
+  current_tok.type = (TokenType)(*c);
+  current_tok.string_literal = literal(c, 1);
   cursor++;
 }
 
 static void set_num_token(const char *&c) {
   // only ints for now.
-  current_tok.value.integer_value = atoi(c);
   current_tok.type = IntegerType;
+  current_tok.value.integer_value = atoi(c);
+  current_tok.string_literal = "";
 
-  while(isdigit(*c)) c++;
+  do {
+    c++; 
+    current_tok.string_literal.size++; 
+  } while(isdigit(*c));
+  
 }
 
 static void set_literal_token(const char *&c) {
+  assert(*c == '\"' || *c == '\'');
+  const char s = *c;
+
   c++;
   int count = 0;
-  while(c[count] != '\0') {
-    if(c[count] == '\"' || c[count] == '\'') break;
+  while(c[count] != s) {
+    if(c[count] == '\0') {
+      // report error.
+      break;
+    }
     count++;
   }
   current_tok.type = LiteralType;
   current_tok.string_literal.data = c;
   current_tok.string_literal.size = count;
-  c += count;
-  c++;
+  c += count + 1;
 }
 
 static void set_ident_token(const char *&c) {
@@ -207,12 +189,12 @@ static void set_ident_token(const char *&c) {
 }
 
 static bool is_keyword(const char *cursor) {
-  for(unsigned i = 0; i < arr_size(table); i++) {
+  for(size_t i = 0; i < array_size(table); i++) {
     if(cursor == table[i].name) {
       auto tmp = cursor;
       tmp += table[i].name.size;
 
-      if(*tmp == '\0' || *tmp == ' ' || *tmp == '\t') {
+      if(is_one_of(*tmp, " \r\t") || *tmp == '\0') {
         found_keyword = i;
         return true;
       } else {
@@ -223,22 +205,27 @@ static bool is_keyword(const char *cursor) {
   return false;
 }
 
-static bool is_literal(char c) {
-  return c == '\"' || c == '\'';
-}
-
-static bool is_number(char c) {
-  return isdigit(c) || c == '-';
-}
+static bool is_string_literal(const char *c) { return is_one_of(*c, "\"\'"); }
+static bool is_number(const char *c)      { return isdigit(*c) || *c == '-'; }
+static bool is_identifier(const char *c)  { return isalpha(*c) || *c == '_'; }
 
 
-static Token *get_next_token() {
+Token *get_next_token() {
+  defer {
+    current_tok.l = nline;
+    current_tok.c = nchar;
+
+    // @Incomplete:
+    // Multiple strings?
+    nchar += current_tok.string_literal.size;
+  };
+
   while(*cursor != '\0') {
-    if(is_number(*cursor)) {
+    if(is_number(cursor)) {
       set_num_token(cursor);
       return &current_tok;
 
-    } else if(is_literal(*cursor)) {
+    } else if(is_string_literal(cursor)) {
       set_literal_token(cursor);
       return &current_tok;
   
@@ -246,25 +233,34 @@ static Token *get_next_token() {
       set_bool_token(cursor);
       return &current_tok;
 
-    } else if(*cursor == '=') {
-      set_token((TokenType)'=');
+    } else if(is_one_of(*cursor, "(){}=;,.*&[]+-/!<>%?:#|^~")) {
+      set_token(cursor);
       return &current_tok;
 
     } else if(is_keyword(cursor)) {
-      Keyword_Def kw = table[found_keyword];
+      const Keyword_Def kw = table[found_keyword];
       set_keyword_token(kw.name, kw.type);
       return &current_tok;
 
-    } else if(isalpha(*cursor) || *cursor == '_') {
+    } else if(is_identifier(cursor)) {
       set_ident_token(cursor);
       return &current_tok;
 
     } else {
+
+      if(*cursor == '\n') {
+        nline++;
+        nchar = 1;
+      } else {
+        nchar++;
+      }
+
       cursor++;
     }
   }
-
-  set_token(EndOfLineType);
+  
+  current_tok.type = EndOfLineType;
+  assert(*cursor == '\0');
   return &current_tok;
 }
 
@@ -405,8 +401,8 @@ static void dealloc(Ast_Expression *ast) {
 }
 
 
-#define attach_to_table(name) \
-  attach_value(&name, #name)
+#define attach_to_table(name) attach_value(&name, #name)
+  
 
 static void attach_value(bool *val, const literal &name) {
   Var *r = &attach_table[name];
@@ -414,8 +410,6 @@ static void attach_value(bool *val, const literal &name) {
     *val = r->value.boolean_value;
   } else {
     // @Incomplete: report error.
-    r->type = BooleanType;
-    r->value.boolean_value = *val;
   }
 }
 
@@ -425,8 +419,6 @@ static void attach_value(int *val, const literal &name) {
     *val = r->value.integer_value;
   } else {
     // @Incomplete: report error.
-    r->type = IntegerType;
-    r->value.integer_value = *val;
   }
 }
 
@@ -434,19 +426,21 @@ static void update_variables() {
   attach_to_table(show_fps);
 }
 
+void set_interp_state(const char *s) {
+  cursor = s; nline = 1, nchar = 1;
+}
+
 
 void interp(const char *s) {
-  cursor = s;
+  set_interp_state(s);
 
-  if(Ast_Expression *ast = parse()) {
-    defer { dealloc(ast); };
-
+  while(Ast_Expression *ast = parse()) {
     switch(ast->type) {
       case Ast_Set_Type: {
         auto e = static_cast<Ast_Set *>(ast);
         //
         // @SpeadUp: 
-        // No need to update all variables, if our command is bad formed
+        // No need to update all variables, if our command is wrong
         // for example when, we want assign integer to a bool value, or
         // when trying to reset value with itself.
         // 
@@ -474,7 +468,7 @@ void interp(const char *s) {
       default: {
       } break;
     }
-  }
 
-  cursor = NULL;
+    dealloc(ast);
+  }
 }

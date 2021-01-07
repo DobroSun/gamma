@@ -5,7 +5,7 @@
 #include <unordered_map> // @Temporary.
 #include <algorithm>     // @Temporary.
 
-#include <iostream> // for print, and printFPS.
+#include <iostream> // print
 #include <chrono>
 #include <cstring> // strncmp.
 

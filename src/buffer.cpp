@@ -195,6 +195,9 @@ void open_existing_or_new_buffer(const literal &filename) {
 void tab_t::draw(bool selection_mode) const {
   get_const_buffers(used_bufs, used_size, buffers);
 
+
+
+
   for(size_t i = 0; i < used_size; i++) {
     used_bufs[i]->draw(selection_mode);
   }
@@ -271,6 +274,29 @@ void buffer_t::draw(bool selecting) const {
     }
   }
 #endif
+  const gap_buffer &buffer      = get_current_buffer()->file->buffer;
+  const size_t      buffer_size = buffer.size();
+
+
+  array<Token> tokens;
+  char string[buffer_size+1];
+
+  memcpy(string, buffer.chars.data, sizeof(char) * buffer.pre_len);
+  memcpy(string + buffer.pre_len, buffer.chars.data + buffer.pre_len + buffer.gap_len, sizeof(char) * buffer.size()-buffer.pre_len);
+  string[buffer_size] = '\0';
+
+
+
+  set_interp_state(string);
+
+  Token *tok;
+  do {
+    tok = get_next_token();
+    tokens.add(*tok);
+  } while(tok->type != EndOfLineType);
+
+
+  size_t current_token_index = 0;
 
   size_t i = offset_from_beginning, line_number = 0;
   while(i < file->buffer.size()) {
@@ -286,9 +312,7 @@ void buffer_t::draw(bool selecting) const {
     if(current_line_length <= (int)offset_on_line) { continue; }
 
 
-    const auto &buffer = file->buffer;
     int j = i + offset_on_line, char_number = 0;
-    
     while(buffer[j] != '\n') {
       const int px = get_relative_pos_x(char_number);
       const int py = get_relative_pos_y(line_number);
@@ -300,12 +324,44 @@ void buffer_t::draw(bool selecting) const {
       if(px > start_x+width-font_width) { break; }
 
       {
+        const Token current_token = tokens[current_token_index];
+
         const int start_index    = selection.start_index;
         const int selection_size = selection.size;
-        if(selecting && (j >= start_index && j <= start_index+selection_size)) {
-          draw_cursor(c, px, py, WhiteColor, BlackColor);
-        } else {
-          copy_texture(t, px, py);
+
+        bool done_drawing = false;
+
+        if(current_token.l <= line_number+1) {
+          assert(current_token.l == line_number+1);
+
+          const int cpos  = current_token.c - 1;
+          const int csize = current_token.string_literal.size - 1;
+          assert(csize >= 0 && cpos >= 0);
+
+          
+          if(cpos <= char_number && char_number <= cpos + csize) {
+            switch(current_token.type) {
+              case ConstType: {
+                draw_cursor(c, px, py, {255, 0, 255}, WhiteColor);
+                done_drawing = true;
+                break;
+              }
+              default: break;
+            }
+            
+            if(char_number == cpos + csize) { current_token_index++; }
+          }
+        }
+
+        if(!done_drawing) {
+
+          if(selecting && (j >= start_index && j <= start_index+selection_size)) {
+            draw_cursor(c, px, py, WhiteColor, BlackColor);
+
+          } else {
+            //draw_cursor(c, px, py, {0,255,255}, WhiteColor);
+            copy_texture(t, px, py);
+          }
         }
       }
 
@@ -615,7 +671,6 @@ void init(int argc, char **argv) {
   console_init();
   console_on_resize(Height);
   buffer->init(0, 0, Width, get_console()->bottom_y);
-
 }
 
 selection_buffer_t *get_selection_buffer() {

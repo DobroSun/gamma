@@ -66,24 +66,10 @@ struct literal {
     data = x;
     size = N;
   }
-  literal(const literal &o) {
-    data = o.data;
-    size = o.size;
-  }
-  literal &operator=(const literal &o) {
-    data = o.data;
-    size = o.size;
-    return *this;
-  }
-  literal(literal &&o) {
-    data = std::move(o.data);
-    size = std::move(o.size);
-  }
-  literal &operator=(literal &&o) {
-    data = std::move(o.data);
-    size = std::move(o.size);
-    return *this;
-  }
+  literal(const literal &)            = default;
+  literal &operator=(const literal &) = default;
+  literal(literal &&)                 = default;
+  literal &operator=(literal &&)      = default;
 };
 
 inline bool operator==(const char *s, const literal &l) {
@@ -103,7 +89,7 @@ inline bool operator==(const literal &l1, const literal &l2) {
 }
 
 
-#define to_literal(a) literal{a.data, a.size}
+#define to_literal(a) literal(a.data, a.size)
 inline bool operator==(const literal &l, const string_t &s) {
   return to_literal(s) == l;
 }
@@ -127,7 +113,7 @@ inline std::ostream& operator<<(std::ostream &os, const literal &l) {
     name[l.size] = '\0'; \
   } \
 
-#define arr_size(x) (sizeof((x)) / sizeof(*(x)))
+#define array_size(x) (sizeof((x)) / sizeof(*(x)))
 
 template<class T, class U>
 T max(T a, U b) { return static_cast<T>((a < static_cast<T>(b))? b: a); }
@@ -158,7 +144,7 @@ struct Timer {
 
 
 template<class T, size_t N>
-bool is_one_of(T c, const T (&x)[N]) {
+bool is_one_of(const T c, const T (&x)[N]) {
   for_each(x) {
     if(c == *it) { return true; }
   }

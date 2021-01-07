@@ -3,6 +3,7 @@
 #include "buffer.h"
 #include "font.h"
 #include "console.h"
+#include "interp.h"
 
 extern "C" {
 #include "lua/include/lua.h"
@@ -288,6 +289,7 @@ int main(int argc, char **argv) {
   if(Init_SDL()) return 1;
   init(argc, argv);
 
+
   lua_State *L = luaL_newstate();
   lua_register(L, "save", &save);
   lua_register(L, "quit", &quit);
@@ -333,6 +335,7 @@ int main(int argc, char **argv) {
     if(lua_isnumber(L, -1)) { Width = lua_tonumber(L, -1); lua_pop(L, -1); }
     SDL_SetWindowSize(get_win(), Width, Height);
   }
+
 
   while(!should_quit) {
     // measure_scope();
