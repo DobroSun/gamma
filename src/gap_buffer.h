@@ -2,17 +2,16 @@
 #define GAMMA_GAP_BUFFER_H
 
 struct gap_buffer {
-  string_t chars;
+  string chars;
   size_t pre_len = 0;
   size_t gap_len = 12; // @SpeedUp: Check on the best default value for gap_len.
 
 
   gap_buffer() = default;
-
-  gap_buffer(const gap_buffer &other) = delete;
-  gap_buffer &operator=(const gap_buffer &other) = delete;
-  gap_buffer(gap_buffer &&other) = delete;
-  gap_buffer &operator=(gap_buffer &&other) = delete;
+  gap_buffer(const gap_buffer &other)            = default;
+  gap_buffer &operator=(const gap_buffer &other) = default;
+  gap_buffer(gap_buffer &&other)                 = default;
+  gap_buffer &operator=(gap_buffer &&other)      = default;
 
 
   void move_right() {
@@ -79,8 +78,7 @@ struct gap_buffer {
       pre_len = size;
       gap_len = size;
 
-      assert(chars.capacity == size);
-      chars.resize_with_no_init(size*2);
+      chars.resize(size*2);
       for(size_t i = 0; i < post_len; i++) {
         move_left();
       }
@@ -121,7 +119,7 @@ struct gap_buffer {
   }
 
   char &operator[](size_t i) {
-    assert(is_initialized() && i < chars.size-gap_len);
+    assert(i < chars.size-gap_len);
     if(i < pre_len) {
       return chars[i];
     } else {
@@ -131,7 +129,7 @@ struct gap_buffer {
 
   const char &operator[](size_t i) const {
     // Copy&Paste.
-    assert(is_initialized() && i < chars.size-gap_len);
+    assert(i < chars.size-gap_len);
     if(i < pre_len) {
       return chars[i];
     } else {
@@ -140,17 +138,11 @@ struct gap_buffer {
   }
 
   size_t size() const {
-    assert(is_initialized());
     return chars.size - gap_len;
   }
 
   bool empty() const {
-    assert(is_initialized());
     return size() == 0;
-  }
-
-  bool is_initialized() const {
-    return chars.data != NULL;
   }
 };
 
@@ -171,20 +163,10 @@ inline bool operator!=(const gap_buffer &a, const gap_buffer &b) {
   return !(a == b);
 }
 
-inline void copy_gap_buffer(gap_buffer *a, const gap_buffer *b) {
-  copy_array(&a->chars, &b->chars);
-  a->pre_len = b->pre_len;
-  a->gap_len = b->gap_len;
-}
-
-inline void move_gap_buffer(gap_buffer *a, gap_buffer *b) {
-  move_array(&a->chars, &b->chars);
-  a->pre_len = b->pre_len;
-  a->gap_len = b->gap_len;
-
-  assert(b->chars.data == NULL);
-  b->pre_len = 0;
-  b->gap_len = 0;
+inline void copy_gap_buffer(gap_buffer &a, const gap_buffer &b) {
+  copy_string(a.chars, b.chars);
+  a.pre_len = b.pre_len;
+  a.gap_len = b.gap_len;
 }
 
 #endif

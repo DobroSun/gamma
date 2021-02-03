@@ -5,9 +5,39 @@
 #include "console.h"
 #include "interp.h"
 
-#include <fcntl.h>
 
+literal get_file_extension(const string &filename) {
+  const char *iter; size_t index;
+  filename.find('.', &iter, &index);
 
+  if(iter) {
+    literal r;
+    r.data = filename.data + index;
+    r.size = filename.size - index;
+    return r;
+  } else {
+    literal r;
+    return r;
+  }
+}
+
+void split(array<literal> *lines, const literal &l, const literal &split_by) {
+  const char *data = l.data;
+  size_t      count = 0;
+  size_t      size = 0;
+  while(count < l.size) {
+    if(l.data + count == split_by) {
+      lines->add(literal(data, size));
+      size = 0;
+      count += split_by.size;
+      data = l.data + count;
+    } else {
+      size++;
+      count++;
+    }
+  }
+  lines->add(literal(data, size));
+}
 
 // @Speed:
 // No need to iterate and get them 
@@ -116,12 +146,25 @@ selection_buffer_t &get_selection() {
   return selection;
 }
 
+// @CleanUp: factor read_entire_file's together.
+void read_entire_file(string *s, FILE *f) {
+  fseek(f, 0, SEEK_END);
+  size_t size = ftell(f);
+
+  s->resize(size);
+  rewind(f);
+
+  size_t res = fread(s->data, sizeof(char), size, f);
+  if(res != size) { fprintf(stderr, "@Incomplete\n"); }
+}
+
+
 static void read_entire_file(gap_buffer *ret, FILE *f) {
   assert(ret && f);
   fseek(f, 0, SEEK_END);
   size_t size = ftell(f);
 
-  ret->chars.resize_with_no_init(size + ret->gap_len);
+  ret->chars.resize(size + ret->gap_len);
   assert(ret->pre_len == 0);
 
   rewind(f);
@@ -149,20 +192,19 @@ static FILE *get_file_or_create(const char *filename, const char *mods) {
 }
 
 
-void open_new_buffer(string_t &s) {
+void open_new_buffer(string &s) {
   auto buffer = get_free_buffer();
   buffer->file = new file_buffer_t;
 
   if(s.data == NULL) { return; }
 
-  to_c_string(&s, name);
-  if(FILE *f = fopen(name, "r")) {
+  if(FILE *f = fopen(s.data, "r")) {
     defer { fclose(f); };
     read_entire_file(&buffer->file->buffer, f);
-    move_string(&buffer->filename, &s);
+    buffer->filename = s;
   }
-  buffer->total_lines = buffer->count_total_lines();
 
+  buffer->total_lines = buffer->count_total_lines();
   active_buffer = buffer;
 }
 
@@ -170,7 +212,7 @@ void open_existing_buffer(buffer_t *prev) {
   auto buffer = get_free_buffer();
 
   buffer->file = prev->file;
-  copy_string(&buffer->filename, &prev->filename);
+  buffer->filename = prev->filename;
   buffer->file->buffer.move_until(0);
 
   active_buffer = buffer;
@@ -186,10 +228,8 @@ void open_existing_or_new_buffer(const literal &filename) {
       return;
     }
   }
-
-  string_t name;
-  from_c_string(&name, filename.data, filename.size);
-  open_new_buffer(name);
+  string s = to_string(filename);
+  open_new_buffer(s);
 }
 
 void tab_t::draw(bool selection_mode) const {
@@ -230,9 +270,11 @@ void tab_t::draw(bool selection_mode) const {
     // Update cursor.
     char s = active_buffer->file->buffer[active_buffer->cursor];
     s = (s == '\n')? ' ': s;
+
     int px = active_buffer->get_relative_pos_x(active_buffer->n_character-active_buffer->offset_on_line);
     int py = active_buffer->get_relative_pos_y(active_buffer->n_line-active_buffer->start_pos);
-    active_buffer->draw_cursor(s, px, py, WhiteColor, BlackColor);
+
+    draw_text_shaded(get_font(), s, WhiteColor, BlackColor, px, py);
 
     draw_rect(0, get_console()->bottom_y, Width, font_height, WhiteColor);
     console_draw();
@@ -251,139 +293,181 @@ void tab_t::on_resize(int n_width, int n_height) {
 
 
 void buffer_t::draw(bool selecting) const {
-#if 0
-  // @Note:
-  // When we split on current window and start editing text,
-  // it gets wrong on another window if both have different 
-  // `start_pos` or `offset_on_line`, so we try to avoid 
-  // that right here, deciding to whether update or not, 
-  // `another window`. 
-
-  // The problem is current draw function updates every frame,
-  // even when text doesn't change, so it's impossible to not
-  // have that behavior, until we do partial drawing.
-  //
-
-  bool no_update = false;
-  if(this != active_buffer) {
-    // Handles cases, when we split on current buffer, and trying to edit text
-    // in different positions on each window.
-    
-    if(start_pos > active_buffer->start_pos) { // We don't want to update text below 
-      no_update = true;
-    }
-  }
-#endif
-  const gap_buffer &buffer      = get_current_buffer()->file->buffer;
+  const gap_buffer &buffer      = active_buffer->file->buffer;
   const size_t      buffer_size = buffer.size();
-
-
-  array<Token> tokens;
-  char string[buffer_size+1];
-
-  memcpy(string, buffer.chars.data, sizeof(char) * buffer.pre_len);
-  memcpy(string + buffer.pre_len, buffer.chars.data + buffer.pre_len + buffer.gap_len, sizeof(char) * buffer.size()-buffer.pre_len);
-  string[buffer_size] = '\0';
-
-
-
-  set_interp_state(string);
-
-  Token *tok;
-  do {
-    tok = get_next_token();
-    tokens.add(*tok);
-  } while(tok->type != EndOfLineType);
-
 
   size_t current_token_index = 0;
 
   size_t i = offset_from_beginning, line_number = 0;
   while(i < file->buffer.size()) {
-    if(get_relative_pos_y(line_number) >= get_console()->bottom_y - font_height) { break; }
-
     const int current_line_length = get_line_length(i);
 
-    defer {
-      i += current_line_length;
-      line_number++;
-    };
+    char string[current_line_length + 1];
+    string[current_line_length] = '\0';
 
-    if(current_line_length <= (int)offset_on_line) { continue; }
+    for(size_t j = i; j < i + current_line_length; j++) {
+      char c = buffer[j];
+      if(c == '\n') {
+        string[j-i] = ' ';
+      } else {
+        string[j-i] = c;
+      }
+    }
+
+    const int px = get_relative_pos_x(-offset_on_line); // @Hack:
+    const int py = get_relative_pos_y(line_number);
+
+    if(py >= get_console()->bottom_y - font_height) { break; }
+
+    draw_text_shaded(get_font(), string, BlackColor, WhiteColor, px, py);
+
+    i += current_line_length;
+    line_number++;
+  }
 
 
-    int j = i + offset_on_line, char_number = 0;
-    while(buffer[j] != '\n') {
-      const int px = get_relative_pos_x(char_number);
-      const int py = get_relative_pos_y(line_number);
+  auto syntax = get_language_syntax(get_file_extension(filename));
+  if(!syntax) return;
 
-      const char c = buffer[j];
-      const auto t = get_alphabet()[c];
-      assert(t);
+  Lexer lexer;
+  copy_array(lexer.keywords_table, syntax->keywords);
+  lexer.tokenize_comments   = syntax->tokenize_comments;
+  lexer.single_line_comment = to_literal(syntax->single_line_comment);
+  lexer.start_multi_line    = to_literal(syntax->start_multi_line);
+  lexer.end_multi_line      = to_literal(syntax->end_multi_line);
 
-      if(px > start_x+width-font_width) { break; }
+  char string[buffer_size+1];
 
-      {
-        const Token current_token = tokens[current_token_index];
+  memcpy(string, buffer.chars.data, buffer.pre_len);
+  memcpy(string + buffer.pre_len, buffer.chars.data + buffer.pre_len + buffer.gap_len, buffer_size-buffer.pre_len);
+  string[buffer_size] = '\0';
 
-        const int start_index    = selection.start_index;
-        const int selection_size = selection.size;
+  lexer.process_input(string);
 
-        bool done_drawing = false;
+  auto &tokens = lexer.tokens;
+  for(auto &tok : tokens) {
+    if(tok.l < start_pos && tok.type != TOKEN_STRING_LITERAL && tok.type != TOKEN_MULTI_LINE_COMMENT && tok.type != TOKEN_SINGLE_LINE_COMMENT) continue;
 
-        if(current_token.l <= line_number+1) {
-          assert(current_token.l == line_number+1);
+    literal l = tok.string_literal;
 
-          const int cpos  = current_token.c - 1;
-          const int csize = current_token.string_literal.size - 1;
-          assert(csize >= 0 && cpos >= 0);
+    if(syntax->defined_color_for_literals && (tok.type == TOKEN_NUMBER || tok.type == TOKEN_BOOLEAN)) {
+      const int px = get_relative_pos_x(-offset_on_line + tok.c); // @Hack:
+      const int py = get_relative_pos_y(tok.l - start_pos);
 
-          
-          if(cpos <= char_number && char_number <= cpos + csize) {
-            switch(current_token.type) {
-              case ConstType: {
-                draw_cursor(c, px, py, {255, 0, 255}, WhiteColor);
-                done_drawing = true;
-                break;
-              }
-              default: break;
-            }
-            
-            if(char_number == cpos + csize) { current_token_index++; }
-          }
-        }
+      if(py > get_console()->bottom_y - font_height) break;
 
-        if(!done_drawing) {
+      static_string_from_literal(s, l);
+      draw_text_shaded(get_font(), s, syntax->color_for_literals, WhiteColor, px, py);
+      continue;
 
-          if(selecting && (j >= start_index && j <= start_index+selection_size)) {
-            draw_cursor(c, px, py, WhiteColor, BlackColor);
+    } else if(syntax->defined_color_for_strings && tok.type == TOKEN_STRING_LITERAL) {
+      array<literal> lines;
+      split(&lines, l, "\n");
 
-          } else {
-            //draw_cursor(c, px, py, {0,255,255}, WhiteColor);
-            copy_texture(t, px, py);
-          }
+      if(lines.size == 1) {
+        const int px = get_relative_pos_x(-offset_on_line + tok.c); // @Hack:
+        const int py = get_relative_pos_y(tok.l - start_pos);
+
+        if(py > get_console()->bottom_y - font_height) break;
+
+        SDL_Color c = syntax->color_for_strings;
+        static_string_from_literal(s, lines[0]);
+        if(lines[0].size) draw_text_shaded(get_font(), s, c, WhiteColor, px + font_width, py);
+
+        char cc = '\"';
+        draw_text_shaded(get_font(), cc, c, WhiteColor, px, py);
+        draw_text_shaded(get_font(), cc, c, WhiteColor, px + (l.size+1)*font_width, py);
+      } else {
+
+        char first[lines.first().size+1];
+        first[0] = '\"';
+        memcpy(first+1, lines.first().data, lines.first().size);
+
+        char last[lines.last().size+1];
+        last[lines.last().size] = '\"';
+        memcpy(last, lines.last().data, lines.last().size);
+
+        lines.first() = literal(first,lines.first().size+1);
+        lines.last()  = literal(last, lines.last().size+1);
+
+        for(size_t i = 0; i < lines.size; i++) { // @Copy&Paste: from TOKEN_SINGLE_LINE_COMMENT.
+          if(lines[i].size == 0) { continue; }
+
+          int x = (i == 0) ? tok.c : 0;
+          const int px = get_relative_pos_x(-offset_on_line + x); // @Hack:
+          const int py = get_relative_pos_y(tok.l - start_pos + i);
+
+          if(py > get_console()->bottom_y - font_height) break;
+      
+          static_string_from_literal(comment, lines[i]);
+          draw_text_shaded(get_font(), comment, syntax->color_for_strings, WhiteColor, px, py);
         }
       }
+      continue;
 
-      j++;
-      char_number++;
+    } else if(syntax->tokenize_comments && tok.type == TOKEN_SINGLE_LINE_COMMENT) {
+      array<literal> lines;
+      split(&lines, l, "\\\n");
+
+      for(size_t i = 0; i < lines.size; i++) {
+        if(lines[i].size == 0) { continue; }
+
+        int x = (i == 0) ? tok.c : 0;
+        const int px = get_relative_pos_x(-offset_on_line + x); // @Hack:
+        const int py = get_relative_pos_y(tok.l - start_pos + i);
+
+        if(py > get_console()->bottom_y - font_height) break;
+
+        SDL_Color c = syntax->color_for_comments;
+    
+        if(i != lines.size-1) {
+          char comment[lines[i].size+2];
+          memcpy(comment, lines[i].data, lines[i].size);
+          comment[lines[i].size] = '\\';
+          comment[lines[i].size+1] = '\0';
+          draw_text_shaded(get_font(), comment, c, WhiteColor, px, py);
+        } else {
+          static_string_from_literal(comment, lines[i]);
+          draw_text_shaded(get_font(), comment, c, WhiteColor, px, py);
+        }
+      }
+      continue;
+
+    } else if(syntax->tokenize_comments && tok.type == TOKEN_MULTI_LINE_COMMENT) {
+      array<literal> lines;
+      split(&lines, l, "\n");
+
+      for(size_t i = 0; i < lines.size; i++) { // @Copy&Paste: from TOKEN_SINGLE_LINE_COMMENT.
+        if(lines[i].size == 0) { continue; }
+
+        int x = (i == 0) ? tok.c : 0;
+        const int px = get_relative_pos_x(-offset_on_line + x); // @Hack:
+        const int py = get_relative_pos_y(tok.l - start_pos + i);
+
+        if(py > get_console()->bottom_y - font_height) break;
+    
+        static_string_from_literal(comment, lines[i]);
+        draw_text_shaded(get_font(), comment, syntax->color_for_comments, WhiteColor, px, py);
+      }
+      continue;
+    }
+
+
+    struct string *it; size_t index;
+    syntax->names.find(l, &it, &index);
+    if (it) {
+      const int px = get_relative_pos_x(-offset_on_line + tok.c); // @Hack:
+      const int py = get_relative_pos_y(tok.l - start_pos);
+
+      if(py > get_console()->bottom_y - font_height) break;
+      
+      draw_text_shaded(get_font(), it->data, syntax->colors[index], WhiteColor, px, py);
     }
   }
 }
 
-void buffer_t::draw_cursor(char c, int px, int py, SDL_Color color1, SDL_Color color2) const {
-  const char b[] = {c, '\0'};
-  draw_text_shaded(get_font(), b, color1, color2, px, py);
-}
-
-
-int buffer_t::get_relative_pos_x(int n_place) const {
-  return start_x + font_width * n_place;
-}
-
-int buffer_t::get_relative_pos_y(int n_place) const {
-  return start_y + font_height * n_place;
-}
+int buffer_t::get_relative_pos_x(int n_place) const { return start_x + font_width * n_place; }
+int buffer_t::get_relative_pos_y(int n_place) const { return start_y + font_height * n_place; }
 
 
 void buffer_t::on_resize(int prev_width, int prev_height, int new_width, int new_height) {
@@ -648,9 +732,9 @@ int number_chars_on_line_fits_in_window(const buffer_t *b) {
 void init(int argc, char **argv) {
   init_var_table();
 
-  string_t filename;
+  string filename;
   if(argc > 1) {
-    from_c_string(&filename, argv[1]);
+    filename = argv[1];
   } else {
     // No positional arguments provided.
     // filename.data == nullptr.
@@ -759,8 +843,7 @@ void save() {
   } else {
     assert(!buffer->filename.empty());
 
-    to_c_string(&buffer->filename, name);
-    FILE *f = get_file_or_create(name, "w");
+    FILE *f = get_file_or_create(buffer->filename.data, "w");
     defer { fclose(f); };
 
     if(!f) {
@@ -769,15 +852,14 @@ void save() {
       print("No file for me (:");
     }
 
-    unsigned i = 0u;
+    size_t i = 0u;
     for( ; i < buffer->file->buffer.size(); i++) {
       fprintf(f, "%c", buffer->file->buffer[i]);
     }
     if(!buffer->file->buffer.size() || buffer->file->buffer[i-1] != '\n') {
-      buffer->put('\n');
-      buffer->go_left();
-      save();
+      fprintf(f, "\n");
     }
+
     fflush(f);
     console_put_text("File saved.");
   }
@@ -924,7 +1006,7 @@ void change_split(buffer_t *p, direction_t d) {
   auto &splits = active_tab->splits;
 
   buffer_t **iter; size_t index;
-  splits.find(iter, &index, n);
+  splits.find(n, &iter, &index);
   assert(iter);
 
   active_tab->insert_to = index;
@@ -932,6 +1014,7 @@ void change_split(buffer_t *p, direction_t d) {
 }
 
 void close_split(buffer_t *current) {
+/*
   auto &splits = active_tab->splits;
 
   if(splits.size == 1) { 
@@ -978,6 +1061,7 @@ void close_split(buffer_t *current) {
     if(active_buffer->filename == current->filename) { active_buffer->file->buffer.move_until(active_buffer->cursor); }
     finish_buffer(current);
   }
+*/
 }
 
 
@@ -1057,7 +1141,7 @@ static void save_current_state_for_backup(buffer_t *b, array<buffer_t> *states) 
 
   a->file = new file_buffer_t;
 
-  copy_gap_buffer(&a->file->buffer, &b->file->buffer);
+  copy_gap_buffer(a->file->buffer, b->file->buffer);
   copy_window_position(a, b);
 }
 
@@ -1068,9 +1152,9 @@ static void to_previous_buffer_state(buffer_t *b, array<buffer_t> *active_states
   save_current_state_for_backup(b, passive_states);
 
   auto tmp = new file_buffer_t;
-  move_gap_buffer(&tmp->buffer, &state->file->buffer);
-  move_array(&tmp->undo, &b->file->undo);
-  move_array(&tmp->redo, &b->file->redo);
+  tmp->buffer = state->file->buffer;
+  tmp->undo   = b->file->undo;
+  tmp->redo   = b->file->redo;
 
   delete b->file;
   b->file = tmp;

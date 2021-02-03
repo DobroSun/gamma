@@ -23,7 +23,6 @@ struct file_buffer_t;
 
 
 typedef std::unordered_map<char, SDL_Texture*> texture_map;
-typedef array<char> string_t;
 
 struct Token;
 

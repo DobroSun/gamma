@@ -629,9 +629,16 @@ function on_D()
   end
 end
 
+function on_colon()
+  if editor_state == EDITOR then
+    if mode == NORMAL_MODE then
+      open_console()
+    end
+  end
+end
 
 shift = {}
-shift[';'] = open_console -- ':'
+shift[';'] = on_colon     -- ':'
 shift['4'] = on_dollar    -- '$'
 shift['a'] = on_A         -- 'A'
 shift['d'] = on_D         -- 'D'

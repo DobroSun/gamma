@@ -1,8 +1,6 @@
 #include "pch.h"
 #include "interp.h"
-#include "console.h"
 #include "buffer.h"
-#include "init.h"
 
 
 // @CleanUp: @Temporary:
@@ -14,7 +12,6 @@ static size_t hash_literal(const literal &l) {
 	}
 	return result;
 }
-
 namespace std {
 	template<>
 	struct hash<literal> {
@@ -26,449 +23,594 @@ namespace std {
 //
 
 
-static int nline = 1, nchar = 1;
+inline bool ensure_space(const char *c, size_t n) {
+  for(size_t i = 0; i < n; i++) {
+    if(*c == '\0') { return false; }
+    ++c;
+  }
+  return true;
+}
 
+inline void INC(const char *&c, s32 *nl, s32 *nc) {
+  if(*c == '\n') {
+    ++(*nl);
+    *nc = 0;
+  } else {
+    ++(*nc);
+  }
+  assert(*c != '\0');
+  ++c;
+}
 
+inline void ADVANCE(const char *&c, size_t n) {
+  assert(ensure_space(c, n));
+  c += n;
+}
+
+inline void ADVANCE(const char *&c, size_t n, s32 *nl, s32 *nc) {
+  assert(ensure_space(c, n));
+  for(size_t i = 0; i < n; i++) { INC(c, nl, nc); }
+}
 
 #define push_to_table(val, member, type_t) \
   { \
     Var r; \
-    r.type = (type_t); \
-    r.value.member = (val); \
+    r.type   = (type_t); \
+    r.member = (val); \
     literal l = (#val); \
-    attach_table[l] = r; \
+    attach_table.literals.add(l); \
+    attach_table.rvalues .add(r); \
   }
 
-#define push_int_value(val)  push_to_table(val, integer_value, IntegerType)
-#define push_bool_value(val) push_to_table(val, boolean_value, BooleanType)
+#define push_int(val)    push_to_table(val, s64_, TOKEN_NUMBER)
+#define push_bool(val)   push_to_table(val, bool_, TOKEN_BOOLEAN)
+#define push_string(val) push_to_table(val, string_, TOKEN_STRING_LITERAL)
   
 
-static std::unordered_map<literal, Var> attach_table;
-void init_var_table() {
-  push_bool_value(show_fps);
-}
-
-
-#define NEW_AST(ast_type) new ast_type(ast_type##_Type)
-#define DELETE_AST(ast)   delete ast
-
-enum Ast_Type {
-  Ast_Error_Type,
-  Ast_Set_Type,
-  Ast_Split_Type,
+struct Hotloaded_Variables { // @Speed: HashTable.
+  array<literal> literals;
+  array<Var>     rvalues;
 };
+static Hotloaded_Variables attach_table;
 
-struct Ast_Expression {
-  Ast_Type type = Ast_Error_Type;
-  Ast_Expression(const Ast_Type t) {
-    type = t;
-  }
-};
+static void attach_value(bool *val, const literal &name) {
+  literal *it; size_t index;
+  attach_table.literals.find(name, &it, &index);
 
-struct Ast_Set : public Ast_Expression {
-  using Ast_Expression::Ast_Expression;
-  literal name;
-  Var     var;
-};
-
-struct Ast_Split : public Ast_Expression {
-  using Ast_Expression::Ast_Expression;
-  literal path;
-  split_type_t split_type;
-};
-
-
-static Token       current_tok;
-static int         found_keyword;
-static const char *cursor;
-
-struct Keyword_Def {
-  literal   name;
-  TokenType type;
-};
-
-
-// @Speed: Actually needs to be a hashtable O(1) lookup.
-static const Keyword_Def table[] = {
-  {"quit", QuitCommandType},
-  {"q",    QuitCommandType},
-
-  {"set",  SetCommandType},
-
-  {"hsplit", HSplitCommandType},
-  {"hsp",    HSplitCommandType},
-  {"sp",     HSplitCommandType},
-  {"vsplit", VSplitCommandType},
-  {"vsp",    VSplitCommandType},
-
-  {"int",    IntegerType},
-  {"bool",   BooleanType},
-  {"void",   VoidType},
-  {"const",  ConstType},
-  {"static", StaticType},
-  {"extern", ExternType},
-};
-
-static void set_keyword_token(const literal &l, const TokenType t) {
-  current_tok.string_literal = l;
-  current_tok.type = t;
-  cursor += l.size;
-}
-
-static bool is_boolean(const char *c) {
-  return (c == "true" || c == "false");
-}
-
-static void set_bool_token(const char *&c) {
-  current_tok.type = BooleanType;
-  if(c[0] == 't') {
-    assert(c == "true");
-    c += 4;
-    current_tok.value.boolean_value = true;
-    current_tok.string_literal = "true";
-
-  } else if(c[0] == 'f') {
-    assert(c == "false");
-    c += 5;
-    current_tok.value.boolean_value = false;
-    current_tok.string_literal = "false";
-
-  } else {
-    assert(0);
-  }
-}
-
-static void set_token(const char *c) {
-  current_tok.type = (TokenType)(*c);
-  current_tok.string_literal = literal(c, 1);
-  cursor++;
-}
-
-static void set_num_token(const char *&c) {
-  // only ints for now.
-  current_tok.type = IntegerType;
-  current_tok.value.integer_value = atoi(c);
-  current_tok.string_literal = "";
-
-  do {
-    c++; 
-    current_tok.string_literal.size++; 
-  } while(isdigit(*c));
-  
-}
-
-static void set_literal_token(const char *&c) {
-  assert(*c == '\"' || *c == '\'');
-  const char s = *c;
-
-  c++;
-  int count = 0;
-  while(c[count] != s) {
-    if(c[count] == '\0') {
-      // report error.
-      break;
+  if(it) {
+    Var *r = &attach_table.rvalues[index];
+    if(r->type == TOKEN_BOOLEAN) {
+      *val = r->bool_;
+    } else {
+      assert(0); // @Incomplete: @ReportError:
     }
-    count++;
+  } else {
+    assert(0); // This error must be caught in parser. @ShouldNeverHapen:
   }
-  current_tok.type = LiteralType;
-  current_tok.string_literal.data = c;
-  current_tok.string_literal.size = count;
-  c += count + 1;
 }
 
-static void set_ident_token(const char *&c) {
-  current_tok.string_literal.data = c;
-  current_tok.type = IdentifierType;
+static void attach_value(int *val, const literal &name) {
+  literal *it; size_t index;
+  attach_table.literals.find(name, &it, &index);
 
-  size_t count = 0;
-  while(isalpha(*c) || *c == '_' || isdigit(*c)) {
-    c++;
-    count++;
+  if(it) {
+    Var *r = &attach_table.rvalues[index];
+    if(r->type == TOKEN_NUMBER) {
+      *val = r->s64_;
+    } else {
+      assert(0); // @Incomplete: @ReportError:
+    }
+  } else {
+    assert(0); // @ShouldNeverHappen:
   }
-  current_tok.string_literal.size = count;
 }
 
-static bool is_keyword(const char *cursor) {
-  for(size_t i = 0; i < array_size(table); i++) {
-    if(cursor == table[i].name) {
-      auto tmp = cursor;
-      tmp += table[i].name.size;
+static void attach_value(const char **val, const literal &name) {
+  literal *it; size_t index;
+  attach_table.literals.find(name, &it, &index);
 
-      if(is_one_of(*tmp, " \r\t") || *tmp == '\0') {
-        found_keyword = i;
-        return true;
+  if(it) {
+    Var *r = &attach_table.rvalues[index];
+    if(r->type == TOKEN_STRING_LITERAL) {
+      *val = r->string_; // @MemoryLeak:
+    } else {
+      assert(0); // @Incomplete: @ReportError:
+    }
+  } else {
+    assert(0); // @ShouldNeverHappen:
+  }
+}
+
+void init_var_table() {
+  push_bool(show_fps);
+  push_string(font_name);
+  push_int(font_size);
+}
+
+#define attach_from_table(name) attach_value(&name, #name)
+void update_variables() {
+  attach_from_table(show_fps);
+  attach_from_table(font_name);
+  attach_value((int*)&font_size, "font_size");
+}
+
+
+
+
+Token *Lexer::peek_token(s32 i = 0)  {
+  return &tokens[current_token_index + i];
+}
+
+void Lexer::eat_token(s32 i = 0) {
+  current_token_index += i+1;
+}
+
+Token *Lexer::peek_than_eat_token(s32 i = 0) {
+  Token *tok = peek_token(i);
+  eat_token(i);
+  return tok;
+}
+
+const Keyword_Def *Lexer::maybe_get_keyword(const char *c) {
+  for(auto &keyword : keywords_table) {
+    if(c == keyword.name) {
+      auto tmp = c;
+      if(!ensure_space(tmp, keyword.name.size)) { continue; } // @Should never be here, cause we alredy checked that `c` is a keyword. But we still go here and ADVANCE's assert fires up!
+
+      ADVANCE(tmp, keyword.name.size);
+      if(!isalpha(*tmp) && *tmp != '_' && !isdigit(*tmp)) {
+        return &keyword;
       } else {
         continue;
       }
     }
   }
-  return false;
-}
-
-static bool is_string_literal(const char *c) { return is_one_of(*c, "\"\'"); }
-static bool is_number(const char *c)      { return isdigit(*c) || *c == '-'; }
-static bool is_identifier(const char *c)  { return isalpha(*c) || *c == '_'; }
-
-
-Token *get_next_token() {
-  defer {
-    current_tok.l = nline;
-    current_tok.c = nchar;
-
-    // @Incomplete:
-    // Multiple strings?
-    nchar += current_tok.string_literal.size;
-  };
-
-  while(*cursor != '\0') {
-    if(is_number(cursor)) {
-      set_num_token(cursor);
-      return &current_tok;
-
-    } else if(is_string_literal(cursor)) {
-      set_literal_token(cursor);
-      return &current_tok;
-  
-    } else if(is_boolean(cursor)) {
-      set_bool_token(cursor);
-      return &current_tok;
-
-    } else if(is_one_of(*cursor, "(){}=;,.*&[]+-/!<>%?:#|^~")) {
-      set_token(cursor);
-      return &current_tok;
-
-    } else if(is_keyword(cursor)) {
-      const Keyword_Def kw = table[found_keyword];
-      set_keyword_token(kw.name, kw.type);
-      return &current_tok;
-
-    } else if(is_identifier(cursor)) {
-      set_ident_token(cursor);
-      return &current_tok;
-
-    } else {
-
-      if(*cursor == '\n') {
-        nline++;
-        nchar = 1;
-      } else {
-        nchar++;
-      }
-
-      cursor++;
-    }
-  }
-  
-  current_tok.type = EndOfLineType;
-  assert(*cursor == '\0');
-  return &current_tok;
-}
-
-
-// @Incomplete.
-static void report_error(const char *msg) {
-  console_put_text(msg);
-}
-
-static Ast_Expression *parse() {
-  Token *tok = get_next_token();
-
-  bool failed = false;
-  if(tok->type == QuitCommandType) {
-    tok = get_next_token();
-    if(tok->type == EndOfLineType) {
-      close_split(get_current_buffer());
-      
-    } else {
-      // report error.
-    }
-    return NULL;
-
-  } else if(tok->type == SetCommandType) {
-    auto expr = NEW_AST(Ast_Set);
-    defer { if(failed) { DELETE_AST(expr); expr = NULL; }};
-
-    tok = get_next_token();
-    if(tok->type != IdentifierType) {
-      // report error.
-      failed = true;
-      return expr;
-    }
-    assert(tok->type == IdentifierType);
-    expr->name = tok->string_literal;
-
-    tok = get_next_token();
-    if(tok->type != '=') {
-      // report error.
-      failed = true;
-      return expr;
-    }
-    assert(tok->type == '=');
-
-    tok = get_next_token();
-    if(tok->type == IntegerType) {
-      expr->var.type = IntegerType;
-      expr->var.value.integer_value = tok->value.integer_value;
-
-    } else if(tok->type == BooleanType) {
-      expr->var.type = BooleanType;
-      expr->var.value.boolean_value = tok->value.boolean_value;
-
-    } else if(tok->type == Float32Type) {
-      // @Incomplete.
-      expr->var.value.float32_value = tok->value.float32_value;
-
-    } else if(tok->type == Float64Type) {
-      // @Incomplete.
-      expr->var.value.float64_value = tok->value.float64_value;
-
-    } else {
-      // @Incomplete: report error.
-      failed = true;
-      return expr;
-    }
-
-    tok = get_next_token();
-    if(tok->type != EndOfLineType) {
-      failed = true;
-      return expr;
-    }
-    return expr;
-
-  } else if(tok->type == HSplitCommandType) {
-    auto expr = NEW_AST(Ast_Split);
-    expr->split_type = hsp_type;
-
-    defer { if(failed) DELETE_AST(expr); expr = NULL; };
-
-    tok = get_next_token();
-    if(tok->type == LiteralType) {
-      expr->path = tok->string_literal;
-
-    } else if(tok->type == EndOfLineType) {
-      expr->path.data = NULL;
-      
-    } else {
-      // @Incomplete: report error.
-      failed = true;
-    }
-    return expr;
-
-  } else if(tok->type == VSplitCommandType) {
-    auto expr = NEW_AST(Ast_Split);
-    expr->split_type = vsp_type;
-
-    defer { if(failed) DELETE_AST(expr); expr = NULL; };
-
-    tok = get_next_token();
-    if(tok->type == LiteralType) {
-      expr->path = tok->string_literal;
-
-    } else if(tok->type == EndOfLineType) {
-      expr->path.data = NULL;
-      
-    } else {
-      // @Incomplete: report error.
-      failed = true;
-    }
-    return expr;
-  
-  } else if(tok->type == IntegerType) {
-    // Don't want to allocate memory for ast node.
-    // That's why it's interpreted here.
-    go_to_line(tok->value.integer_value);
-
-  } else if(tok->type == IdentifierType) {
-    report_error("Oh, no doesn't expect an identifier");
-    failed = true;
-  }
   return NULL;
 }
 
-#define DEALLOC_JUST(ast_type) \
-  case ast_type##_Type: { \
-    auto e = static_cast<ast_type *>(ast); \
-    DELETE_AST(e); \
-  } break;
-
-static void dealloc(Ast_Expression *ast) {
-  switch(ast->type) {
-    DEALLOC_JUST(Ast_Set);
-    DEALLOC_JUST(Ast_Split);
-    default: {
-    } break;
-  }
-}
-
-
-#define attach_to_table(name) attach_value(&name, #name)
-  
-
-static void attach_value(bool *val, const literal &name) {
-  Var *r = &attach_table[name];
-  if(r->type == BooleanType) {
-    *val = r->value.boolean_value;
+bool Lexer::is_comment(const char *c, Comment_Helper *comment) {
+  if(tokenize_comments) { // user defined comments.
+    if(single_line_comment.size > start_multi_line.size) {
+      if(c == single_line_comment) {
+        *comment = COMMENT_SINGLE_LINE;
+        return true;
+      } else if(c == start_multi_line) {
+        *comment = COMMENT_MULTI_LINE;
+        return true;
+      } else {
+        return false;
+      }
+    } else {
+      if(c == start_multi_line) {
+        *comment = COMMENT_MULTI_LINE;
+        return true;
+      } else if(c == single_line_comment) {
+        *comment = COMMENT_SINGLE_LINE;
+        return true;
+      } else {
+        return false;
+      }
+    }
   } else {
-    // @Incomplete: report error.
+    if(*c == '#') { // our comments.
+      *comment = COMMENT_SINGLE_LINE;
+      return true;
+    } else if(c == literal("---")) {
+      *comment = COMMENT_MULTI_LINE;
+      return true;
+    } else {
+      return false;
+    }
   }
 }
 
-static void attach_value(int *val, const literal &name) {
-  Var *r = &attach_table[name];
-  if(r->type == IntegerType) {
-    *val = r->value.integer_value;
-  } else {
-    // @Incomplete: report error.
-  }
-}
 
-static void update_variables() {
-  attach_to_table(show_fps);
-}
+void Lexer::process_input(const char *cursor) {
+  s32 nline = 0, nchar = 0;
+  Comment_Helper comment_type = COMMENT_UNINITIALIZED;
 
-void set_interp_state(const char *s) {
-  cursor = s; nline = 1, nchar = 1;
-}
+  while(*cursor != '\0') {
+    Token tok;
+    tok.l = nline;
+    tok.c = nchar;
 
+    if(const Keyword_Def *k = maybe_get_keyword(cursor)) {
+      // Keyword token.
+      ADVANCE(cursor, k->name.size, &nline, &nchar);
+      tok.string_literal = k->name;
+      tok.type           = k->type;
+      tokens.add(tok);
+      //
 
-void interp(const char *s) {
-  set_interp_state(s);
+    } else if(*cursor == '\"' || *cursor == '\'') {
+      char stop = *cursor;
+      INC(cursor, &nline, &nchar);
 
-  while(Ast_Expression *ast = parse()) {
-    switch(ast->type) {
-      case Ast_Set_Type: {
-        auto e = static_cast<Ast_Set *>(ast);
-        //
-        // @SpeadUp: 
-        // No need to update all variables, if our command is wrong
-        // for example when, we want assign integer to a bool value, or
-        // when trying to reset value with itself.
-        // 
-        attach_table[e->name] = e->var;
-        update_variables();
-      } break;
-
-      case Ast_Split_Type: {
-        auto e = static_cast<Ast_Split *>(ast);
-
-        buffer_t *p = get_current_buffer();
-        buffer_t *n;
-
-        if(!e->path.data) {
-          open_existing_buffer(p);
+      const char *tmp = cursor;
+      while(*cursor != '\0') {
+        if(*cursor == stop) {
+          break;
+        } else if(*cursor == '\\') {
+          INC(cursor, &nline, &nchar);
+          if(is_one_of(*cursor, "\"\'\\")) {
+            INC(cursor, &nline, &nchar);
+          }
         } else {
-          open_existing_or_new_buffer(e->path);
+          INC(cursor, &nline, &nchar);
+        }
+      }
+      tok.type           = TOKEN_STRING_LITERAL;
+      tok.string_literal = literal(tmp, cursor-tmp);
+      tokens.add(tok);
+      if(ensure_space(cursor, 1))  INC(cursor, &nline, &nchar);
+      // 
+
+    } else if(cursor == literal("true") || cursor == literal("false")) {
+      // Bool token.
+      tok.type = TOKEN_BOOLEAN;
+      if(cursor[0] == 't') {
+        assert(cursor == literal("true"));
+        ADVANCE(cursor, 4, &nline, &nchar);
+        tok.var.type  = TOKEN_BOOLEAN;
+        tok.var.bool_ = true;
+        tok.string_literal = "true";
+
+      } else if(cursor[0] == 'f') {
+        assert(cursor == literal("false"));
+        ADVANCE(cursor, 5, &nline, &nchar);
+        tok.var.type  = TOKEN_BOOLEAN;
+        tok.var.bool_ = false;
+        tok.string_literal = "false";
+
+      } else {
+        assert(0);
+      }
+      tokens.add(tok);
+      // 
+  
+    } else if(isalpha(*cursor) || *cursor == '_') {
+      // Identifier token.
+      const char *tmp = cursor;
+      size_t count = 1;
+      INC(cursor, &nline, &nchar);
+      while(isalpha(*cursor) || *cursor == '_' || isdigit(*cursor)) {
+        INC(cursor, &nline, &nchar);
+        count++;
+      }
+
+      tok.type           = TOKEN_IDENT;
+      tok.string_literal = literal(tmp, count);
+      tokens.add(tok);
+      //
+
+    } else if(isdigit(*cursor) || *cursor == '.') {
+      // Number token.
+      const char *tmp = cursor;
+
+      size_t count = 0;
+      bool is_floating_point_number = false;
+
+      if(*cursor == '.') {
+        is_floating_point_number = true;
+        count++;
+        INC(cursor, &nline, &nchar);
+
+        if(!isdigit(*cursor)) {
+          //exit_lexer_with_error("`.` is an operator. @Incomplete: Not handled yet!\n"); @Incomplete:
+          tokens.add(tok);
+        }
+      } else {
+        count++;
+        INC(cursor, &nline, &nchar);
+      }
+
+      while(1) {
+        if(isdigit(*cursor)) {
+          count++;
+          INC(cursor, &nline, &nchar);
+
+        } else if(*cursor == '.') {
+          if(is_floating_point_number) {
+            //exit_lexer_with_error("Too many decimal points in a number\n"); @Incomplete:
+            tokens.add(tok);
+          } else {
+            is_floating_point_number = true;
+          }
+          count++;
+          INC(cursor, &nline, &nchar);
+
+        } else {
+          break;
+        }
+      }
+
+      tok.type           = TOKEN_NUMBER;
+      tok.string_literal = literal(tmp, count);
+
+      if(is_floating_point_number) {
+        tok.var.f64_ = atof(tmp);
+        tok.var.type = TOKEN_FLOATING_POINT_NUMBER;
+      } else {
+        tok.var.s64_ = atoi(tmp);
+        tok.var.type = TOKEN_SIGNED_NUMBER;
+      }
+      tokens.add(tok);
+      //
+    
+
+    } else if(is_comment(cursor, &comment_type)) { // @Speed: we can pass tok.type that use TOKENSINGLE_LINE_COMMENT & TOKEN_MULTI_LINE_COMMENT.
+
+      // Comment.
+      if(comment_type == COMMENT_SINGLE_LINE) {
+        if(tokenize_comments) { // user defined comments.
+          const char *tmp = cursor;
+          ADVANCE(cursor, single_line_comment.size, &nline, &nchar);
+          while(*cursor != '\0') {
+            if     (cursor  == literal("\\\n")) { INC(cursor, &nline, &nchar); }
+            else if(*cursor == '\n')            { break; }
+            INC(cursor, &nline, &nchar);
+          }
+          tok.type           = TOKEN_SINGLE_LINE_COMMENT;
+          tok.string_literal = literal(tmp, cursor-tmp);
+          tokens.add(tok);
+          INC(cursor, &nline, &nchar);
+
+        } else {
+          INC(cursor, &nline, &nchar); // syntax.m `#` comments.
+          while(*cursor != '\0') {
+            if(*cursor == '\n') { break; }
+            INC(cursor, &nline, &nchar);
+          }
+          INC(cursor, &nline, &nchar);
         }
 
-        n = get_current_buffer();
-        do_split(p, n, e->split_type);
+      } else if(comment_type == COMMENT_MULTI_LINE) {
+        if(tokenize_comments) { // user defined comments.
+          const char *tmp = cursor;
+          ADVANCE(cursor, start_multi_line.size, &nline, &nchar);
+          s32 depth = 1;
+          while(*cursor != '\0') {
+            if(depth == 0) { break; }
+            INC(cursor, &nline, &nchar);
+            if     (cursor == end_multi_line)   { depth--; }
+            else if(cursor == start_multi_line) { depth++; }
+          }
+          // @EnsureSpace:
+          if(ensure_space(cursor, end_multi_line.size)) {
+            ADVANCE(cursor, end_multi_line.size, &nline, &nchar);
+          }
+          tok.type           = TOKEN_MULTI_LINE_COMMENT;
+          tok.string_literal = literal(tmp, cursor-tmp);
+          tokens.add(tok);
 
-      } break;
-      
-      default: {
-      } break;
+        } else { // our comments.
+          literal l = literal("---");
+          ADVANCE(cursor, l.size, &nline, &nchar);
+          while(*cursor != '\0') {
+            if(cursor == l) { break; }
+            INC(cursor, &nline, &nchar);
+          }
+          // @EnsureSpace:
+          if(ensure_space(cursor, l.size)) {
+            ADVANCE(cursor, l.size, &nline, &nchar);
+          }
+        }
+      } else {
+        assert(0);
+      }
+      // 
+
+    } else if(is_one_of(*cursor, "():,")) {
+      tok.string_literal = literal(cursor, 1);
+      tok.type           = (TokenType)*cursor;
+      INC(cursor, &nline, &nchar);
+      tokens.add(tok);
+
+    } else {
+      INC(cursor, &nline, &nchar);
+    }
+  }
+
+  assert(*cursor == '\0');
+  Token tok;
+  tok.type = TOKEN_END_OF_INPUT;
+  tokens.add(tok);
+}
+
+
+static Syntax_Settings settings;
+static size_t keyword_count = 1000; // @ResetOnFileChange: every time we change a syntax file this should be 1000.
+
+
+Language_Syntax_Struct* get_language_syntax(const literal &file_extension) {
+  if(file_extension.size) {
+    string *iter; size_t index;
+    settings.extensions.find(file_extension, &iter, &index);
+    return iter ? settings.syntax[index] : NULL;
+  } else {
+    return NULL;
+  }
+}
+
+
+static bool end_of_block(Lexer &lexer) {
+  return lexer.peek_token()->type == ':' && lexer.peek_token(1)->string_literal == "end"; // @Incomplete: ensure_space(1)
+}
+
+static void parse_color(Lexer &lexer, u8 *r, u8 *g, u8 *b) {
+  Token *tok = lexer.peek_than_eat_token();
+  if(tok->type != '(') { assert(0); } // @ReportError.
+  
+  tok = lexer.peek_than_eat_token();
+  if(tok->type != TOKEN_NUMBER) { assert(0); } // @ReportError.
+  *r = tok->var.s64_;
+
+  tok = lexer.peek_than_eat_token();
+  if(tok->type != ',') { assert(0); } // @ReportError.
+
+  tok = lexer.peek_than_eat_token();
+  if(tok->type != TOKEN_NUMBER) { assert(0); } // @ReportError.
+  *g = tok->var.s64_;
+
+  tok = lexer.peek_than_eat_token();
+  if(tok->type != ',') { assert(0); } // @ReportError.
+
+  tok = lexer.peek_than_eat_token();
+  if(tok->type != TOKEN_NUMBER) { assert(0); } // @ReportError.
+  *b = tok->var.s64_;
+
+  tok = lexer.peek_than_eat_token();
+  if(tok->type != ')') { assert(0); } // @ReportError.
+}
+
+static void parse_syntax_command(Lexer &lexer, Language_Syntax_Struct *syntax) {
+  while(lexer.peek_token()->type == TOKEN_STRING_LITERAL) {
+    Token *tok = lexer.peek_than_eat_token();
+    settings.extensions.add(to_string(tok->string_literal));
+    settings.syntax    .add(syntax);
+  }
+
+  while(!end_of_block(lexer)) {
+    Token *tok = lexer.peek_than_eat_token();
+    if(tok->type == ':') {
+      tok = lexer.peek_than_eat_token();
+      if(tok->string_literal == literal("literal")) {
+        syntax->defined_color_for_literals = true;
+        auto &c = syntax->color_for_literals;
+        parse_color(lexer, &c.r, &c.g, &c.b);
+
+      } else if(tok->string_literal == literal("string")) {
+        syntax->defined_color_for_strings = true;
+        auto &c = syntax->color_for_strings;
+        parse_color(lexer, &c.r, &c.g, &c.b);
+
+      } else if(tok->string_literal == literal("single_line_comment")) {
+        tok = lexer.peek_than_eat_token();
+        if(tok->type != TOKEN_STRING_LITERAL) { assert(0); } // @ReportError.
+
+        syntax->tokenize_comments   = true;
+        syntax->single_line_comment = to_string(tok->string_literal);
+
+        auto &c = syntax->color_for_comments;
+        parse_color(lexer, &c.r, &c.g, &c.b);
+
+      } else if(tok->string_literal == literal("multi_line_comment")) {
+        tok = lexer.peek_than_eat_token();
+        if(tok->type != TOKEN_STRING_LITERAL) { assert(0); } // @ReportError.
+
+        syntax->tokenize_comments = true;
+        syntax->start_multi_line  = to_string(tok->string_literal);
+
+        tok = lexer.peek_token();
+        if(tok->type == TOKEN_STRING_LITERAL) { // optionally parse end_multi_line.
+          lexer.eat_token();
+          syntax->end_multi_line = to_string(tok->string_literal);
+        } else {
+          syntax->end_multi_line = syntax->start_multi_line;
+        }
+      } else {
+        assert(0); // @ReportError.
+      }
+
+    } else if(tok->type == TOKEN_IDENT) {
+      Keyword_Def *k    = &syntax->keywords.add();
+      string      *name = &syntax->names.add();
+      SDL_Color   *c    = &syntax->colors.add();
+
+      k->name = tok->string_literal;
+      k->type = (TokenType)keyword_count++;
+
+      *name = to_string(tok->string_literal);
+      parse_color(lexer, &c->r, &c->g, &c->b);
+
+    } else {
+      assert(0); // @ReportError.
+    }
+  }
+  lexer.eat_token();
+  lexer.eat_token();
+}
+
+static void parse_save_command() {
+  save();
+}
+
+static bool parse_top_level(Lexer &lexer) {
+  Token *tok = lexer.peek_than_eat_token();
+  if(tok->type == ':') {
+    // Commands.
+    tok = lexer.peek_than_eat_token();
+    if(tok->string_literal == "syntax") {
+      Language_Syntax_Struct *syntax = &settings.base.add();
+      parse_syntax_command(lexer, syntax);
+
+    } else if(tok->string_literal == "save" || tok->string_literal == "w") {
+      parse_save_command();
+
+    } else {
+      assert(0); // @ReportError.
+    }
+    // 
+
+  } else if(tok->type == TOKEN_IDENT) {
+    literal ident = tok->string_literal;
+    Var var;
+
+    tok = lexer.peek_than_eat_token();
+    if(tok->type == TOKEN_STRING_LITERAL) {
+      var.type    = tok->type;
+      var.string_ = dynamic_string_from_literal(tok->string_literal);
+
+      literal *it; size_t index;
+      attach_table.literals.find(ident, &it, &index);
+      if(it) {
+        attach_table.rvalues[index] = var;
+      } else {
+        assert(0); // @WrongVariableName: @ReportError.
+      }
+
+    } else if(tok->type == TOKEN_NUMBER) {
+      var.type = tok->type;
+      var.s64_ = tok->var.s64_;
+
+      literal *it; size_t index; // @Copy&Paste:
+      attach_table.literals.find(ident, &it, &index);
+      if(it) {
+        attach_table.rvalues[index] = var;
+      } else {
+        assert(0); // @WrongVariableName: @ReportError.
+      }
     }
 
-    dealloc(ast);
+  } else {
+    assert(0); // @ReportError.
   }
+
+
+
+  return lexer.peek_token()->type == TOKEN_END_OF_INPUT;
+}
+
+void interp(const char *cursor) {
+  // @MemoryLeak: Every array, string, everything!!!
+  for(auto &syntax : settings.base) {
+    syntax.keywords.clear();
+    syntax.names.clear();
+    syntax.colors.clear();
+  }
+  settings.base.clear();
+  settings.extensions.clear();
+  settings.syntax.clear();
+    
+  Lexer lexer;
+  lexer.process_input(cursor);
+
+  while(!parse_top_level(lexer)) {}
+}
+
+void interp_single_command(const char *cursor) {
+  Lexer lexer;
+  lexer.process_input(cursor);
+
+  parse_top_level(lexer);
 }

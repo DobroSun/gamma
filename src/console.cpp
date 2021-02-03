@@ -9,41 +9,30 @@ static bool is_input = false;
 
 
 void console_init() {
-  console.buffer.chars.resize_with_no_init(console.buffer.gap_len);
+  console.buffer.chars.resize(console.buffer.gap_len);
 }
 
 void console_draw() {
   unsigned cursor = console.cursor;
   auto &buffer = console.buffer;
-  if(!buffer.is_initialized()) { return; }
+  if(!buffer.size()) { return; }
 
-  unsigned i = 0;
-  for( ; i < buffer.size(); i++) {
-    int px = i*font_width;
-    int py = console.bottom_y;
+  {
+    const int length = buffer.size();
 
-    char c = buffer[i];
-    auto t = get_alphabet()[c];
-    assert(t);
+    char string[length + 1];
+    string[length] = '\0';
 
-    copy_texture(t, px, py);
-
-    if(i == cursor && is_input) {
-      char c[] = { buffer[cursor], '\0'};
-      if(buffer[cursor] == '\n') {
-        c[0] = ' ';
-      }
-      draw_text_shaded(get_font(), (const char *)(&c), WhiteColor, BlackColor, px, py);
+    for(size_t i = 0; i < length; i++) {
+      char c = buffer[i];
+      string[i] = (c == '\n') ? ' ' : c;
     }
+    draw_text_shaded(get_font(), string, BlackColor, WhiteColor, 0, console.bottom_y);
   }
 
-  if(cursor == buffer.size() && is_input) {
-    int px = i*font_width;
-    int py = console.bottom_y;
-
-    char c[] = {' ', '\0'};
-    draw_text_shaded(get_font(), (const char *)(&c), WhiteColor, BlackColor, px, py);
-  }
+  char c = (cursor == buffer.size()) ? ' ' : buffer[cursor];
+  char b[] = { c, '\0'};
+  draw_text_shaded(get_font(), b, WhiteColor, BlackColor, cursor*font_width, console.bottom_y);
 }
 
 void console_clear() {
@@ -55,7 +44,8 @@ void console_put(char c) {
   is_input = true;
   console.buffer.add(c);
 
-  if(console.cursor == console.buffer.size()) {
+  if(console.buffer.size() == 1) {
+    console.cursor = 1;
   } else {
     console.cursor++;
   }
@@ -84,7 +74,7 @@ void console_run_command() {
   }
   cmd[size] = '\0';
 
-  interp((const char*)cmd);
+  interp_single_command((const char *)cmd);
 }
 
 

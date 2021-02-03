@@ -39,22 +39,11 @@ ScopeGuard<F> operator+(Junk, F &&fun) {
 }
 
 
-void inline print() {
-  std::cout << std::endl;
-}
-
-template<class T, class ...Args>
-void print(T&& first, Args&&... rest) {
-  std::cout << std::boolalpha << std::forward<T>(first);
-  print(std::forward<Args>(rest)...);
-}
-
-#define sleep(x) usleep(x)
 #define for_each(c_array) for(auto it = c_array; *it != '\0'; it++)
 
 struct literal {
-  const char *data;
-  size_t      size;
+  const char *data = NULL;
+  size_t      size = 0;
 
   literal() = default;
   template<size_t N>
@@ -70,15 +59,21 @@ struct literal {
   literal &operator=(const literal &) = default;
   literal(literal &&)                 = default;
   literal &operator=(literal &&)      = default;
+
+  char operator[](size_t i) const {
+    assert(i < size);
+    return data[i];
+  }
 };
 
-inline bool operator==(const char *s, const literal &l) {
-  return !strncmp(s, l.data, l.size);
-}
-
-inline bool operator==(const literal &l, const char *s) {
-  return !strncmp(s, l.data, l.size);
-}
+inline bool operator==(const char *s, const literal &l)   { return l.size && !strncmp(s, l.data, l.size); }
+inline bool operator==(const literal &l, const char *s)   { return l.size && !strncmp(s, l.data, l.size); }
+inline bool operator==(const string &s, const literal &l) { return l.size == s.size && !strncmp(s.data, l.data, l.size); }
+inline bool operator==(const literal &l, const string &s) { return l.size == s.size && !strncmp(s.data, l.data, l.size); }
+inline bool operator!=(const char *s, const literal &l)   { return !(s == l); }
+inline bool operator!=(const literal &l, const char *s)   { return !(s == l); }
+inline bool operator!=(const string &s, const literal &l) { return !(s == l); }
+inline bool operator!=(const literal &l, const string &s) { return !(s == l); }
 
 inline bool operator==(const literal &l1, const literal &l2) {
   if(l1.size == l2.size) {
@@ -88,14 +83,11 @@ inline bool operator==(const literal &l1, const literal &l2) {
   }
 }
 
+inline bool operator!=(const literal &l1, const literal &l2) { return !(l1 == l2); }
+
 
 #define to_literal(a) literal(a.data, a.size)
-inline bool operator==(const literal &l, const string_t &s) {
-  return to_literal(s) == l;
-}
-inline bool operator==(const string_t &s, const literal &l) {
-  return to_literal(s) == l;
-}
+#define to_string(a)  string(a.data, a.size)
 
 inline std::ostream& operator<<(std::ostream &os, const literal &l) {
   for(size_t i = 0; i < l.size; i++) {
@@ -104,14 +96,18 @@ inline std::ostream& operator<<(std::ostream &os, const literal &l) {
   return os;
 }
 
-#define get_string_from_literal(name, l) \
+#define static_string_from_literal(name, l) \
   char name[l.size+1]; \
-  { \
-    for(decltype(l.size) i = 0; i < l.size; i++) { \
-      name[i] = l.data[i]; \
-    } \
-    name[l.size] = '\0'; \
-  } \
+  memcpy(name, l.data, l.size); \
+  name[l.size] = '\0';
+
+inline char *dynamic_string_from_literal(const literal &l) {
+  char *r = (char *)malloc(l.size+1);
+  memcpy(r, l.data, l.size);
+  r[l.size] = '\0';
+  return r;
+}
+
 
 #define array_size(x) (sizeof((x)) / sizeof(*(x)))
 
@@ -120,6 +116,27 @@ T max(T a, U b) { return static_cast<T>((a < static_cast<T>(b))? b: a); }
 
 template<class T, class U>
 T min(T a, U b) { return static_cast<T>((a < static_cast<T>(b))? a: b); }
+
+
+struct Print {
+  literal sep = ", ", end = "\n";
+
+  void operator()() {
+    std::cout << end;
+    sep = ", ", end = "\n";
+  }
+  template<class T>
+  void operator()(T &&last) {
+    std::cout << std::boolalpha << std::forward<T>(last);
+    operator()();
+  }
+  template<class T, class ...Args>
+  void operator()(T&& first, Args&&... rest) {
+    std::cout << std::boolalpha << std::forward<T>(first) << sep;
+    operator()(std::forward<Args>(rest)...);
+  }
+};
+static Print print;
 
 struct Timer {
   std::chrono::_V2::steady_clock::time_point start;
@@ -130,6 +147,7 @@ struct Timer {
     end = std::chrono::steady_clock::now(); 
   
     double delta = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
+    print.sep = "";
     if(delta < 1000) {
       print("ns: ", delta);
     } else if(delta >= 1000 && delta < 1000000) {
@@ -143,10 +161,10 @@ struct Timer {
 #define measure_scope() Timer ANONYMOUS_NAME;
 
 
-template<class T, size_t N>
-bool is_one_of(const T c, const T (&x)[N]) {
-  for_each(x) {
-    if(c == *it) { return true; }
+template<class T, class U, size_t N>
+bool is_one_of(const T c, const U (&x)[N]) {
+  for(size_t i = 0; i < N; i++) {
+    if(c == x[i]) { return true; }
   }
   return false;
 }

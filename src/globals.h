@@ -21,6 +21,8 @@ inline bool show_fps    = false;
 inline bool should_quit = false;
 
 inline const char *assets_fonts = "/gamma/assets/fonts/";
+inline const char *font_name    = "Courier-Regular.ttf";
+inline       u16   font_size    = 25;
 
 
 const SDL_Color WhiteColor {255, 255, 255, 255};

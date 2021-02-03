@@ -5,6 +5,9 @@
 #include "console.h"
 #include "interp.h"
 
+#include "our_string.h" 
+#include "hotloader.h"
+
 extern "C" {
 #include "lua/include/lua.h"
 #include "lua/include/lauxlib.h"
@@ -12,12 +15,12 @@ extern "C" {
 }
 
 
-static const int Editor  = 0;
-static const int Console = 1;
 
-static const int NormalMode = 0;
-static const int InsertMode = 1;
-static const int VisualMode = 2;
+static const u8 Editor  = 0;
+static const u8 Console = 1;
+static const u8 NormalMode = 0;
+static const u8 InsertMode = 1;
+static const u8 VisualMode = 2;
 
 
 static bool check_lua(lua_State *L, int r) {
@@ -285,9 +288,20 @@ static void interp_lua_table(lua_State *L, const char *name, int key) {
 
 
 
-int main(int argc, char **argv) {
+s32 main(s32 argc, char **argv) {
   if(Init_SDL()) return 1;
   init(argc, argv);
+
+  const char *settings_filename = "syntax.m";
+  {
+    string config;
+    {
+      FILE *f = fopen(settings_filename, "r");
+      defer { fclose(f); };
+      read_entire_file(&config, f);
+    }
+    interp(config.data);
+  }
 
 
   lua_State *L = luaL_newstate();
@@ -336,6 +350,8 @@ int main(int argc, char **argv) {
     SDL_SetWindowSize(get_win(), Width, Height);
   }
 
+
+  Settings_Hotloader hotloader(settings_filename);
 
   while(!should_quit) {
     // measure_scope();
@@ -409,12 +425,10 @@ int main(int argc, char **argv) {
             for(char i = 0; i < dt_scroll; i++) {
               buffer->scroll_up();
             }
-
           } else if(e.wheel.y < 0) {
             for(char i = 0; i < dt_scroll; i++) {
               buffer->scroll_down();
             }
-
           } else {
             assert(0);
           }
@@ -439,11 +453,19 @@ int main(int argc, char **argv) {
         SDL_RenderPresent(get_renderer());
       } break;
     }
+
+    if(hotloader.settings_need_reload()) {
+      hotloader.reload_file(settings_filename);
+
+      clear_font();
+      make_font();
+    }
   }
 
 
   lua_close(L);
 
+/* @MemoryLeak: Whatever.
   {
     auto &tabs = get_tabs();
     for(size_t k = 0; k < tabs.size; k++) {
@@ -492,10 +514,7 @@ int main(int argc, char **argv) {
       tab->~tab_t();
     }
   }
-
-  for(auto &pair: get_alphabet()) {
-    SDL_DestroyTexture(pair.second);
-  }
+*/
   SDL_DestroyRenderer(get_renderer());
   SDL_DestroyWindow(get_win());
   TTF_CloseFont(get_font());

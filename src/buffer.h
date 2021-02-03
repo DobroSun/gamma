@@ -30,7 +30,7 @@ struct file_buffer_t {
 struct buffer_t {
   file_buffer_t *file = NULL;
   bool is_used = false;
-  string_t filename;
+  string filename;
 
   split_type_t split_type;
 
@@ -41,10 +41,10 @@ struct buffer_t {
   unsigned offset_on_line = 0, offset_from_beginning = 0, start_pos = 0, saved_pos = 0;
 
   buffer_t() = default;
-  buffer_t(const buffer_t &) = delete;
-  buffer_t &operator=(const buffer_t &) = delete;
-  buffer_t(buffer_t &&) = delete;
-  buffer_t &operator=(buffer_t &&) = delete;
+  buffer_t(const buffer_t &)            = default;
+  buffer_t &operator=(const buffer_t &) = default;
+  buffer_t(buffer_t &&)                 = default;
+  buffer_t &operator=(buffer_t &&)      = default;
 
 
   void init(int,int,int,int);
@@ -72,7 +72,6 @@ struct buffer_t {
 
 
   void draw_cursor(char, int, int, SDL_Color, SDL_Color) const;
-  void draw_line(int, int, bool) const;
 
   void shift_beginning_down();
   void shift_beginning_up();
@@ -109,7 +108,7 @@ selection_buffer_t &get_selection();
 void init(int, char**);
 void update();
 
-void open_new_buffer(string_t &);
+void open_new_buffer(string &);
 void open_existing_or_new_buffer(const literal &);
 void open_existing_buffer(buffer_t *);
 
@@ -140,6 +139,8 @@ int compute_to_end_of_line();
 void undo(buffer_t *);
 void redo(buffer_t *);
 void save_current_state_for_undo(buffer_t *);
+
+void read_entire_file(string *s, FILE *f);
 
 
 inline void copy_window_position(buffer_t *a, const buffer_t *b) {
