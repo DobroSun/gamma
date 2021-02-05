@@ -44,7 +44,6 @@ void Settings_Hotloader::reload_file(const char *name) {
       read_entire_file(&config, f);
     }
     interp(config.data);
-    update_variables();
     is_not_reloaded = false;
   }
 }

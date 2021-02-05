@@ -22,8 +22,11 @@ struct array {
     return data[size++];
   }
 
-  T &add(const T &val) { return add() = val; }
-  T &add(T &&val)      { return add() = std::move(val); }
+  T &add(T v) {
+    if(size == capacity) { reserve(); }
+    data[size] = v;
+    return data[size++];
+  }
 
   template<class U>
   void find(const U &val, T **iter, size_t *index) {
@@ -96,9 +99,7 @@ struct array {
         auto new_data = (T*)malloc(sizeof(T)*new_cap);
         assert(new_data);
 
-        if(size) {
-          memcpy(new_data, data, sizeof(T)*size);
-        }
+        memcpy(new_data, data, sizeof(T)*size);
         capacity = new_cap;
 
         free(data);
@@ -125,7 +126,7 @@ struct array {
     }
   }
 
-  void resize(size_t new_size=0) {
+  void resize(size_t new_size=0) { // @Incomplete: @Wrong: Needs to call all the default constructors.
     reserve(new_size);
     size = capacity;
   }
@@ -164,7 +165,7 @@ struct array {
 };
 
 template<class T>
-bool operator==(const array<T> &a, const array<T> &b) {
+bool operator==(array<T> a, array<T> b) {
   if(a.size == b.size) {
     for(size_t i = 0; i < a.size; i++) {
       if(a[i] != b[i]) { return false; }
@@ -176,14 +177,12 @@ bool operator==(const array<T> &a, const array<T> &b) {
 }
 
 template<class T>
-void copy_array(array<T> &a, const array<T> &b) {
+void copy_array(array<T> &a, array<T> b) {
   if(a.capacity <= b.size) {
     free(a.data);
     a.data = (T*)malloc(sizeof(T)*b.size);
     a.capacity = b.size;
-  } else {
   }
-
   memcpy(a.data, b.data, sizeof(T)*b.size);
   a.size = b.size;
 }

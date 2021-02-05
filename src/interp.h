@@ -8,64 +8,27 @@ enum TokenType : u16 {
   TOKEN_SIGNED_NUMBER         = 258,
   TOKEN_FLOATING_POINT_NUMBER = 259,
 
-  TOKEN_NUMBER  = 261,
   TOKEN_BOOLEAN = 260,
-
-  TOKEN_IF_STATEMENT    = 400,
-  TOKEN_ELSE_STATEMENT  = 401,
-  TOKEN_FOR_STATEMENT   = 402,
-  TOKEN_WHILE_STATEMENT = 403,
-
-  TOKEN_DOUBLE_EQUALS     = 500,
-  TOKEN_NOT_EQUALS        = 501,
-  TOKEN_LOGICAL_OR        = 502,
-  TOKEN_LOGICAL_AND       = 503,
-  TOKEN_GREATER_OR_EQUALS = 515,
-  TOKEN_LESS_OR_EQUALS    = 516,
-
-  TOKEN_INCREMENT   = 504,
-  TOKEN_DECREMENT   = 505,
-  TOKEN_ADD_ASSIGN  = 506,
-  TOKEN_SUB_ASSIGN  = 507,
-  TOKEN_MUL_ASSIGN  = 508,
-  TOKEN_DIV_ASSIGN  = 509,
-  TOKEN_XOR_ASSIGN  = 510,
-  TOKEN_AND_ASSIGN  = 511,
-  TOKEN_OR_ASSIGN   = 512,
-  TOKEN_RIGHT_SHIFT = 513,
-  TOKEN_LEFT_SHIFT  = 514,
+  TOKEN_NUMBER  = 261,
+  TOKEN_COLOR   = 262,
 
   TOKEN_SINGLE_CHARACTER = 515,
   TOKEN_STRING_LITERAL   = 516,
 
-  TOKEN_CONST_KEYWORD = 517,
-  TOKEN_STATIC_KEYWORD = 518,
-  TOKEN_END_COMMAND = 519,
-  TOKEN_SYNTAX_COMMAND = 520,
-  TOKEN_SAVE_COMMAND = 521,
-
-
-  TOKEN_STRUCT_DECLARATION = 665,
   TOKEN_ERROR = 666,
   TOKEN_SINGLE_LINE_COMMENT = 667,
   TOKEN_MULTI_LINE_COMMENT = 668,
 };
-
-#define rvalue_type \
-  union { \
-    bool bool_; \
-    s64  s64_; \
-    f64  f64_; \
-  };
 
 
 struct Var {
   TokenType type = TOKEN_END_OF_INPUT;
   union {
     bool bool_;
-    s64  f64_;
-    f64  s64_;
+    s64  s64_;
+    f64  f64_;
     const char *string_;
+    SDL_Color color_;
   };
 };
 
@@ -145,9 +108,12 @@ struct Lexer {
 void interp(const char *);
 void interp_single_command(const char *);
 
-Language_Syntax_Struct *get_language_syntax(const literal &);
+Language_Syntax_Struct *get_language_syntax(literal);
 
-void init_var_table();
+void init_variable_table();
 void update_variables();
+
+void report_error(const char *, va_list);
+void report_error(const char *, ...);
 
 #endif

@@ -21,12 +21,19 @@ inline bool show_fps    = false;
 inline bool should_quit = false;
 
 inline const char *assets_fonts = "/gamma/assets/fonts/";
-inline const char *font_name    = "Courier-Regular.ttf";
-inline       u16   font_size    = 25;
+inline const char *font_name = "Courier-Regular.ttf";
+inline       u16   font_size = 25;
+inline SDL_Color   background_color   = {255,255,255,255};
+inline SDL_Color   text_color         = {0,0,0,255};
+inline SDL_Color   cursor_text_color  = {255,255,255,255};
+inline SDL_Color   cursor_color       = {0,0,0,255};
+inline SDL_Color   console_text_color = {0,0,0,255};
+inline SDL_Color   console_color      = {255,255,255,255};
 
+inline const char *settings_filename = "syntax.m";
 
-const SDL_Color WhiteColor {255, 255, 255, 255};
-const SDL_Color BlackColor {0, 0, 0, 255};
+const SDL_Color WhiteColor = {255, 255, 255, 255};
+const SDL_Color BlackColor = {0, 0, 0, 255};
 
 inline const char *chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890!@#$%^&?*()\\/ -+_=~|\t`\"'.,:;{}[]<>";
 

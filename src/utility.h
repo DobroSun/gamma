@@ -65,17 +65,19 @@ struct literal {
     return data[i];
   }
 };
+inline bool operator==(char s, literal l) { return l.size == 1 && l.data[0] == s; }
+inline bool operator==(literal l, char s) { return l.size == 1 && l.data[0] == s; }
 
-inline bool operator==(const char *s, const literal &l)   { return l.size && !strncmp(s, l.data, l.size); }
-inline bool operator==(const literal &l, const char *s)   { return l.size && !strncmp(s, l.data, l.size); }
-inline bool operator==(const string &s, const literal &l) { return l.size == s.size && !strncmp(s.data, l.data, l.size); }
-inline bool operator==(const literal &l, const string &s) { return l.size == s.size && !strncmp(s.data, l.data, l.size); }
-inline bool operator!=(const char *s, const literal &l)   { return !(s == l); }
-inline bool operator!=(const literal &l, const char *s)   { return !(s == l); }
-inline bool operator!=(const string &s, const literal &l) { return !(s == l); }
-inline bool operator!=(const literal &l, const string &s) { return !(s == l); }
+inline bool operator==(const char *s, literal l) { return l.size && !strncmp(s, l.data, l.size); }
+inline bool operator==(literal l, const char *s) { return l.size && !strncmp(s, l.data, l.size); }
+inline bool operator==(string s, literal l)      { return l.size == s.size && !strncmp(s.data, l.data, l.size); }
+inline bool operator==(literal l, string s)      { return l.size == s.size && !strncmp(s.data, l.data, l.size); }
+inline bool operator!=(const char *s, literal l) { return !(s == l); }
+inline bool operator!=(literal l, const char *s) { return !(s == l); }
+inline bool operator!=(string s, literal l)      { return !(s == l); }
+inline bool operator!=(literal l, string s)      { return !(s == l); }
 
-inline bool operator==(const literal &l1, const literal &l2) {
+inline bool operator==(literal l1, literal l2) {
   if(l1.size == l2.size) {
     return !strncmp(l1.data, l2.data, l1.size);
   } else {
@@ -83,13 +85,13 @@ inline bool operator==(const literal &l1, const literal &l2) {
   }
 }
 
-inline bool operator!=(const literal &l1, const literal &l2) { return !(l1 == l2); }
+inline bool operator!=(literal l1, literal l2) { return !(l1 == l2); }
 
 
 #define to_literal(a) literal(a.data, a.size)
 #define to_string(a)  string(a.data, a.size)
 
-inline std::ostream& operator<<(std::ostream &os, const literal &l) {
+inline std::ostream& operator<<(std::ostream &os, literal l) {
   for(size_t i = 0; i < l.size; i++) {
     os << l.data[i];
   }
@@ -101,7 +103,7 @@ inline std::ostream& operator<<(std::ostream &os, const literal &l) {
   memcpy(name, l.data, l.size); \
   name[l.size] = '\0';
 
-inline char *dynamic_string_from_literal(const literal &l) {
+inline char *dynamic_string_from_literal(literal l) {
   char *r = (char *)malloc(l.size+1);
   memcpy(r, l.data, l.size);
   r[l.size] = '\0';

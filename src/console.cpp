@@ -17,9 +17,8 @@ void console_draw() {
   auto &buffer = console.buffer;
   if(!buffer.size()) { return; }
 
+  const int length = buffer.size();
   {
-    const int length = buffer.size();
-
     char string[length + 1];
     string[length] = '\0';
 
@@ -27,12 +26,13 @@ void console_draw() {
       char c = buffer[i];
       string[i] = (c == '\n') ? ' ' : c;
     }
-    draw_text_shaded(get_font(), string, BlackColor, WhiteColor, 0, console.bottom_y);
-  }
 
-  char c = (cursor == buffer.size()) ? ' ' : buffer[cursor];
-  char b[] = { c, '\0'};
-  draw_text_shaded(get_font(), b, WhiteColor, BlackColor, cursor*font_width, console.bottom_y);
+    draw_text_shaded(get_font(), string, console_color, console_text_color, 0, console.bottom_y);
+  }
+  if(is_input) {
+    char c = (cursor >= length) ? ' ' : buffer[cursor];
+    draw_text_shaded(get_font(), c, cursor_text_color, cursor_color, cursor*font_width, console.bottom_y);
+  }
 }
 
 void console_clear() {
@@ -53,10 +53,7 @@ void console_put(char c) {
 
 void console_put_text(const char *t) {
   console_clear();
-  for_each(t) {
-    char c = *it;
-    console_put(c);
-  }
+  for_each(t) { console_put(*it); }
   is_input = false;
 }
 

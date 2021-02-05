@@ -2,6 +2,7 @@
 #define GAMMA_STRING_IMPL_H
 
 
+
 struct string {
   char *data     = NULL;
   s32   capacity = 0;
@@ -11,16 +12,16 @@ struct string {
   string() = default;
 
   string(const char *x) {
-    const size_t N = strlen(x)+1;
-    data     = (char*)calloc(N, 1);
+    const size_t N = strlen(x);
+    data     = (char*)calloc(N+1, 1);
     memcpy(data, x, N);
-    capacity = N;
-    size     = N-1;
+    capacity = N+1;
+    size     = N;
   }
 
   string(const char *x, size_t N) {
     data     = (char*)calloc(N+1, 1);
-    memcpy(data, x, N+1);
+    memcpy(data, x, N);
     capacity = N+1;
     size     = N;
   }
@@ -32,9 +33,9 @@ struct string {
 
   ~string() { new (this) string(); }
 
-  void find(char val, const char **iter, size_t *index) const {
+  void find(char c, const char **iter, size_t *index) const {
     for(size_t i = 0; i < size; i++) {
-      if(this->operator[](i) == val) {
+      if(this->operator[](i) == c) {
         *iter  = &this->operator[](i);
         *index = i;
         return;
@@ -42,7 +43,6 @@ struct string {
     }
     *iter = NULL;
   }
-
 
   void add(char c) {
     if(size == capacity) { reserve(); }
@@ -120,33 +120,16 @@ struct string {
   };
   iterator begin() const { return iterator(0, data); }
   iterator end()   const { return iterator(size);    }
-
-private:
-  void on_copy_construct(const string &o) {
-    if(capacity <= o.size) {
-      data     = (char*)calloc(o.size+1, 1);
-      capacity = o.size+1;
-    }
-    memcpy(data, o.data, o.size);
-    size = o.size;
-  }
-
-  void on_move_construct(string &&o) {
-    data     = o.data;
-    capacity = o.capacity;
-    size     = o.size;
-    new (&o) string();
-  }
 };
 
-inline std::ostream &operator<<(std::ostream &os, const string &s) {
+inline std::ostream &operator<<(std::ostream &os, string s) {
   for(const auto &c : s) { os << c; }
   return os;
 }
 
-inline bool operator==(const string &b, const char *a) { return !strncmp(a, b.data, b.size); }
-inline bool operator==(const char *a, const string &b) { return !strncmp(a, b.data, b.size); }
-inline bool operator==(const string &a, const string &b) {
+inline bool operator==(string b, const char *a) { return !strncmp(a, b.data, b.size); }
+inline bool operator==(const char *a, string b) { return !strncmp(a, b.data, b.size); }
+inline bool operator==(string a, string b) {
   if(a.size == b.size) {
     return !strncmp(a.data, b.data, a.size);
   } else {
@@ -154,14 +137,12 @@ inline bool operator==(const string &a, const string &b) {
   }
 }
 
-inline void copy_string(string &a, const string &b) {
+inline void copy_string(string &a, string b) {
   if(a.capacity <= b.size) {
     free(a.data);
     a.data = (char*)malloc(b.size);
     a.capacity = b.size;
-  } else {
   }
-
   memcpy(a.data, b.data, b.size);
   a.size = b.size;
 }

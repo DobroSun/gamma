@@ -2,9 +2,9 @@
 #define GAMMA_GAP_BUFFER_H
 
 struct gap_buffer {
-  string chars;
+  string chars;        // @Speed: consider array<char> here.
   size_t pre_len = 0;
-  size_t gap_len = 12; // @SpeedUp: Check on the best default value for gap_len.
+  size_t gap_len = 12; // @Speed: Check on the best default value for gap_len.
 
 
   gap_buffer() = default;

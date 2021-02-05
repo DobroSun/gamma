@@ -86,6 +86,8 @@ struct buffer_t {
 
 
 struct tab_t {
+  buffer_t *current_buffer = NULL; // @Maybe: Do we actually need this? For the first time, just to simplify things, we can search for a non empty buffer, in `array<buffer_t>`. But in the long term, of course it's the right way to do things.
+
   array<buffer_t>  buffers;
   array<buffer_t*> splits;
   size_t insert_to = 0;
@@ -108,9 +110,12 @@ selection_buffer_t &get_selection();
 void init(int, char**);
 void update();
 
-void open_new_buffer(string &);
-void open_existing_or_new_buffer(const literal &);
+void open_new_buffer(string);
+void open_existing_or_new_buffer(string);
 void open_existing_buffer(buffer_t *);
+
+tab_t *open_new_tab(string);
+void change_tab(s32);
 
 selection_buffer_t *get_selection_buffer();
 void delete_selected();

@@ -1,26 +1,98 @@
 #include "pch.h"
 #include "interp.h"
 #include "buffer.h"
+#include "console.h"
 
 
-// @CleanUp: @Temporary:
-static size_t hash_literal(const literal &l) {
-	const size_t prime = 31;
-	size_t result = 0;
-	for (size_t i = 0; i < l.size; ++i) {
-			result = l.data[i] + (result * prime);
-	}
-	return result;
+const u16 MAX_ERROR_STRING_SIZE = 2048;
+void report_error(const char *fmt, va_list args) {
+  char r[MAX_ERROR_STRING_SIZE];
+  vsnprintf(r, MAX_ERROR_STRING_SIZE, fmt, args);
+  console_put_text(r);
 }
-namespace std {
-	template<>
-	struct hash<literal> {
-		size_t operator()(const literal& l) const {
-				return hash_literal(l);
-		}
-	};
-} // namespace std
-//
+
+void report_error(const char *fmt, ...) {
+  va_list args;
+  va_start(args, fmt);
+  char r[MAX_ERROR_STRING_SIZE];
+  vsnprintf(r, MAX_ERROR_STRING_SIZE, fmt, args);
+  console_put_text(r);
+  va_end(args);
+}
+
+static void report_lexer_error(Token *tok, const char *fmt, ...) {
+  tok->type = TOKEN_ERROR;
+  va_list args;
+  va_start(args, fmt);
+  report_error(fmt, args);
+  va_end(args);
+}
+
+static void report_lexer_error(Token *tok, const char *fmt, va_list args) {
+  tok->type = TOKEN_ERROR;
+  report_error(fmt, args);
+}
+
+
+static void report_parser_error(const Token *tok, const char *fmt, ...) {
+  if(tok->type == TOKEN_ERROR) {
+  } else {
+    va_list args;
+    va_start(args, fmt);
+    report_error(fmt, args);
+    va_end(args);
+  }
+}
+
+static void report_parser_error(const Token *tok, const char *fmt, va_list args) {
+  if(tok->type == TOKEN_ERROR) {
+  } else {
+    report_error(fmt, args);
+  }
+}
+
+static bool check_token(const Token *tok, TokenType t, const char *fmt, ...) {
+  if(tok->type != t) {
+    va_list args;
+    va_start(args, fmt);
+    report_parser_error(tok, fmt, args);
+    va_end(args);
+    return false;
+  }
+  return true;
+}
+#define REPORT_ERROR_IF_NOT_TOKEN(tok, t, ...) \
+  if(!check_token(tok, (TokenType)t, __VA_ARGS__)) { return; }
+
+#define REPORT_ERROR_IF_NOT_TOKEN_C(tok, t, ...) \
+  if(!check_token(tok, (TokenType)t, __VA_ARGS__)) { continue; }
+
+
+
+template<class T>
+static const char* name_from_tok(T t) { // supposed to be called with char or TokenType.
+  switch(t) {
+    case '(' : return "(";
+    case ')' : return ")";
+    case ',' : return ",";
+    case ':' : return ":";
+    case TOKEN_NUMBER :         return "number";
+    case TOKEN_STRING_LITERAL : return "string literal";
+    case TOKEN_IDENT  :         return "identifier";
+    default : return "(unrecognized)"; // @Incomplete: Handle all types.
+  }
+}
+
+static const char* type_from_tok(TokenType t) {
+  switch(t) {
+    case TOKEN_NUMBER  : return "int";
+    case TOKEN_BOOLEAN : return "bool";
+    case TOKEN_STRING_LITERAL : return "string literal";
+    case TOKEN_COLOR :   return "color"; // @ReName:
+    default : return "(unrecognized)"; // @Incomplete: Handle all types.
+  }
+}
+
 
 
 inline bool ensure_space(const char *c, size_t n) {
@@ -31,26 +103,27 @@ inline bool ensure_space(const char *c, size_t n) {
   return true;
 }
 
-inline void INC(const char *&c, s32 *nl, s32 *nc) {
-  if(*c == '\n') {
-    ++(*nl);
-    *nc = 0;
-  } else {
-    ++(*nc);
-  }
-  assert(*c != '\0');
-  ++c;
-}
+#define INC(c, nl, nc) /*macro cause inline procedures suck even with -O3.*/ \
+  do { \
+    if(*(c) == '\n') { \
+      ++(nl); \
+      (nc) = 0; \
+    } else { \
+      ++(nc); \
+    } \
+    assert(*(c) != '\0'); \
+    ++(c); \
+  } while(0);
 
-inline void ADVANCE(const char *&c, size_t n) {
-  assert(ensure_space(c, n));
-  c += n;
-}
+#define ADVANCE(c, n, nl, nc) \
+  do { \
+    assert(ensure_space(c, n)); \
+    for(decltype(n) i = 0; i < n; i++) \
+      INC(c, nl, nc); \
+  } while(0);
 
-inline void ADVANCE(const char *&c, size_t n, s32 *nl, s32 *nc) {
-  assert(ensure_space(c, n));
-  for(size_t i = 0; i < n; i++) { INC(c, nl, nc); }
-}
+
+
 
 #define push_to_table(val, member, type_t) \
   { \
@@ -65,15 +138,16 @@ inline void ADVANCE(const char *&c, size_t n, s32 *nl, s32 *nc) {
 #define push_int(val)    push_to_table(val, s64_, TOKEN_NUMBER)
 #define push_bool(val)   push_to_table(val, bool_, TOKEN_BOOLEAN)
 #define push_string(val) push_to_table(val, string_, TOKEN_STRING_LITERAL)
+#define push_color(val)  push_to_table(val, color_, TOKEN_COLOR) // @ReName: @Vector: 
   
 
-struct Hotloaded_Variables { // @Speed: HashTable.
+struct Hotloaded_Variables { // @Speed: Hashtable.
   array<literal> literals;
   array<Var>     rvalues;
 };
 static Hotloaded_Variables attach_table;
 
-static void attach_value(bool *val, const literal &name) {
+static void attach_value(bool *val, literal name) {
   literal *it; size_t index;
   attach_table.literals.find(name, &it, &index);
 
@@ -82,14 +156,15 @@ static void attach_value(bool *val, const literal &name) {
     if(r->type == TOKEN_BOOLEAN) {
       *val = r->bool_;
     } else {
-      assert(0); // @Incomplete: @ReportError:
+      static_string_from_literal(s, name);
+      report_error("Error: `%s` expected to have type boolean, but got %s.\n", s, type_from_tok(r->type));
     }
   } else {
-    assert(0); // This error must be caught in parser. @ShouldNeverHapen:
+    assert(0); // @ShouldNeverHapen: This error must be caught in parser. 
   }
 }
 
-static void attach_value(int *val, const literal &name) {
+static void attach_value(int *val, literal name) {
   literal *it; size_t index;
   attach_table.literals.find(name, &it, &index);
 
@@ -98,14 +173,15 @@ static void attach_value(int *val, const literal &name) {
     if(r->type == TOKEN_NUMBER) {
       *val = r->s64_;
     } else {
-      assert(0); // @Incomplete: @ReportError:
+      static_string_from_literal(s, name);
+      report_error("Error: `%s` expected to have type int, but got %s.\n", s, type_from_tok(r->type));
     }
   } else {
     assert(0); // @ShouldNeverHappen:
   }
 }
 
-static void attach_value(const char **val, const literal &name) {
+static void attach_value(const char **val, literal name) {
   literal *it; size_t index;
   attach_table.literals.find(name, &it, &index);
 
@@ -114,17 +190,42 @@ static void attach_value(const char **val, const literal &name) {
     if(r->type == TOKEN_STRING_LITERAL) {
       *val = r->string_; // @MemoryLeak:
     } else {
-      assert(0); // @Incomplete: @ReportError:
+      static_string_from_literal(s, name);
+      report_error("Error: `%s` expected to have type string literal, but got %s.\n", s, type_from_tok(r->type));
     }
   } else {
     assert(0); // @ShouldNeverHappen:
   }
 }
 
-void init_var_table() {
+static void attach_value(SDL_Color *val, literal name) {
+  literal *it; size_t index;
+  attach_table.literals.find(name, &it, &index);
+
+  if(it) {
+    Var *r = &attach_table.rvalues[index];
+    if(r->type == TOKEN_COLOR) { // @ReName:
+      *val = r->color_;
+    } else {
+      static_string_from_literal(s, name);
+      report_error("Error: `%s` expected to have type color, but got %s.\n", s, type_from_tok(r->type));
+    }
+  } else {
+    assert(0); // @ShouldNeverHappen:
+  }
+}
+
+
+void init_variable_table() {
   push_bool(show_fps);
   push_string(font_name);
   push_int(font_size);
+  push_color(background_color);
+  push_color(text_color);
+  push_color(cursor_text_color);
+  push_color(cursor_color);
+  push_color(console_text_color);
+  push_color(console_color);
 }
 
 #define attach_from_table(name) attach_value(&name, #name)
@@ -132,6 +233,12 @@ void update_variables() {
   attach_from_table(show_fps);
   attach_from_table(font_name);
   attach_value((int*)&font_size, "font_size");
+  attach_from_table(background_color);
+  attach_from_table(text_color);
+  attach_from_table(cursor_text_color);
+  attach_from_table(cursor_color);
+  attach_from_table(console_text_color);
+  attach_from_table(console_color);
 }
 
 
@@ -154,11 +261,9 @@ Token *Lexer::peek_than_eat_token(s32 i = 0) {
 const Keyword_Def *Lexer::maybe_get_keyword(const char *c) {
   for(auto &keyword : keywords_table) {
     if(c == keyword.name) {
-      auto tmp = c;
-      if(!ensure_space(tmp, keyword.name.size)) { continue; } // @Should never be here, cause we alredy checked that `c` is a keyword. But we still go here and ADVANCE's assert fires up!
+      c += keyword.name.size;
 
-      ADVANCE(tmp, keyword.name.size);
-      if(!isalpha(*tmp) && *tmp != '_' && !isdigit(*tmp)) {
+      if(!isalpha(*c) && *c != '_' && !isdigit(*c)) {
         return &keyword;
       } else {
         continue;
@@ -216,7 +321,7 @@ void Lexer::process_input(const char *cursor) {
 
     if(const Keyword_Def *k = maybe_get_keyword(cursor)) {
       // Keyword token.
-      ADVANCE(cursor, k->name.size, &nline, &nchar);
+      ADVANCE(cursor, k->name.size, nline, nchar);
       tok.string_literal = k->name;
       tok.type           = k->type;
       tokens.add(tok);
@@ -224,25 +329,26 @@ void Lexer::process_input(const char *cursor) {
 
     } else if(*cursor == '\"' || *cursor == '\'') {
       char stop = *cursor;
-      INC(cursor, &nline, &nchar);
+      INC(cursor, nline, nchar);
 
       const char *tmp = cursor;
       while(*cursor != '\0') {
         if(*cursor == stop) {
           break;
         } else if(*cursor == '\\') {
-          INC(cursor, &nline, &nchar);
+          INC(cursor, nline, nchar);
           if(is_one_of(*cursor, "\"\'\\")) {
-            INC(cursor, &nline, &nchar);
+            INC(cursor, nline, nchar);
           }
         } else {
-          INC(cursor, &nline, &nchar);
+          INC(cursor, nline, nchar);
         }
       }
+      if(*cursor != stop) { report_lexer_error(&tok, "Error: expected string literal to end up with %c, but got null terminator.\n", stop); tokens.add(tok); continue; } // @NoErrorOnSourceCode: when parsing source code this shouldn't report any error.
       tok.type           = TOKEN_STRING_LITERAL;
       tok.string_literal = literal(tmp, cursor-tmp);
       tokens.add(tok);
-      if(ensure_space(cursor, 1))  INC(cursor, &nline, &nchar);
+      INC(cursor, nline, nchar);
       // 
 
     } else if(cursor == literal("true") || cursor == literal("false")) {
@@ -250,14 +356,14 @@ void Lexer::process_input(const char *cursor) {
       tok.type = TOKEN_BOOLEAN;
       if(cursor[0] == 't') {
         assert(cursor == literal("true"));
-        ADVANCE(cursor, 4, &nline, &nchar);
+        ADVANCE(cursor, 4, nline, nchar);
         tok.var.type  = TOKEN_BOOLEAN;
         tok.var.bool_ = true;
         tok.string_literal = "true";
 
       } else if(cursor[0] == 'f') {
         assert(cursor == literal("false"));
-        ADVANCE(cursor, 5, &nline, &nchar);
+        ADVANCE(cursor, 5, nline, nchar);
         tok.var.type  = TOKEN_BOOLEAN;
         tok.var.bool_ = false;
         tok.string_literal = "false";
@@ -272,9 +378,9 @@ void Lexer::process_input(const char *cursor) {
       // Identifier token.
       const char *tmp = cursor;
       size_t count = 1;
-      INC(cursor, &nline, &nchar);
+      INC(cursor, nline, nchar);
       while(isalpha(*cursor) || *cursor == '_' || isdigit(*cursor)) {
-        INC(cursor, &nline, &nchar);
+        INC(cursor, nline, nchar);
         count++;
       }
 
@@ -293,21 +399,19 @@ void Lexer::process_input(const char *cursor) {
       if(*cursor == '.') {
         is_floating_point_number = true;
         count++;
-        INC(cursor, &nline, &nchar);
+        INC(cursor, nline, nchar);
 
-        if(!isdigit(*cursor)) {
-          //exit_lexer_with_error("`.` is an operator. @Incomplete: Not handled yet!\n"); @Incomplete:
-          tokens.add(tok);
-        }
+        if(!isdigit(*cursor)) { continue; } // `.` is not a number.
+
       } else {
         count++;
-        INC(cursor, &nline, &nchar);
+        INC(cursor, nline, nchar);
       }
 
       while(1) {
         if(isdigit(*cursor)) {
           count++;
-          INC(cursor, &nline, &nchar);
+          INC(cursor, nline, nchar);
 
         } else if(*cursor == '.') {
           if(is_floating_point_number) {
@@ -317,7 +421,7 @@ void Lexer::process_input(const char *cursor) {
             is_floating_point_number = true;
           }
           count++;
-          INC(cursor, &nline, &nchar);
+          INC(cursor, nline, nchar);
 
         } else {
           break;
@@ -338,46 +442,46 @@ void Lexer::process_input(const char *cursor) {
       //
     
 
-    } else if(is_comment(cursor, &comment_type)) { // @Speed: we can pass tok.type that use TOKENSINGLE_LINE_COMMENT & TOKEN_MULTI_LINE_COMMENT.
+    } else if(is_comment(cursor, &comment_type)) { // @Speed: we can pass tok.type that use TOKEN_SINGLE_LINE_COMMENT & TOKEN_MULTI_LINE_COMMENT.
 
       // Comment.
       if(comment_type == COMMENT_SINGLE_LINE) {
         if(tokenize_comments) { // user defined comments.
           const char *tmp = cursor;
-          ADVANCE(cursor, single_line_comment.size, &nline, &nchar);
+          ADVANCE(cursor, single_line_comment.size, nline, nchar);
           while(*cursor != '\0') {
-            if     (cursor  == literal("\\\n")) { INC(cursor, &nline, &nchar); }
+            if     (cursor  == literal("\\\n")) { INC(cursor, nline, nchar); }
             else if(*cursor == '\n')            { break; }
-            INC(cursor, &nline, &nchar);
+            INC(cursor, nline, nchar);
           }
           tok.type           = TOKEN_SINGLE_LINE_COMMENT;
           tok.string_literal = literal(tmp, cursor-tmp);
           tokens.add(tok);
-          INC(cursor, &nline, &nchar);
+          INC(cursor, nline, nchar);
 
-        } else {
-          INC(cursor, &nline, &nchar); // syntax.m `#` comments.
+        } else {  // syntax.m `#` comments.
+          INC(cursor, nline, nchar);
           while(*cursor != '\0') {
             if(*cursor == '\n') { break; }
-            INC(cursor, &nline, &nchar);
+            INC(cursor, nline, nchar);
           }
-          INC(cursor, &nline, &nchar);
+          INC(cursor, nline, nchar);
         }
 
       } else if(comment_type == COMMENT_MULTI_LINE) {
         if(tokenize_comments) { // user defined comments.
           const char *tmp = cursor;
-          ADVANCE(cursor, start_multi_line.size, &nline, &nchar);
+          ADVANCE(cursor, start_multi_line.size, nline, nchar);
           s32 depth = 1;
           while(*cursor != '\0') {
             if(depth == 0) { break; }
-            INC(cursor, &nline, &nchar);
+            INC(cursor, nline, nchar);
             if     (cursor == end_multi_line)   { depth--; }
             else if(cursor == start_multi_line) { depth++; }
           }
           // @EnsureSpace:
           if(ensure_space(cursor, end_multi_line.size)) {
-            ADVANCE(cursor, end_multi_line.size, &nline, &nchar);
+            ADVANCE(cursor, end_multi_line.size, nline, nchar);
           }
           tok.type           = TOKEN_MULTI_LINE_COMMENT;
           tok.string_literal = literal(tmp, cursor-tmp);
@@ -385,14 +489,14 @@ void Lexer::process_input(const char *cursor) {
 
         } else { // our comments.
           literal l = literal("---");
-          ADVANCE(cursor, l.size, &nline, &nchar);
+          ADVANCE(cursor, l.size, nline, nchar);
           while(*cursor != '\0') {
             if(cursor == l) { break; }
-            INC(cursor, &nline, &nchar);
+            INC(cursor, nline, nchar);
           }
           // @EnsureSpace:
           if(ensure_space(cursor, l.size)) {
-            ADVANCE(cursor, l.size, &nline, &nchar);
+            ADVANCE(cursor, l.size, nline, nchar);
           }
         }
       } else {
@@ -403,11 +507,11 @@ void Lexer::process_input(const char *cursor) {
     } else if(is_one_of(*cursor, "():,")) {
       tok.string_literal = literal(cursor, 1);
       tok.type           = (TokenType)*cursor;
-      INC(cursor, &nline, &nchar);
+      INC(cursor, nline, nchar);
       tokens.add(tok);
 
     } else {
-      INC(cursor, &nline, &nchar);
+      INC(cursor, nline, nchar);
     }
   }
 
@@ -422,7 +526,7 @@ static Syntax_Settings settings;
 static size_t keyword_count = 1000; // @ResetOnFileChange: every time we change a syntax file this should be 1000.
 
 
-Language_Syntax_Struct* get_language_syntax(const literal &file_extension) {
+Language_Syntax_Struct* get_language_syntax(literal file_extension) {
   if(file_extension.size) {
     string *iter; size_t index;
     settings.extensions.find(file_extension, &iter, &index);
@@ -432,35 +536,57 @@ Language_Syntax_Struct* get_language_syntax(const literal &file_extension) {
   }
 }
 
-
 static bool end_of_block(Lexer &lexer) {
   return lexer.peek_token()->type == ':' && lexer.peek_token(1)->string_literal == "end"; // @Incomplete: ensure_space(1)
 }
 
-static void parse_color(Lexer &lexer, u8 *r, u8 *g, u8 *b) {
+static void attach_var_if_found(literal ident, Var var) {
+  literal *it; size_t index;
+  attach_table.literals.find(ident, &it, &index);
+  if(it) {
+    attach_table.rvalues[index] = var;
+  } else {
+    static_string_from_literal(s, ident);
+    report_error("Error: variable `%s` is not defined.\n", s);
+  }
+}
+
+static void parse_color(Lexer &lexer, SDL_Color *c) {
   Token *tok = lexer.peek_than_eat_token();
-  if(tok->type != '(') { assert(0); } // @ReportError.
+  REPORT_ERROR_IF_NOT_TOKEN(tok, '(', "Error: expected `%s` in a color expression.\n", name_from_tok('('));
   
   tok = lexer.peek_than_eat_token();
-  if(tok->type != TOKEN_NUMBER) { assert(0); } // @ReportError.
-  *r = tok->var.s64_;
+  REPORT_ERROR_IF_NOT_TOKEN(tok, TOKEN_NUMBER, "Error: expected `%s` in a color expression.\n", name_from_tok(TOKEN_NUMBER));
+  c->r = tok->var.s64_;
 
   tok = lexer.peek_than_eat_token();
-  if(tok->type != ',') { assert(0); } // @ReportError.
+  REPORT_ERROR_IF_NOT_TOKEN(tok, ',', "Error: expected `%s` in a color expression.\n", name_from_tok(','));
 
   tok = lexer.peek_than_eat_token();
-  if(tok->type != TOKEN_NUMBER) { assert(0); } // @ReportError.
-  *g = tok->var.s64_;
+  REPORT_ERROR_IF_NOT_TOKEN(tok, TOKEN_NUMBER, "Error: expected `%s` in a color expression.\n", name_from_tok(TOKEN_NUMBER));
+  c->g = tok->var.s64_;
 
   tok = lexer.peek_than_eat_token();
-  if(tok->type != ',') { assert(0); } // @ReportError.
+  REPORT_ERROR_IF_NOT_TOKEN(tok, ',', "Error: expected `%s` in a color expression.\n", name_from_tok(','));
 
   tok = lexer.peek_than_eat_token();
-  if(tok->type != TOKEN_NUMBER) { assert(0); } // @ReportError.
-  *b = tok->var.s64_;
+  REPORT_ERROR_IF_NOT_TOKEN(tok, TOKEN_NUMBER, "Error: expected `%s` in a color expression.\n", name_from_tok(TOKEN_NUMBER));
+  c->b = tok->var.s64_;
 
   tok = lexer.peek_than_eat_token();
-  if(tok->type != ')') { assert(0); } // @ReportError.
+  if(tok->type == ')') {
+    c->a = 255;
+  } else if(tok->type == ',') {
+    tok = lexer.peek_than_eat_token();
+    REPORT_ERROR_IF_NOT_TOKEN(tok, TOKEN_NUMBER, "Error: expected `%s` in a color expression.\n", name_from_tok(TOKEN_NUMBER));
+
+    c->a = tok->var.s64_;
+    tok  = lexer.peek_than_eat_token();
+
+    REPORT_ERROR_IF_NOT_TOKEN(tok, ')', "Error: expected `%s` in a color expression.\n", name_from_tok(')'));
+  } else {
+    report_parser_error(tok, "Error: expected `%s` in a color expression.\n", name_from_tok(')'));
+  }
 }
 
 static void parse_syntax_command(Lexer &lexer, Language_Syntax_Struct *syntax) {
@@ -476,27 +602,27 @@ static void parse_syntax_command(Lexer &lexer, Language_Syntax_Struct *syntax) {
       tok = lexer.peek_than_eat_token();
       if(tok->string_literal == literal("literal")) {
         syntax->defined_color_for_literals = true;
-        auto &c = syntax->color_for_literals;
-        parse_color(lexer, &c.r, &c.g, &c.b);
+        auto color = &syntax->color_for_literals;
+        parse_color(lexer, color);
 
       } else if(tok->string_literal == literal("string")) {
         syntax->defined_color_for_strings = true;
-        auto &c = syntax->color_for_strings;
-        parse_color(lexer, &c.r, &c.g, &c.b);
+        auto color = &syntax->color_for_strings;
+        parse_color(lexer, color);
 
       } else if(tok->string_literal == literal("single_line_comment")) {
         tok = lexer.peek_than_eat_token();
-        if(tok->type != TOKEN_STRING_LITERAL) { assert(0); } // @ReportError.
+        REPORT_ERROR_IF_NOT_TOKEN_C(tok, TOKEN_STRING_LITERAL, "Error: expected string literal after `single_line_comment` command, but got `%s`.\n", type_from_tok(tok->type));
 
         syntax->tokenize_comments   = true;
         syntax->single_line_comment = to_string(tok->string_literal);
 
-        auto &c = syntax->color_for_comments;
-        parse_color(lexer, &c.r, &c.g, &c.b);
+        auto color = &syntax->color_for_comments;
+        parse_color(lexer, color);
 
       } else if(tok->string_literal == literal("multi_line_comment")) {
         tok = lexer.peek_than_eat_token();
-        if(tok->type != TOKEN_STRING_LITERAL) { assert(0); } // @ReportError.
+        REPORT_ERROR_IF_NOT_TOKEN_C(tok, TOKEN_STRING_LITERAL, "Error: expected string literal after `multi_line_comment` command, but got `%s`.\n", type_from_tok(tok->type));
 
         syntax->tokenize_comments = true;
         syntax->start_multi_line  = to_string(tok->string_literal);
@@ -509,30 +635,27 @@ static void parse_syntax_command(Lexer &lexer, Language_Syntax_Struct *syntax) {
           syntax->end_multi_line = syntax->start_multi_line;
         }
       } else {
-        assert(0); // @ReportError.
+        static_string_from_literal(s, tok->string_literal);
+        report_parser_error(tok, "Error: unexpected command `%s` inside of syntax block.\n", s);
       }
 
     } else if(tok->type == TOKEN_IDENT) {
-      Keyword_Def *k    = &syntax->keywords.add();
-      string      *name = &syntax->names.add();
-      SDL_Color   *c    = &syntax->colors.add();
+      Keyword_Def *k     = &syntax->keywords.add();
+      string      *name  = &syntax->names.add();
+      SDL_Color   *color = &syntax->colors.add();
 
       k->name = tok->string_literal;
       k->type = (TokenType)keyword_count++;
 
       *name = to_string(tok->string_literal);
-      parse_color(lexer, &c->r, &c->g, &c->b);
+      parse_color(lexer, color);
 
     } else {
-      assert(0); // @ReportError.
+      report_parser_error(tok, "Error: unexpected expression `%s` inside of syntax block.\n", name_from_tok(tok->type));
     }
   }
   lexer.eat_token();
   lexer.eat_token();
-}
-
-static void parse_save_command() {
-  save();
 }
 
 static bool parse_top_level(Lexer &lexer) {
@@ -544,11 +667,9 @@ static bool parse_top_level(Lexer &lexer) {
       Language_Syntax_Struct *syntax = &settings.base.add();
       parse_syntax_command(lexer, syntax);
 
-    } else if(tok->string_literal == "save" || tok->string_literal == "w") {
-      parse_save_command();
-
     } else {
-      assert(0); // @ReportError.
+      static_string_from_literal(s, tok->string_literal);
+      report_parser_error(tok, "Error: `%s` is not a defined command for settings file.\n", s);
     }
     // 
 
@@ -556,37 +677,37 @@ static bool parse_top_level(Lexer &lexer) {
     literal ident = tok->string_literal;
     Var var;
 
-    tok = lexer.peek_than_eat_token();
+    tok = lexer.peek_token();
     if(tok->type == TOKEN_STRING_LITERAL) {
+      lexer.eat_token();
       var.type    = tok->type;
       var.string_ = dynamic_string_from_literal(tok->string_literal);
 
-      literal *it; size_t index;
-      attach_table.literals.find(ident, &it, &index);
-      if(it) {
-        attach_table.rvalues[index] = var;
-      } else {
-        assert(0); // @WrongVariableName: @ReportError.
-      }
-
     } else if(tok->type == TOKEN_NUMBER) {
+      lexer.eat_token();
       var.type = tok->type;
       var.s64_ = tok->var.s64_;
 
-      literal *it; size_t index; // @Copy&Paste:
-      attach_table.literals.find(ident, &it, &index);
-      if(it) {
-        attach_table.rvalues[index] = var;
-      } else {
-        assert(0); // @WrongVariableName: @ReportError.
-      }
+    } else if(tok->type == TOKEN_BOOLEAN) {
+      lexer.eat_token();
+      var.type  = tok->type;
+      var.bool_ = tok->var.bool_;
+
+    } else if(tok->type == '(') { // color
+      var.type = TOKEN_COLOR; // @ReName: 
+      parse_color(lexer, &var.color_);
+
+    } else {
+      report_error("Error: expected expression of type (%s, %s, %s, %s), but got `%s`.\n", type_from_tok(TOKEN_NUMBER), type_from_tok(TOKEN_BOOLEAN), type_from_tok(TOKEN_STRING_LITERAL), type_from_tok(TOKEN_COLOR), type_from_tok(tok->type));
+      return lexer.peek_token()->type == TOKEN_END_OF_INPUT;
     }
+    attach_var_if_found(ident, var);
+    // Done.
+
 
   } else {
-    assert(0); // @ReportError.
+    report_parser_error(tok, "Error: expected ':' for command, or variable definition to hotload.\n");
   }
-
-
 
   return lexer.peek_token()->type == TOKEN_END_OF_INPUT;
 }
@@ -612,5 +733,30 @@ void interp_single_command(const char *cursor) {
   Lexer lexer;
   lexer.process_input(cursor);
 
-  parse_top_level(lexer);
+  Token *tok = lexer.peek_than_eat_token();
+  REPORT_ERROR_IF_NOT_TOKEN(tok, ':', "Error: expected `%s` at the beginning of command.\n", name_from_tok(':'));
+
+  tok = lexer.peek_than_eat_token();
+  if(tok->string_literal == "save" || tok->string_literal == "w") { // @Speed: precomputed Hashtable?
+    save();
+
+  } else if(tok->string_literal == "tab") {
+    tok = lexer.peek_than_eat_token(); // @Maybe: we don't need a TOKEN_STRING_LITERAL, just a TOKEN_IDENT.
+    REPORT_ERROR_IF_NOT_TOKEN(tok, TOKEN_STRING_LITERAL, "Error: expected `%s` after `tab` command.\n", name_from_tok(TOKEN_STRING_LITERAL));
+    open_new_tab(to_string(tok->string_literal));
+
+  } else if(tok->string_literal == "change_tab") {
+    tok = lexer.peek_than_eat_token();
+    REPORT_ERROR_IF_NOT_TOKEN(tok, TOKEN_NUMBER, "Error: expected `%s` after `change_tab` command.\n", name_from_tok(TOKEN_NUMBER));
+    change_tab(tok->var.s64_);
+
+  } else if(tok->string_literal == "hsplit" || tok->string_literal == "split" || tok->string_literal == "sp") {
+    
+
+  } else if(tok->string_literal == "vsplit" || tok->string_literal == "vsp") {
+    
+  } else {
+    static_string_from_literal(s, tok->string_literal);
+    report_parser_error(tok, "Error: `%s` is not a defined command for interactive prompt.\n", s);
+  }
 }

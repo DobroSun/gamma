@@ -6,22 +6,19 @@
 #include "interp.h"
 
 
-literal get_file_extension(const string &filename) {
+literal get_file_extension(string filename) {
   const char *iter; size_t index;
   filename.find('.', &iter, &index);
 
+  literal r;
   if(iter) {
-    literal r;
     r.data = filename.data + index;
     r.size = filename.size - index;
-    return r;
-  } else {
-    literal r;
-    return r;
   }
+  return r;
 }
 
-void split(array<literal> *lines, const literal &l, const literal &split_by) {
+void split(array<literal> *lines, literal l, literal split_by) {
   const char *data = l.data;
   size_t      count = 0;
   size_t      size = 0;
@@ -86,12 +83,9 @@ T *get_free_source(array<T> &source) {
 
   if(!ret) {
     ret = &source.add();
-    new (ret) T();
-
   } else {
     // Already found.
   }
-
   assert(ret);
   ret->is_used = true;
   return ret;
@@ -191,12 +185,27 @@ static FILE *get_file_or_create(const char *filename, const char *mods) {
   }
 }
 
+tab_t *open_new_tab(string s) {
+  auto tab   = get_free_tab();
+  active_tab = tab;
+  open_new_buffer(s); // @Incomplete: What if filename is already opened?
+  return tab;
+}
 
-void open_new_buffer(string &s) {
+void change_tab(s32 index) {
+  if(index >= 0 && index < tabs.size && tabs[index].is_used) {
+    active_tab    = &tabs[index];
+    active_buffer = active_tab->current_buffer;
+  } else {
+    // Nothing.
+  }
+}
+
+void open_new_buffer(string s) {
   auto buffer = get_free_buffer();
   buffer->file = new file_buffer_t;
 
-  if(s.data == NULL) { return; }
+  if(s.size == 0) { return; }
 
   if(FILE *f = fopen(s.data, "r")) {
     defer { fclose(f); };
@@ -204,8 +213,11 @@ void open_new_buffer(string &s) {
     buffer->filename = s;
   }
 
+  buffer->init(0, 0, Width, get_console()->bottom_y);
   buffer->total_lines = buffer->count_total_lines();
-  active_buffer = buffer;
+
+  active_buffer              = buffer;
+  active_tab->current_buffer = buffer;
 }
 
 void open_existing_buffer(buffer_t *prev) {
@@ -215,34 +227,32 @@ void open_existing_buffer(buffer_t *prev) {
   buffer->filename = prev->filename;
   buffer->file->buffer.move_until(0);
 
-  active_buffer = buffer;
+  active_buffer              = buffer;
+  active_tab->current_buffer = buffer;
 }
 
-void open_existing_or_new_buffer(const literal &filename) {
-  auto tab = get_current_tab();
+void open_existing_or_new_buffer(string s) {
+  auto tab = active_tab;
+
   get_used_buffers(used_bufs, size, tab->buffers);
 
   for(size_t i = 0; i < size; i++) {
-    if(used_bufs[i]->filename == filename) {
+    if(used_bufs[i]->filename == s) {
       open_existing_buffer(used_bufs[i]);
       return;
     }
   }
-  string s = to_string(filename);
   open_new_buffer(s);
 }
 
 void tab_t::draw(bool selection_mode) const {
   get_const_buffers(used_bufs, used_size, buffers);
 
-
-
-
   for(size_t i = 0; i < used_size; i++) {
     used_bufs[i]->draw(selection_mode);
   }
 
-#if 0
+/*
   const buffer_t *same_buffers[used_size];
   size_t size = 0;
   for(size_t i = 0; i < used_size; i++) {
@@ -259,10 +269,10 @@ void tab_t::draw(bool selection_mode) const {
   // Updating only same buffers, as active_buffer.
   for(size_t i = 0; i < size; i++) {
     auto *buffer = same_buffers[i];
-    draw_rect(buffer->start_x, buffer->start_y, buffer->width, buffer->height, WhiteColor);
+    draw_rect(buffer->start_x, buffer->start_y, buffer->width, buffer->height, background_color);
     buffer->draw(selection_mode);
   }
-#endif
+*/
 
   if(used_size == 0) {
 
@@ -274,9 +284,9 @@ void tab_t::draw(bool selection_mode) const {
     int px = active_buffer->get_relative_pos_x(active_buffer->n_character-active_buffer->offset_on_line);
     int py = active_buffer->get_relative_pos_y(active_buffer->n_line-active_buffer->start_pos);
 
-    draw_text_shaded(get_font(), s, WhiteColor, BlackColor, px, py);
+    draw_text_shaded(get_font(), s, cursor_text_color, cursor_color, px, py);
 
-    draw_rect(0, get_console()->bottom_y, Width, font_height, WhiteColor);
+    draw_rect(0, get_console()->bottom_y, Width, font_height, background_color);
     console_draw();
   }
 }
@@ -299,6 +309,10 @@ void buffer_t::draw(bool selecting) const {
   size_t current_token_index = 0;
 
   size_t i = offset_from_beginning, line_number = 0;
+
+  const int x = get_relative_pos_x(-offset_on_line);
+  int       y = get_relative_pos_y(0);
+
   while(i < file->buffer.size()) {
     const int current_line_length = get_line_length(i);
 
@@ -314,13 +328,11 @@ void buffer_t::draw(bool selecting) const {
       }
     }
 
-    const int px = get_relative_pos_x(-offset_on_line); // @Hack:
-    const int py = get_relative_pos_y(line_number);
+    if(y >= get_console()->bottom_y - font_height) { break; }
 
-    if(py >= get_console()->bottom_y - font_height) { break; }
+    draw_text_shaded(get_font(), string, text_color, background_color, x, y);
 
-    draw_text_shaded(get_font(), string, BlackColor, WhiteColor, px, py);
-
+    y += font_height;
     i += current_line_length;
     line_number++;
   }
@@ -335,6 +347,12 @@ void buffer_t::draw(bool selecting) const {
   lexer.single_line_comment = to_literal(syntax->single_line_comment);
   lexer.start_multi_line    = to_literal(syntax->start_multi_line);
   lexer.end_multi_line      = to_literal(syntax->end_multi_line);
+
+
+  defer {
+    free_array(lexer.tokens);
+    free_array(lexer.keywords_table);
+  };
 
   char string[buffer_size+1];
 
@@ -357,11 +375,13 @@ void buffer_t::draw(bool selecting) const {
       if(py > get_console()->bottom_y - font_height) break;
 
       static_string_from_literal(s, l);
-      draw_text_shaded(get_font(), s, syntax->color_for_literals, WhiteColor, px, py);
+      draw_text_shaded(get_font(), s, syntax->color_for_literals, background_color, px, py);
       continue;
 
     } else if(syntax->defined_color_for_strings && tok.type == TOKEN_STRING_LITERAL) {
       array<literal> lines;
+      defer { free_array(lines); };
+
       split(&lines, l, "\n");
 
       if(lines.size == 1) {
@@ -372,11 +392,11 @@ void buffer_t::draw(bool selecting) const {
 
         SDL_Color c = syntax->color_for_strings;
         static_string_from_literal(s, lines[0]);
-        if(lines[0].size) draw_text_shaded(get_font(), s, c, WhiteColor, px + font_width, py);
+        if(lines[0].size) draw_text_shaded(get_font(), s, c, background_color, px + font_width, py);
 
         char cc = '\"';
-        draw_text_shaded(get_font(), cc, c, WhiteColor, px, py);
-        draw_text_shaded(get_font(), cc, c, WhiteColor, px + (l.size+1)*font_width, py);
+        draw_text_shaded(get_font(), cc, c, background_color, px, py);
+        draw_text_shaded(get_font(), cc, c, background_color, px + (l.size+1)*font_width, py);
       } else {
 
         char first[lines.first().size+1];
@@ -400,13 +420,14 @@ void buffer_t::draw(bool selecting) const {
           if(py > get_console()->bottom_y - font_height) break;
       
           static_string_from_literal(comment, lines[i]);
-          draw_text_shaded(get_font(), comment, syntax->color_for_strings, WhiteColor, px, py);
+          draw_text_shaded(get_font(), comment, syntax->color_for_strings, background_color, px, py);
         }
       }
       continue;
 
     } else if(syntax->tokenize_comments && tok.type == TOKEN_SINGLE_LINE_COMMENT) {
       array<literal> lines;
+      defer { free_array(lines); };
       split(&lines, l, "\\\n");
 
       for(size_t i = 0; i < lines.size; i++) {
@@ -425,16 +446,17 @@ void buffer_t::draw(bool selecting) const {
           memcpy(comment, lines[i].data, lines[i].size);
           comment[lines[i].size] = '\\';
           comment[lines[i].size+1] = '\0';
-          draw_text_shaded(get_font(), comment, c, WhiteColor, px, py);
+          draw_text_shaded(get_font(), comment, c, background_color, px, py);
         } else {
           static_string_from_literal(comment, lines[i]);
-          draw_text_shaded(get_font(), comment, c, WhiteColor, px, py);
+          draw_text_shaded(get_font(), comment, c, background_color, px, py);
         }
       }
       continue;
 
     } else if(syntax->tokenize_comments && tok.type == TOKEN_MULTI_LINE_COMMENT) {
       array<literal> lines;
+      defer { free_array(lines); };
       split(&lines, l, "\n");
 
       for(size_t i = 0; i < lines.size; i++) { // @Copy&Paste: from TOKEN_SINGLE_LINE_COMMENT.
@@ -447,7 +469,7 @@ void buffer_t::draw(bool selecting) const {
         if(py > get_console()->bottom_y - font_height) break;
     
         static_string_from_literal(comment, lines[i]);
-        draw_text_shaded(get_font(), comment, syntax->color_for_comments, WhiteColor, px, py);
+        draw_text_shaded(get_font(), comment, syntax->color_for_comments, background_color, px, py);
       }
       continue;
     }
@@ -461,7 +483,7 @@ void buffer_t::draw(bool selecting) const {
 
       if(py > get_console()->bottom_y - font_height) break;
       
-      draw_text_shaded(get_font(), it->data, syntax->colors[index], WhiteColor, px, py);
+      draw_text_shaded(get_font(), it->data, syntax->colors[index], background_color, px, py);
     }
   }
 }
@@ -729,32 +751,76 @@ int number_chars_on_line_fits_in_window(const buffer_t *b) {
   return b->width / font_width - 1;
 }
 
+
 void init(int argc, char **argv) {
-  init_var_table();
+  init_variable_table();
+
+  console_init(); // console is used in report_error(), and open_new_buffer().
+  console_on_resize(Height);
 
   string filename;
   if(argc > 1) {
-    filename = argv[1];
+    for(int i = 1; i < argc; i++) {
+      const char *arg = argv[i];
+      int len    = strlen(arg);
+      int cursor = 0;
+
+      literal option;
+      if(arg[cursor] == '-') {
+        cursor++;
+        if(arg[cursor] == '-') {
+          // It's a command line option.
+          cursor++;
+          const char *tmp = arg + cursor;
+          while(arg[cursor] != '\0' && arg[cursor] != '=') {
+            cursor++;
+          }
+          option.data = tmp;
+          option.size = cursor - 2; // `--`.
+        } else {
+          if(!filename.size) filename = string(arg, len);
+        }
+      } else {
+        if(!filename.size) filename = string(arg, len);
+      }
+
+      if(option == "settings") {
+        if(arg[cursor++] != '=') {
+          report_error("Error: `settings` option expects a path to settings file.\n", settings_filename);
+          continue;
+        }
+        if(arg[cursor] == '\0') {
+          report_error("Error: `settings` option requires non null path.\n");
+          continue;
+        }
+        settings_filename = arg + cursor;
+        // done.
+
+      } else { // other options.
+      }
+    }
   } else {
-    // No positional arguments provided.
-    // filename.data == nullptr.
+    // No command line arguments provided.
   }
 
-  auto tab = get_free_tab();
-  active_tab = tab;
-  open_new_buffer(filename); // @Incomplete: What if filename is already opened?
-
+  auto tab = open_new_tab(filename);
   tab->splits.add(active_buffer); 
   tab->insert_to++;
 
-  auto buffer = active_buffer;
+  {
+    string config;
+    defer { free_string(config); };
+    {
+      FILE *f = fopen(settings_filename, "r");
+      defer { fclose(f); };
+      read_entire_file(&config, f);
+    }
+    interp(config.data);
+  }
+
+  update_variables();
 
   make_font();
-
-
-  console_init();
-  console_on_resize(Height);
-  buffer->init(0, 0, Width, get_console()->bottom_y);
 }
 
 selection_buffer_t *get_selection_buffer() {
@@ -1137,8 +1203,6 @@ int compute_to_end_of_line() {
 // Undo/Redo.
 static void save_current_state_for_backup(buffer_t *b, array<buffer_t> *states) {
   auto a  = &states->add();
-  new (a) buffer_t();
-
   a->file = new file_buffer_t;
 
   copy_gap_buffer(a->file->buffer, b->file->buffer);

@@ -288,21 +288,9 @@ static void interp_lua_table(lua_State *L, const char *name, int key) {
 
 
 
-s32 main(s32 argc, char **argv) {
+int main(int argc, char **argv) {
   if(Init_SDL()) return 1;
   init(argc, argv);
-
-  const char *settings_filename = "syntax.m";
-  {
-    string config;
-    {
-      FILE *f = fopen(settings_filename, "r");
-      defer { fclose(f); };
-      read_entire_file(&config, f);
-    }
-    interp(config.data);
-  }
-
 
   lua_State *L = luaL_newstate();
   lua_register(L, "save", &save);
@@ -350,11 +338,10 @@ s32 main(s32 argc, char **argv) {
     SDL_SetWindowSize(get_win(), Width, Height);
   }
 
-
   Settings_Hotloader hotloader(settings_filename);
 
   while(!should_quit) {
-    // measure_scope();
+    measure_scope();
 
     int editor_state;
     lua_getglobal(L, "editor_state");
@@ -442,13 +429,13 @@ s32 main(s32 argc, char **argv) {
     // update.
     switch(editor_state) {
       case Editor: {
-        draw_rect(0, 0, Width, get_console()->bottom_y, WhiteColor);
+        draw_rect(0, 0, Width, get_console()->bottom_y, background_color);
         get_current_tab()->draw(mode == VisualMode);
         SDL_RenderPresent(get_renderer());
       } break;
 
       case Console: {
-        draw_rect(0, get_console()->bottom_y, Width, font_height, WhiteColor);
+        draw_rect(0, get_console()->bottom_y, Width, font_height, console_color);
         console_draw();
         SDL_RenderPresent(get_renderer());
       } break;
@@ -457,6 +444,7 @@ s32 main(s32 argc, char **argv) {
     if(hotloader.settings_need_reload()) {
       hotloader.reload_file(settings_filename);
 
+      update_variables();
       clear_font();
       make_font();
     }

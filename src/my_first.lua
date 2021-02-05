@@ -27,9 +27,6 @@ tabstop = 2
 editor_state = EDITOR
 mode         = NORMAL_MODE
 
---function min(a, b)  if a < b then return a else return b end end
---function max(a, b)  if a < b then return b else return a end end
-
 function pass() end
 function delete_action() end
 current_action = pass
@@ -58,6 +55,11 @@ end
 
 function open_console()
   editor_state = CONSOLE
+end
+
+function close_console()
+  editor_state = EDITOR
+  console_clear()
 end
 
 
@@ -390,23 +392,16 @@ end
 function on_escape()
   if editor_state == EDITOR then
     if mode == INSERT_MODE then
-      if not buffer_has_changed_from_last_undo() then
-        pop_from_undo()
-      end
       to_normal_mode()
 
     elseif mode == NORMAL_MODE then
       quit() -- @Temporary:
     elseif mode == VISUAL_MODE then
-
-      if not buffer_has_changed_from_last_undo() then
-        pop_from_undo()
-      end
       to_normal_mode()
 
     end
   elseif editor_state == CONSOLE then
-    editor_state = EDITOR
+    close_console()
   end
 end
 function on_right_arrow()
@@ -585,6 +580,7 @@ keys[DELETE]      = on_delete
 function open_console()
   console_clear()
   editor_state = CONSOLE
+  console_put_text(":") -- @Hack:
 end
 function on_dollar()
   if editor_state == EDITOR then
