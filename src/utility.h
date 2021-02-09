@@ -2,11 +2,10 @@
 #define GAMMA_UTILITY_H
 
 inline char *concat(const char *a, const char *b) {
-  char *ret;
   const size_t s1 = strlen(a);
   const size_t s2 = strlen(b);
 
-  ret = (char *)malloc(sizeof(char) * (s1 + s2 + 1));
+  char *ret = (char *)malloc(sizeof(char) * (s1 + s2 + 1));
   assert(ret);
 
   memcpy(ret, a, sizeof(char) * s1);
@@ -23,10 +22,9 @@ struct Junk {};
 #define CONCAT_IMPL(A, B) A##B
 
 template<class F>
-class ScopeGuard {
+struct ScopeGuard {
   F fun;
 
-public:
   ScopeGuard(F &&f): fun{std::move(f)} {}
   ~ScopeGuard() {
       fun();
@@ -38,8 +36,6 @@ ScopeGuard<F> operator+(Junk, F &&fun) {
   return ScopeGuard<F>(std::move(fun));
 }
 
-
-#define for_each(c_array) for(auto it = c_array; *it != '\0'; it++)
 
 struct literal {
   const char *data = NULL;
@@ -55,10 +51,6 @@ struct literal {
     data = x;
     size = N;
   }
-  literal(const literal &)            = default;
-  literal &operator=(const literal &) = default;
-  literal(literal &&)                 = default;
-  literal &operator=(literal &&)      = default;
 
   char operator[](size_t i) const {
     assert(i < size);
@@ -112,12 +104,6 @@ inline char *dynamic_string_from_literal(literal l) {
 
 
 #define array_size(x) (sizeof((x)) / sizeof(*(x)))
-
-template<class T, class U>
-T max(T a, U b) { return static_cast<T>((a < static_cast<T>(b))? b: a); }
-
-template<class T, class U>
-T min(T a, U b) { return static_cast<T>((a < static_cast<T>(b))? a: b); }
 
 
 struct Print {

@@ -4,12 +4,18 @@
 
 
 struct string {
-  char *data     = NULL;
-  s32   capacity = 0;
-  s32   size     = 0;
+  char *data      = NULL;
+  size_t capacity = 0;
+  size_t size     = 0;
 
 
   string() = default;
+  string(const char *x, size_t N) {
+    data     = (char*)calloc(N+1, 1);
+    memcpy(data, x, N);
+    capacity = N+1;
+    size     = N;
+  }
 
   string(const char *x) {
     const size_t N = strlen(x);
@@ -19,19 +25,16 @@ struct string {
     size     = N;
   }
 
-  string(const char *x, size_t N) {
-    data     = (char*)calloc(N+1, 1);
-    memcpy(data, x, N);
-    capacity = N+1;
-    size     = N;
+
+  void add(char c) {
+    if(size == capacity) { reserve(); }
+    data[size++] = c;
   }
 
-  string(const string &o)            = default;
-  string &operator=(const string &o) = default;
-  string(string &&o)                 = default;
-  string &operator=(string &&o)      = default;
-
-  ~string() { new (this) string(); }
+  char &pop() { 
+    assert(size > 0);
+    return data[--size];
+  }
 
   void find(char c, const char **iter, size_t *index) const {
     for(size_t i = 0; i < size; i++) {
@@ -44,27 +47,18 @@ struct string {
     *iter = NULL;
   }
 
-  void add(char c) {
-    if(size == capacity) { reserve(); }
-    data[size++] = c;
-  }
 
-  char &pop() { 
-    assert(size > 0);
-    return data[--size];
-  }
-
-  char &operator[](s32 index) {
+  char &operator[](size_t index) {
     assert(index >= 0 && index < size);
     return data[index];
   }
 
-  const char &operator[](s32 index) const {
+  const char &operator[](size_t index) const {
     assert(index >= 0 && index < size);
     return data[index];
   }
 
-  void reserve(s32 new_cap=0) {
+  void reserve(size_t new_cap=0) {
     if(!data) {
       assert(!capacity && !size && !data);
 
@@ -92,7 +86,7 @@ struct string {
     }
   }
 
-  void resize(s32 new_cap=0) {
+  void resize(size_t new_cap=0) {
     reserve(new_cap+1);
     assert(data[capacity-1] == '\0');
     size = capacity-2;
@@ -108,10 +102,10 @@ struct string {
 
 
   struct iterator {
-    s32 index; char *p;
+    size_t index; char *p;
     
-    explicit iterator(s32 i)          { index = i; }
-    explicit iterator(s32 i, char* d) { index = i; p = d; }
+    explicit iterator(size_t i)          { index = i; }
+    explicit iterator(size_t i, char* d) { index = i; p = d; }
     iterator& operator++()            { ++index; return *this; }
     iterator& operator++(int)         { ++index; return *this; }
     bool operator==(iterator o) const { return index == o.index; }

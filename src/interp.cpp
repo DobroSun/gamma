@@ -3,8 +3,34 @@
 #include "buffer.h"
 #include "console.h"
 
+inline bool ensure_space(const char *c, size_t n) {
+  for(size_t i = 0; i < n; i++) {
+    if(*c == '\0') { return false; }
+    ++c;
+  }
+  return true;
+}
 
-const u16 MAX_ERROR_STRING_SIZE = 2048;
+inline void INC(const char *&c, s32 &nl, s32 &nc) { // these are references for no reason!
+  if(*c == '\n') {
+    ++nl;
+    nc = 0;
+  } else {
+    ++nc;
+  }
+  assert(*c != '\0');
+  ++c;
+}
+
+inline void ADVANCE(const char *&c, size_t n, s32 &nl, s32 &nc) {
+  assert(ensure_space(c, n));
+  for(size_t i = 0; i < n; i++) { INC(c, nl, nc); }
+}
+
+
+
+static const u16 MAX_ERROR_STRING_SIZE = 2048;
+
 void report_error(const char *fmt, va_list args) {
   char r[MAX_ERROR_STRING_SIZE];
   vsnprintf(r, MAX_ERROR_STRING_SIZE, fmt, args);
@@ -76,6 +102,7 @@ static const char* name_from_tok(T t) { // supposed to be called with char or To
     case ')' : return ")";
     case ',' : return ",";
     case ':' : return ":";
+    case '/' : return "/";
     case TOKEN_NUMBER :         return "number";
     case TOKEN_STRING_LITERAL : return "string literal";
     case TOKEN_IDENT  :         return "identifier";
@@ -93,34 +120,6 @@ static const char* type_from_tok(TokenType t) {
   }
 }
 
-
-
-inline bool ensure_space(const char *c, size_t n) {
-  for(size_t i = 0; i < n; i++) {
-    if(*c == '\0') { return false; }
-    ++c;
-  }
-  return true;
-}
-
-#define INC(c, nl, nc) /*macro cause inline procedures suck even with -O3.*/ \
-  do { \
-    if(*(c) == '\n') { \
-      ++(nl); \
-      (nc) = 0; \
-    } else { \
-      ++(nc); \
-    } \
-    assert(*(c) != '\0'); \
-    ++(c); \
-  } while(0);
-
-#define ADVANCE(c, n, nl, nc) \
-  do { \
-    assert(ensure_space(c, n)); \
-    for(decltype(n) i = 0; i < n; i++) \
-      INC(c, nl, nc); \
-  } while(0);
 
 
 
@@ -220,12 +219,14 @@ void init_variable_table() {
   push_bool(show_fps);
   push_string(font_name);
   push_int(font_size);
-  push_color(background_color);
   push_color(text_color);
+  push_color(background_color);
   push_color(cursor_text_color);
   push_color(cursor_color);
   push_color(console_text_color);
   push_color(console_color);
+  push_color(searched_text_color);
+  push_color(searched_color);
 }
 
 #define attach_from_table(name) attach_value(&name, #name)
@@ -233,12 +234,14 @@ void update_variables() {
   attach_from_table(show_fps);
   attach_from_table(font_name);
   attach_value((int*)&font_size, "font_size");
-  attach_from_table(background_color);
   attach_from_table(text_color);
+  attach_from_table(background_color);
   attach_from_table(cursor_text_color);
   attach_from_table(cursor_color);
   attach_from_table(console_text_color);
   attach_from_table(console_color);
+  attach_from_table(searched_text_color);
+  attach_from_table(searched_color);
 }
 
 
@@ -504,7 +507,7 @@ void Lexer::process_input(const char *cursor) {
       }
       // 
 
-    } else if(is_one_of(*cursor, "():,")) {
+    } else if(is_one_of(*cursor, "():/,")) {
       tok.string_literal = literal(cursor, 1);
       tok.type           = (TokenType)*cursor;
       INC(cursor, nline, nchar);
@@ -640,9 +643,9 @@ static void parse_syntax_command(Lexer &lexer, Language_Syntax_Struct *syntax) {
       }
 
     } else if(tok->type == TOKEN_IDENT) {
-      Keyword_Def *k     = &syntax->keywords.add();
-      string      *name  = &syntax->names.add();
-      SDL_Color   *color = &syntax->colors.add();
+      Keyword_Def *k     = syntax->keywords.add();
+      string      *name  = syntax->names.add();
+      SDL_Color   *color = syntax->colors.add();
 
       k->name = tok->string_literal;
       k->type = (TokenType)keyword_count++;
@@ -664,7 +667,7 @@ static bool parse_top_level(Lexer &lexer) {
     // Commands.
     tok = lexer.peek_than_eat_token();
     if(tok->string_literal == "syntax") {
-      Language_Syntax_Struct *syntax = &settings.base.add();
+      Language_Syntax_Struct *syntax = settings.base.add();
       parse_syntax_command(lexer, syntax);
 
     } else {
@@ -729,16 +732,13 @@ void interp(const char *cursor) {
   while(!parse_top_level(lexer)) {}
 }
 
-void interp_single_command(const char *cursor) {
-  Lexer lexer;
-  lexer.process_input(cursor);
-
+static void parse_single_command(Lexer &lexer) {
   Token *tok = lexer.peek_than_eat_token();
-  REPORT_ERROR_IF_NOT_TOKEN(tok, ':', "Error: expected `%s` at the beginning of command.\n", name_from_tok(':'));
-
-  tok = lexer.peek_than_eat_token();
   if(tok->string_literal == "save" || tok->string_literal == "w") { // @Speed: precomputed Hashtable?
     save();
+
+  } else if(tok->string_literal == "quit" || tok->string_literal == "q" || tok->string_literal == "close_buffer") {
+    close_buffer(get_current_tab());
 
   } else if(tok->string_literal == "tab") {
     tok = lexer.peek_than_eat_token(); // @Maybe: we don't need a TOKEN_STRING_LITERAL, just a TOKEN_IDENT.
@@ -750,13 +750,60 @@ void interp_single_command(const char *cursor) {
     REPORT_ERROR_IF_NOT_TOKEN(tok, TOKEN_NUMBER, "Error: expected `%s` after `change_tab` command.\n", name_from_tok(TOKEN_NUMBER));
     change_tab(tok->var.s64_);
 
-  } else if(tok->string_literal == "hsplit" || tok->string_literal == "split" || tok->string_literal == "sp") {
-    
+  } else if(tok->string_literal == "split" || tok->string_literal == "sp") {
+    tok = lexer.peek_token();
+    string s;
+    if(tok->type == TOKEN_ERROR) {
+      return;
 
-  } else if(tok->string_literal == "vsplit" || tok->string_literal == "vsp") {
-    
+    } else if(tok->type == TOKEN_STRING_LITERAL) {
+      lexer.eat_token();
+      s = to_string(tok->string_literal);
+
+    } else {
+      copy_string(s, get_current_buffer()->filename);
+    }
+    open_new_buffer(s);
+    resize_tab(get_current_tab());
+
+  } else if(tok->string_literal == "change_buffer") {
+    tok = lexer.peek_than_eat_token();
+    REPORT_ERROR_IF_NOT_TOKEN(tok, TOKEN_NUMBER, "Error: expected `%s` after `change_buffer` command.\n", name_from_tok(TOKEN_NUMBER));
+
+    // @Hack: @CleanUp:
+    // left = 0, right = 1, up = 2, down = 3
+    // We can implement variables for a syntax.m file, than assign left = ..., etc.
+    // Than we will be able to use this command as follows: `:change_buffer left`.
+    // 
+    change_buffer((direction_t)tok->var.s64_);
+ 
   } else {
     static_string_from_literal(s, tok->string_literal);
     report_parser_error(tok, "Error: `%s` is not a defined command for interactive prompt.\n", s);
+  }
+}
+
+
+static void parse_find_command(Lexer &lexer) {
+  Token *tok = lexer.peek_than_eat_token();
+  REPORT_ERROR_IF_NOT_TOKEN(tok, TOKEN_STRING_LITERAL, "Error: expected `%s` after `search` command.\n", name_from_tok(TOKEN_STRING_LITERAL));
+
+	find_in_buffer(to_string(tok->string_literal));
+}
+
+
+void interp_single_command(const char *cursor) {
+  Lexer lexer;
+  lexer.process_input(cursor);
+
+  Token *tok = lexer.peek_than_eat_token();
+  if(tok->type == ':') {
+    parse_single_command(lexer);
+
+  } else if(tok->type == '/') {
+    parse_find_command(lexer);
+
+  } else {
+    report_parser_error(tok, "Error: expected `:` or `/` at the beginning of command.\n");
   }
 }

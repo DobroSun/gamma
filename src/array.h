@@ -4,34 +4,40 @@
 template<class T>
 struct array {
   T     *data     = NULL;
-  size_t capacity = 0;
   size_t size     = 0;
-
-  array() = default;
-  array(const array &)       = default;
-  array& operator=(array &)  = default;
-  array(array &&)            = default;
-  array& operator=(array &&) = default;
-
-  ~array() { new (this) array<T>(); }
+  size_t capacity = 0;
 
 
-  T &add() {
+  T* add() {
     if(size == capacity) { reserve(); }
     new (&data[size]) T();
-    return data[size++];
+    return &data[size++];
   }
 
-  T &add(T v) {
+  void add(T v) {
     if(size == capacity) { reserve(); }
-    data[size] = v;
-    return data[size++];
+    data[size++] = v;
+  }
+
+  T* insert(size_t index) {
+    if(index >= size)    { return add(); }
+    if(size == capacity) { reserve(); }
+
+    const size_t size_to_copy = size - index;
+    size++;
+
+    T tmp[size_to_copy];
+    memcpy(tmp, data+index, sizeof(tmp));
+    memcpy(data+index+1, tmp, sizeof(tmp));
+
+    new (&data[index]) T();
+    return &data[index];
   }
 
   template<class U>
-  void find(const U &val, T **iter, size_t *index) {
+  void find(U v, T **iter, size_t *index) {
     for(size_t i = 0; i < size; i++) {
-      if(this->operator[](i) == val) {
+      if(this->operator[](i) == v) {
         *iter  = &this->operator[](i);
         *index = i;
         return;
@@ -41,9 +47,9 @@ struct array {
   }
 
   template<class U>
-  void find(const U &val, T **iter) {
+  void find(U v, T **iter) { // @Copy&Paste:
     for(size_t i = 0; i < size; i++) {
-      if(this->operator[](i) == val) {
+      if(this->operator[](i) == v) {
         *iter = &this->operator[](i);
         return;
       }
@@ -51,37 +57,39 @@ struct array {
     *iter = NULL;
   }
 
-  T &insert(size_t index) {
-    if(index >= size) { return add(); }
+  template<class U>
+  void find_pointer(U *v, T **iter, size_t *index) { // @Copy&Paste: We can reduce this boilerplate by doing some compiler time indirection (probably).
+    for(size_t i = 0; i < size; i++) {
+      if(&this->operator[](i) == v) {
+        *iter  = &this->operator[](i);
+        *index = i;
+        return;
+      }
+    }
+    *iter = NULL;
+  }
 
-    if(size == capacity) { reserve(); }
+  T* remove(size_t index) {
+    if(index >= size) { return &data[size--]; }
 
+    T* r = &data[index];
+
+    size--;
     const size_t size_to_copy = size - index;
-    size++;
 
     T tmp[size_to_copy];
-
-    memcpy(tmp, data+index, sizeof(tmp));
-    memcpy(data+index+1, tmp, sizeof(tmp));
-
-    return data[index];
-  }
-
-  T &insert(const T &c, size_t index) {
-    return insert(index) = c;
-  }
-
-  T &insert(T &&c, size_t index) {
-    return insert(index) = std::move(c);
+    memcpy(tmp, data+index+1, sizeof(tmp));
+    memcpy(data+index, tmp, sizeof(tmp));
+    return r;
   }
 
 
-  T &pop()   { return data[--size]; }
-  T &first() { return data[0]; }
-  T &last()  { return data[size-1]; }
+  T* pop() { return &data[--size]; }
 
-  const T &first() const { return data[0]; }
-  const T &last()  const { return data[size-1]; }
+  T& first()             { return data[0]; }
+  T& last()              { return data[size-1]; }
+  const T& first() const { return data[0]; }
+  const T& last()  const { return data[size-1]; }
 
   void reserve(size_t new_cap=0) {
     if(!data) {
@@ -139,12 +147,12 @@ struct array {
     return size == 0;
   }
 
-  T &operator[](size_t index) {
+  T& operator[](size_t index) {
     assert(index < size);
     return data[index];
   }
 
-  const T &operator[](size_t index) const {
+  const T& operator[](size_t index) const {
     assert(index < size);
     return data[index];
   }
@@ -160,8 +168,8 @@ struct array {
     bool operator!=(iterator o) const { return index != o.index; }
     T& operator*()              const { return p[index]; }
   };
-  iterator begin() { return iterator(0, data); }
-  iterator end()   { return iterator(size);    }
+  iterator begin() const { return iterator(0, data); }
+  iterator end()   const { return iterator(size);    }
 };
 
 template<class T>

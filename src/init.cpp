@@ -1,8 +1,8 @@
 #include "pch.h"
 #include "init.h"
 
-static SDL_Window *win = nullptr;
-static SDL_Renderer *renderer = nullptr;
+static SDL_Window   *win      = NULL;
+static SDL_Renderer *renderer = NULL;
 
 bool Init_SDL() {
   bool failed = false;
@@ -47,11 +47,5 @@ bool Init_SDL() {
   return failed;
 }
 
-
-SDL_Window *get_win() {
-  return win;
-}
-
-SDL_Renderer *get_renderer() {
-  return renderer;
-}
+SDL_Window   *get_win()      { return win; }
+SDL_Renderer *get_renderer() { return renderer; }

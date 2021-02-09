@@ -38,12 +38,13 @@ void Settings_Hotloader::reload_file(const char *name) {
   if(!f) {
     is_not_reloaded = true;
   } else {
-    string config;
+    char *string;
+    defer { free(string); };
     {
       defer { fclose(f); };
-      read_entire_file(&config, f);
+      read_file_into_memory(f, &string);
     }
-    interp(config.data);
+    interp(string);
     is_not_reloaded = false;
   }
 }

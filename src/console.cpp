@@ -13,11 +13,11 @@ void console_init() {
 }
 
 void console_draw() {
-  unsigned cursor = console.cursor;
   auto &buffer = console.buffer;
   if(!buffer.size()) { return; }
 
-  const int length = buffer.size();
+  const size_t cursor = console.cursor;
+  const int    length = buffer.size();
   {
     char string[length + 1];
     string[length] = '\0';
@@ -53,7 +53,7 @@ void console_put(char c) {
 
 void console_put_text(const char *t) {
   console_clear();
-  for_each(t) { console_put(*it); }
+  while(*t != '\0') { console_put(*t++); }
   is_input = false;
 }
 
@@ -64,14 +64,14 @@ void console_backspace() {
 
 void console_run_command() {
   size_t size = console.buffer.size();
-  char   cmd[size+1];
+  char cmd[size+1];
 
   for(size_t i = 0; i < size; i++) {
     cmd[i] = console.buffer[i];
   }
   cmd[size] = '\0';
 
-  interp_single_command((const char *)cmd);
+  interp_single_command(cmd);
 }
 
 
@@ -94,7 +94,7 @@ void console_go_right() {
 }
 
 void console_on_resize(int n_height) {
-  console.bottom_y = (n_height > font_height)? n_height - font_height: 1;
+  console.bottom_y = (n_height > font_height) ? (n_height-font_height) : 1;
 }
 
 console_t *get_console() {

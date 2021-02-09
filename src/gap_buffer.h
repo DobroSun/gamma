@@ -2,16 +2,9 @@
 #define GAMMA_GAP_BUFFER_H
 
 struct gap_buffer {
-  string chars;        // @Speed: consider array<char> here.
+  string chars;
   size_t pre_len = 0;
   size_t gap_len = 12; // @Speed: Check on the best default value for gap_len.
-
-
-  gap_buffer() = default;
-  gap_buffer(const gap_buffer &other)            = default;
-  gap_buffer &operator=(const gap_buffer &other) = default;
-  gap_buffer(gap_buffer &&other)                 = default;
-  gap_buffer &operator=(gap_buffer &&other)      = default;
 
 
   void move_right() {
@@ -115,7 +108,7 @@ struct gap_buffer {
       backspace(); // decreases pre_len by itself.
     }
     assert(!pre_len);
-    assert(empty());
+    assert(size() == 0);
   }
 
   char &operator[](size_t i) {
@@ -137,13 +130,7 @@ struct gap_buffer {
     }
   }
 
-  size_t size() const {
-    return chars.size - gap_len;
-  }
-
-  bool empty() const {
-    return size() == 0;
-  }
+  size_t size() const { return chars.size - gap_len; }
 };
 
 inline bool operator==(const gap_buffer &a, const gap_buffer &b) {
@@ -159,9 +146,7 @@ inline bool operator==(const gap_buffer &a, const gap_buffer &b) {
   }
 }
 
-inline bool operator!=(const gap_buffer &a, const gap_buffer &b) {
-  return !(a == b);
-}
+inline bool operator!=(const gap_buffer &a, const gap_buffer &b) { return !(a == b); }
 
 inline void copy_gap_buffer(gap_buffer &a, const gap_buffer &b) {
   copy_string(a.chars, b.chars);

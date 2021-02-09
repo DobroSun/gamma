@@ -1,13 +1,13 @@
 #ifndef GAMMA_BUFFER_H
 #define GAMMA_BUFFER_H
 
-enum split_type_t : char {
+enum split_type_t : u8 {
   hsp_type,
   vsp_type,
 };
 
-enum direction_t : char {
-  left,
+enum direction_t : u8 {
+  left = 0,
   right,
   up,
   down,
@@ -27,30 +27,26 @@ struct file_buffer_t {
   array<buffer_t> redo;
 };
 
+struct Loc { size_t index, l, c, size; };
+
 struct buffer_t {
   file_buffer_t *file = NULL;
   bool is_used = false;
   string filename;
 
-  split_type_t split_type;
+  array<Loc> found;
 
-
-  // Position on the window.
   int start_x, start_y, width, height;
-  unsigned cursor = 0, n_character = 0, n_line = 0, total_lines = 0;
-  unsigned offset_on_line = 0, offset_from_beginning = 0, start_pos = 0, saved_pos = 0;
+  size_t cursor = 0, n_character = 0, n_line = 0, total_lines = 0;
+  size_t offset_on_line = 0, offset_from_beginning = 0, start_pos = 0, saved_pos = 0;
 
-  buffer_t() = default;
-  buffer_t(const buffer_t &)            = default;
-  buffer_t &operator=(const buffer_t &) = default;
-  buffer_t(buffer_t &&)                 = default;
-  buffer_t &operator=(buffer_t &&)      = default;
+
+
 
 
   void init(int,int,int,int);
   void draw(bool) const;
   void save();
-  void on_resize(int,int,int,int);
 
   // @CleanUp all functions.
   void scroll_down();
@@ -86,31 +82,26 @@ struct buffer_t {
 
 
 struct tab_t {
-  buffer_t *current_buffer = NULL; // @Maybe: Do we actually need this? For the first time, just to simplify things, we can search for a non empty buffer, in `array<buffer_t>`. But in the long term, of course it's the right way to do things.
-
-  array<buffer_t>  buffers;
-  array<buffer_t*> splits;
-  size_t insert_to = 0;
-
-  bool is_used = false;
-
-
-  void on_resize(int,int);
-  void draw(bool) const;
+  array<buffer_t> buffers;
+  buffer_t       *current_buffer = NULL;
+  bool            is_used        = false;
 };
+
+
+void draw_tab(const tab_t *, bool);
 
 int number_lines_fits_in_window(const buffer_t *);
 int number_chars_on_line_fits_in_window(const buffer_t *);
 
 array<tab_t> &get_tabs();
-tab_t *get_current_tab();
-buffer_t *get_current_buffer();
+tab_t       *&get_current_tab();
+buffer_t    *&get_current_buffer();
 selection_buffer_t &get_selection();
 
 void init(int, char**);
 void update();
 
-void open_new_buffer(string);
+buffer_t *open_new_buffer(string);
 void open_existing_or_new_buffer(string);
 void open_existing_buffer(buffer_t *);
 
@@ -127,13 +118,11 @@ void paste_from_global_copy();
 void go_to_line(int);
 void save();
 
-void close_split(buffer_t *);
-void change_split(buffer_t *, direction_t);
+void resize_tab(tab_t*);
+void change_buffer(direction_t);
+void close_buffer(tab_t*);
 
-
-
-
-void do_split(buffer_t *, buffer_t *, split_type_t, bool resize_only=false);
+void find_in_buffer(string);
 
 int go_word_forward();
 int go_word_backwards();
@@ -145,10 +134,10 @@ void undo(buffer_t *);
 void redo(buffer_t *);
 void save_current_state_for_undo(buffer_t *);
 
-void read_entire_file(string *s, FILE *f);
+size_t read_file_into_memory(FILE*, char**, size_t gap_len = 0);
 
 
-inline void copy_window_position(buffer_t *a, const buffer_t *b) {
+inline void copy_window_position(buffer_t *a, const buffer_t *b) { // @CleanUp: can't we just do a memcpy here?
   a->is_used = b->is_used;
   a->start_x = b->start_x;
   a->start_y = b->start_y;
