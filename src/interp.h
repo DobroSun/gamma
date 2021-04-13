@@ -55,7 +55,7 @@ struct Keyword_Def {
 };
 
 struct Language_Syntax_Struct {
-  array<Keyword_Def>     keywords;
+  array<Keyword_Def> keywords;
 
   array<string>    names;
   array<SDL_Color> colors;

@@ -340,7 +340,7 @@ void Lexer::process_input(const char *cursor) {
           break;
         } else if(*cursor == '\\') {
           INC(cursor, nline, nchar);
-          if(is_one_of(*cursor, "\"\'\\")) {
+          if(one_of(*cursor, "\"\'\\")) {
             INC(cursor, nline, nchar);
           }
         } else {
@@ -507,7 +507,7 @@ void Lexer::process_input(const char *cursor) {
       }
       // 
 
-    } else if(is_one_of(*cursor, "():/,")) {
+    } else if(one_of(*cursor, "():/,")) {
       tok.string_literal = literal(cursor, 1);
       tok.type           = (TokenType)*cursor;
       INC(cursor, nline, nchar);
@@ -761,7 +761,7 @@ static void parse_single_command(Lexer &lexer) {
       s = to_string(tok->string_literal);
 
     } else {
-      copy_string(s, get_current_buffer()->filename);
+      copy_string(&s, &get_current_buffer()->filename);
     }
     open_new_buffer(s);
     resize_tab(get_current_tab());

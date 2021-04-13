@@ -59,6 +59,9 @@ class    (131, 165, 152,1)
 template (131, 165, 152,1)
 typename (131, 165, 152,1)
 
+NULL    (211, 134, 155,1)
+nullptr (211, 134, 155,1)
+
 : literal (211, 134, 155,1)
 : string  (184, 187, 38,1)
 : single_line_comment "//" (146, 131, 116) # color??? 

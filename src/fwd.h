@@ -19,10 +19,6 @@ struct buffer_t;
 struct console_t;
 
 struct tab_t;
-struct file_buffer_t;
-
-
-typedef std::unordered_map<char, SDL_Texture*> texture_map;
 
 struct Token;
 

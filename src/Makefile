@@ -3,7 +3,7 @@
 CXX  := g++
 DEPS := main.o buffer.o console.o init.o font.o interp.o hotloader.o
 EXE_NAME  := main
-CXX_FLAGS := -std=c++17 -fno-exceptions -fno-rtti -Wall -Wextra 
+CXX_FLAGS := -std=c++17 -fno-exceptions -fno-rtti -Wall -Wextra
 
 LINK := -lSDL2 -lSDL2_image -lSDL2_ttf
 

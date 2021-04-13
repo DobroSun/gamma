@@ -8,27 +8,25 @@ static console_t console;
 static bool is_input = false;
 
 
-void console_init() {
-  console.buffer.chars.resize(console.buffer.gap_len);
-}
+void console_init() { /*console.buffer.chars.resize(console.buffer.gap_len);*/ }
+
 
 void console_draw() {
   auto &buffer = console.buffer;
   if(!buffer.size()) { return; }
 
   const size_t cursor = console.cursor;
-  const int    length = buffer.size();
-  {
-    char string[length + 1];
-    string[length] = '\0';
+  const size_t length = buffer.size();
 
+  {
+    char string[length+1] = {0};
     for(size_t i = 0; i < length; i++) {
       char c = buffer[i];
       string[i] = (c == '\n') ? ' ' : c;
     }
-
     draw_text_shaded(get_font(), string, console_color, console_text_color, 0, console.bottom_y);
   }
+
   if(is_input) {
     char c = (cursor >= length) ? ' ' : buffer[cursor];
     draw_text_shaded(get_font(), c, cursor_text_color, cursor_color, cursor*font_width, console.bottom_y);
@@ -64,12 +62,11 @@ void console_backspace() {
 
 void console_run_command() {
   size_t size = console.buffer.size();
-  char cmd[size+1];
+  char cmd[size+1] = {0};
 
   for(size_t i = 0; i < size; i++) {
     cmd[i] = console.buffer[i];
   }
-  cmd[size] = '\0';
 
   interp_single_command(cmd);
 }

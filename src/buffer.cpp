@@ -5,6 +5,9 @@
 #include "console.h"
 #include "interp.h"
 
+extern void (*current_action)(buffer_t*);
+
+
 
 static literal get_file_extension(string filename) {
   const char *iter; size_t index;
@@ -20,8 +23,8 @@ static literal get_file_extension(string filename) {
 
 static void split(array<literal> *lines, literal l, literal split_by) {
   const char *data  = l.data;
-  size_t      count = 0;
-  size_t      size  = 0;
+  size_t count = 0;
+  size_t size  = 0;
   while(count < l.size) {
     if(data + size == split_by) {
       lines->add(literal(data, size));
@@ -55,9 +58,8 @@ static array<tab_t>  tabs;
 static tab_t        *active_tab = NULL;
 
 static selection_buffer_t selection;
-static file_buffer_t global_copy_buffer;
 
-array<tab_t>       &get_tabs()           { return tabs; }
+array<tab_t>      &get_tabs()            { return tabs; }
 tab_t             *&get_current_tab()    { return active_tab; }
 buffer_t          *&get_current_buffer() { return active_tab->current_buffer; }
 selection_buffer_t &get_selection()      { return selection; }
@@ -95,14 +97,15 @@ static tab_t    *get_free_tab()               { return get_free_source(tabs, (ta
 static buffer_t *get_free_buffer(buffer_t *p) { return get_free_source(active_tab->buffers, p); }
 
 size_t read_file_into_memory(FILE *f, char **mem, size_t gap_len) {
+  size_t size, result;
   fseek(f, 0, SEEK_END);
-  size_t size = ftell(f);
+  size = ftell(f);
   rewind(f);
 
-  *mem     = (char*)malloc(size + gap_len);
-  size_t r = fread(*mem + gap_len, sizeof(char), size, f);
+  *mem   = (char*)malloc(size + gap_len);
+  result = fread(*mem + gap_len, sizeof(char), size, f);
 
-  if(r != size) { fprintf(stderr, "@Incomplete:"); }
+  if(result != size) { fprintf(stderr, "@Incomplete:"); }
   return size + gap_len;
 }
 
@@ -128,13 +131,11 @@ buffer_t *open_new_buffer(string s) {
 
   assert(s.size != 0);
 
-  buffer->file = new file_buffer_t;
-
   if(FILE *f = fopen(s.data, "r")) {
     defer { fclose(f); };
 
     // Read into gap_buffer.
-    auto gap_buffer = &buffer->file->buffer;
+    auto gap_buffer = &buffer->buffer;
     size_t n = read_file_into_memory(f, &gap_buffer->chars.data, gap_buffer->gap_len);
     gap_buffer->chars.size     = n;
     gap_buffer->chars.capacity = n;
@@ -150,9 +151,11 @@ void open_existing_buffer(buffer_t *prev) {
   auto buffer = get_free_buffer(active_tab->current_buffer);
   active_tab->current_buffer = buffer;
 
-  buffer->file     = prev->file;
+  buffer->buffer   = prev->buffer;
+  buffer->undo     = prev->undo;
+  buffer->redo     = prev->redo;
   buffer->filename = prev->filename;
-  buffer->file->buffer.move_until(0);
+  buffer->buffer.move_until(0);
 }
 
 void open_existing_or_new_buffer(string s) {
@@ -167,13 +170,14 @@ void open_existing_or_new_buffer(string s) {
   open_new_buffer(s);
 }
 
-void draw_tab(const tab_t *tab, bool selection_mode) {
+void draw_tab(const tab_t *tab) {
   auto buffer = tab->current_buffer;
 
-  for(auto &b : tab->buffers) { b.draw(selection_mode); }
+  for(auto &b : tab->buffers) { b.draw(); }
 
-  if(buffer) { // Update cursor.
-    char s = buffer->file->buffer[buffer->cursor];
+  if(buffer) {
+    // Update cursor.
+    char s = buffer->buffer[buffer->cursor];
     s = (s == '\n')? ' ': s;
 
     const int px = buffer->get_relative_pos_x(buffer->n_character - buffer->offset_on_line);
@@ -185,17 +189,16 @@ void draw_tab(const tab_t *tab, bool selection_mode) {
   console_draw();
 }
 
-void buffer_t::draw(bool selecting) const {
-  const gap_buffer &buffer      = file->buffer;
-  const size_t      buffer_size = buffer.size();
+void buffer_t::draw() const {
+  const size_t buffer_size = buffer.size();
 
   size_t current_token_index = 0;
-  size_t i = offset_from_beginning, line_number = 0;
+  size_t i = offset_from_beginning;
 
-  const int x = get_relative_pos_x(-offset_on_line);
-  int       y = get_relative_pos_y(0);
+  int x = get_relative_pos_x(-offset_on_line); // @CleanUp: 
+  int y = get_relative_pos_y(0);
 
-  while(i < file->buffer.size()) {
+  while(i < buffer.size()) {
     const int current_line_length = get_line_length(i);
 
     char string[current_line_length + 1];
@@ -216,7 +219,6 @@ void buffer_t::draw(bool selecting) const {
 
     y += font_height;
     i += current_line_length;
-    line_number++;
   }
 
 
@@ -229,15 +231,15 @@ void buffer_t::draw(bool selecting) const {
   auto syntax = get_language_syntax(get_file_extension(filename));
   if(syntax) {
     Lexer lexer;
-    copy_array(lexer.keywords_table, syntax->keywords);
+    copy_array(&lexer.keywords_table, &syntax->keywords);
     lexer.tokenize_comments   = syntax->tokenize_comments;
     lexer.single_line_comment = to_literal(syntax->single_line_comment);
     lexer.start_multi_line    = to_literal(syntax->start_multi_line);
     lexer.end_multi_line      = to_literal(syntax->end_multi_line);
 
     defer {
-      free_array(lexer.tokens);
-      free_array(lexer.keywords_table);
+      free_array(&lexer.tokens);
+      free_array(&lexer.keywords_table);
     };
 
     lexer.process_input(string);
@@ -260,7 +262,7 @@ void buffer_t::draw(bool selecting) const {
 
       } else if(syntax->defined_color_for_strings && tok.type == TOKEN_STRING_LITERAL) {
         array<literal> lines;
-        defer { free_array(lines); };
+        defer { free_array(&lines); };
 
         split(&lines, l, "\n");
 
@@ -307,7 +309,7 @@ void buffer_t::draw(bool selecting) const {
 
       } else if(syntax->tokenize_comments && tok.type == TOKEN_SINGLE_LINE_COMMENT) {
         array<literal> lines;
-        defer { free_array(lines); };
+        defer { free_array(&lines); };
         split(&lines, l, "\\\n");
 
         for(size_t i = 0; i < lines.size; i++) {
@@ -336,7 +338,7 @@ void buffer_t::draw(bool selecting) const {
 
       } else if(syntax->tokenize_comments && tok.type == TOKEN_MULTI_LINE_COMMENT) {
         array<literal> lines;
-        defer { free_array(lines); };
+        defer { free_array(&lines); };
         split(&lines, l, "\n");
 
         for(size_t i = 0; i < lines.size; i++) { // @Copy&Paste: from TOKEN_SINGLE_LINE_COMMENT.
@@ -390,7 +392,7 @@ int buffer_t::get_relative_pos_y(int n_place) const { return start_y + font_heig
 
 int buffer_t::get_line_length(int beginning) const {
   int count = 1;
-  for(int i = beginning; file->buffer[i] != '\n'; i++) {
+  for(int i = beginning; buffer[i] != '\n'; i++) {
     count++;
   }
   return count;
@@ -410,7 +412,7 @@ void buffer_t::shift_beginning_down() {
     assert(offset_from_beginning == 1);
 
   } else {
-    while(file->buffer[offset_from_beginning-count] != '\n') {
+    while(buffer[offset_from_beginning-count] != '\n') {
       if(count == offset_from_beginning) { count++; break; }
       count++;
     }
@@ -422,11 +424,11 @@ void buffer_t::shift_beginning_down() {
 }
 
 int buffer_t::get_cursor_pos_on_line() const {
-  assert(offset_on_line == 0 && file->buffer[cursor] == '\n');
+  assert(offset_on_line == 0 && buffer[cursor] == '\n');
   if(cursor == 0) return 0;
   
   int count = 1;
-  while(file->buffer[cursor-count] != '\n') {
+  while(buffer[cursor-count] != '\n') {
     if(cursor == count) { return count; }
     count++;
   }
@@ -435,17 +437,19 @@ int buffer_t::get_cursor_pos_on_line() const {
 
 int buffer_t::count_total_lines() const {
   int count = 0;
-  for(auto i = 0u; i < file->buffer.size(); i++) {
-    if(file->buffer[i] == '\n') count++;
+  for(auto i = 0u; i < buffer.size(); i++) {
+    if(buffer[i] == '\n') count++;
   }
   return count;
 }
 
 void buffer_t::go_right() {
-  if(cursor == file->buffer.size()-1) return;
+  if(cursor == buffer.size()-1) return;
 
-  file->buffer.move_right();
-  if(file->buffer[cursor] == '\n') {
+  current_action(this);
+
+  buffer.move_right();
+  if(buffer[cursor] == '\n') {
     n_character = 0;
     offset_on_line = 0;
     n_line++;
@@ -468,11 +472,12 @@ void buffer_t::go_left() {
   if(cursor == 0) return;
   assert(cursor > 0);
 
-  file->buffer.move_left();
+  current_action(this);
+  buffer.move_left();
 
   // dec_cursor.
   cursor--;
-  if(file->buffer[cursor] == '\n') {
+  if(buffer[cursor] == '\n') {
     assert(offset_on_line == 0);
     n_character = get_cursor_pos_on_line();
     n_line--;
@@ -504,38 +509,46 @@ void buffer_t::put_backspace() {
     // We don't need to move gap at all,
     // but since go_left calls       gap_buffer.move_left(),
     // we have to compensate it with gap_buffer.move_right().
-    file->buffer.move_right();
+    buffer.move_right();
     go_left();
 
-    if(file->buffer[cursor] == '\n') total_lines--;
-    file->buffer.backspace();
+    if(buffer[cursor] == '\n') total_lines--;
+    buffer.backspace();
   }
 }
 
 void buffer_t::put_delete() {
-  if(cursor == file->buffer.size()-1) return;
-  if(file->buffer[cursor] == '\n') total_lines--;
+  if(cursor == buffer.size()-1) return;
+  if(buffer[cursor] == '\n') total_lines--;
 
-  file->buffer.del();
+  buffer.del();
 }
 
 void buffer_t::put_return() {
-  file->buffer.add('\n');
+  buffer.add('\n');
   total_lines++;
 
   go_right();
-  file->buffer.move_left(); // Same hack as for ::put_backspace().
+  buffer.move_left(); // Same hack as for ::put_backspace().
   assert(offset_on_line == 0);
+
+  //int indent = get_current_line_indent(this);
+  //for(int i = 0; i < indent; i++) { put(' '); }
 }
 
 void buffer_t::put(char c) {
-  file->buffer.add(c);
+  buffer.add(c);
 
   go_right();
-  file->buffer.move_left();
+  buffer.move_left();
 }
 
-// @Temporary: @RemoveMe:
+void buffer_t::put_tab() {
+  for(int i = 0; i < tabstop; i++) {
+    put(' ');
+  }
+}
+
 void buffer_t::go_down() {
   auto buffer = active_tab->current_buffer;
   int n = buffer->compute_go_down();
@@ -545,67 +558,47 @@ void buffer_t::go_down() {
   }
 }
 
-void buffer_t::go_up()   {
-  auto buffer = active_tab->current_buffer;
-  int n = buffer->compute_go_up();
-  while(n) {
-    buffer->go_left();
-    n--;
-  }
-}
-
+// @CleanUp: @RemoveMe:
 int buffer_t::compute_go_down() {
   if(n_line == total_lines-1) return 0;
   int count = 0;
 
   const size_t prev_character_pos = n_character;
-  for(size_t i = cursor; file->buffer[i] != '\n'; i++) {
+  for(size_t i = cursor; buffer[i] != '\n'; i++) {
     count++;
   }
   count++;
   
   for(size_t i = 0; i < prev_character_pos; i++) {
-    if(file->buffer[cursor+count] == '\n') return count;
+    if(buffer[cursor+count] == '\n') return count;
     count++;
   }
   return count;
 }
 
-int buffer_t::compute_go_up() {
-  if(n_line == 0) return 0;
-  int count = 0;
+void buffer_t::go_up() {
+  if(n_line == 0) return;
 
+  const size_t tmp_saved_pos = saved_pos;
   const size_t prev_character_pos = n_character;
   for(auto i = 0u; i < prev_character_pos; i++) {
-    count++;
+    go_left();
+  }
+  assert(n_character == 0 && offset_on_line == 0 && n_line > 0);
+	go_left();
+
+  while(n_character > 0) { // go till the beginning of line.
+    go_left();
+    if(buffer[cursor] == '\n') break;
   }
 
-  count++;
-  assert(file->buffer[cursor-count] == '\n');
-  count++;
-
-  if(cursor <= count) {
-    if(cursor == count && count == 2) count++;
-
-  } else {
-    while(file->buffer[cursor-count] != '\n') { // go till the beginning of line.
-      if(cursor == count) {
-        count++;
-        break;
-      }
-      count++;
-    }
+  const size_t go_till = max(prev_character_pos, tmp_saved_pos);
+  for(size_t i = 0; i < go_till; i++) { // from beginning to actual position.
+    if(buffer[cursor] == '\n') break;
+    go_right();
   }
 
-  count--;
-  for(size_t i = 0; i < prev_character_pos; i++) { // from beginning to actual position.
-    if(cursor < count) break;
-    if(file->buffer[cursor-count] == '\n') break;
-    count--;
-  }
-
-  if(cursor == count) count++;
-  return count;
+  saved_pos = tmp_saved_pos;
 }
 
 void buffer_t::scroll_down() {
@@ -632,6 +625,89 @@ int number_chars_on_line_fits_in_window(const buffer_t *b) {
   return b->width / font_width - 1;
 }
 
+/*
+int get_current_line_indent(buffer_t *buffer) {
+  int n_character = buffer->n_character;
+  go_to_beginning_of_line();
+  assert(buffer->n_character == 0);
+
+  int indent = 0;
+  while(buffer->buffer[buffer->cursor+indent+1] == ' ') { indent++; } // +1 for '\n'
+
+  while(buffer->n_character != n_character) { buffer->go_right(); }
+
+  if(n_character < indent) { return n_character; }
+  return indent;
+}
+*/
+
+/*
+void do_selection_to_left(buffer_t *buffer) {
+  auto &selection = get_selection();
+  auto &cursor    = buffer->cursor;
+
+  if(selection.direction == left) {
+    if(cursor > 0) {
+      selection.start_index = cursor - 1;
+      selection.size++;
+    }
+
+  } else if(selection.direction == right) {
+    assert(selection.size > 0);
+    selection.size--;
+
+  } else {
+    assert(selection.direction == none && selection.size == 0);
+    selection.direction = left;
+
+    // Copy&Paste: of left case.
+    if(cursor > 0) {
+      selection.start_index = cursor - 1;
+      selection.size++;
+      assert(selection.size == 1);
+    }
+  }
+  if(selection.size == 0) { selection.direction = none; }
+}
+
+void do_selection_to_right(buffer_t *buffer) {
+  auto &selection = get_selection();
+  auto &cursor    = buffer->cursor;
+
+  if(selection.direction == left) {
+    assert(selection.size > 0);
+    selection.start_index = buffer->cursor + 1;
+    selection.size--;
+
+  } else if(selection.direction == right) {
+    if(cursor < buffer->buffer.size()-1) {
+      selection.size++;
+    }
+
+  } else {
+    assert(selection.direction == none && selection.size == 0);
+    selection.direction = right;
+
+    // Copy&Paste: of right case.
+    if(cursor < buffer->buffer.size()-1) {
+      selection.size++;
+    }
+  }
+  if(selection.size == 0) { selection.direction = none; }
+}
+*/
+
+
+void select_char(buffer_t *buffer) {
+  auto &selection = get_selection();
+  auto &cursor    = buffer->cursor;
+
+  if(cursor >= selection.first) {
+    selection.last = cursor;
+  } else {
+    selection.first = cursor;
+  }
+}
 
 void init(int argc, char **argv) {
   init_variable_table();
@@ -703,7 +779,7 @@ void init(int argc, char **argv) {
   open_new_tab(filename);
 }
 
-
+/*
 void delete_selected() {
   assert(selection.start_index != -1);
   auto buffer = active_tab->current_buffer;
@@ -735,7 +811,7 @@ void copy_selected() {
   assert(selection.start_index != -1);
   int start = selection.start_index;
 
-  auto &gap_buffer = active_tab->current_buffer->file->buffer;
+  auto &gap_buffer = active_tab->current_buffer->buffer;
   for(size_t i = 0; i < selection.size+1; i++) {
     char c = gap_buffer[start+i];
     global_copy_buffer.buffer.add(c);
@@ -748,6 +824,7 @@ void clear_selection() {
   selection.size = 0;
   selection.direction = none;
 }
+
 
 void paste_from_global_copy() {
   auto buffer = active_tab->current_buffer;
@@ -776,6 +853,7 @@ void go_to_line(int line) {
   while(line > (int)active_tab->current_buffer->n_line+1) active_tab->current_buffer->go_down();
   while(line < (int)active_tab->current_buffer->n_line+1) active_tab->current_buffer->go_up();
 }
+*/
 
 static FILE *get_file_or_create(const char *filename, const char *mods) {
   FILE *ret = fopen(filename, mods);
@@ -806,10 +884,10 @@ void save() {
     }
 
     size_t i = 0u;
-    for( ; i < buffer->file->buffer.size(); i++) {
-      fprintf(f, "%c", buffer->file->buffer[i]);
+    for( ; i < buffer->buffer.size(); i++) {
+      fprintf(f, "%c", buffer->buffer[i]);
     }
-    if(!buffer->file->buffer.size() || buffer->file->buffer[i-1] != '\n') {
+    if(!buffer->buffer.size() || buffer->buffer[i-1] != '\n') {
       fprintf(f, "\n");
     }
 
@@ -818,8 +896,63 @@ void save() {
   }
 }
 
+// Commands.
+void go_to_beginning_of_line() {
+  auto buffer = get_current_buffer();
+  while(buffer->n_character > 0) { buffer->go_left(); }
+}
 
+void go_to_end_of_line() {
+  auto buffer = get_current_buffer();
+  auto &gap_buffer = buffer->buffer;
+  while(gap_buffer[buffer->cursor] != '\n') { buffer->go_right(); }
+}
 
+// @StartEndNotHandled: corner cases just don't handled.
+void go_word_forward() { // @StartEndNotHandled: 
+  auto buffer = get_current_buffer();
+  auto &gap_buffer = buffer->buffer;
+  while(gap_buffer[buffer->cursor] == ' ') { buffer->go_right(); }
+  while(gap_buffer[buffer->cursor] != ' ') { buffer->go_right(); }
+}
+
+void go_word_backwards() { // @StartEndNotHandled: 
+  auto buffer = get_current_buffer();
+  auto &gap_buffer = buffer->buffer;
+  while(gap_buffer[buffer->cursor] == ' ') { buffer->go_left(); }
+  while(gap_buffer[buffer->cursor] != ' ') { buffer->go_left(); }
+}
+
+void go_paragraph_forward() { // @StartEndNotHandled: 
+  auto buffer = get_current_buffer();
+
+  while(buffer->n_character != 0) { buffer->go_right(); }
+  while(buffer->get_line_length(buffer->cursor) == 1) {
+    assert(buffer->n_character == 0);
+    buffer->go_down();
+  }
+
+  while(buffer->get_line_length(buffer->cursor) != 1) {
+    assert(buffer->n_character == 0);
+    buffer->go_down();
+  }
+}
+
+void go_paragraph_backwards() { // @StartEndNotHandled: 
+  auto buffer = get_current_buffer();
+
+  while(buffer->n_character != 0) { buffer->go_left(); }
+  while(buffer->get_line_length(buffer->cursor) == 1) {
+    assert(buffer->n_character == 0);
+    buffer->go_up();
+  }
+
+  while(buffer->get_line_length(buffer->cursor) != 1) {
+    assert(buffer->n_character == 0);
+    buffer->go_up();
+  }
+}
+// 
 
 // Splits.
 static int compute_start_to_left(int current, buffer_t *b)  { return current - b->start_x; }
@@ -986,8 +1119,9 @@ void close_buffer(tab_t *tab) {
     should_quit = true;
   }
 }
-// end of Splits.
+// 
 
+// Search.
 static bool string_match(const gap_buffer &buffer, size_t starting_index, string s) {
   if(buffer.size()-starting_index < s.size) { return false; }
   for(size_t i = 0; i < s.size; i++) {
@@ -1002,124 +1136,65 @@ void find_in_buffer(string s) {
   auto buffer = active_tab->current_buffer;
   if(buffer->found.size) { buffer->found.clear(); }
 
-  size_t *go_to = NULL; // @CleanUp:
+  size_t *go_to = NULL;
 
   size_t cursor = 0, nline = 0, nchar = 0;
-  while(cursor != buffer->file->buffer.size()) {
+  while(cursor != buffer->buffer.size()) {
 
-    if(string_match(buffer->file->buffer, cursor, s)) {
+    if(string_match(buffer->buffer, cursor, s)) {
       Loc *loc = buffer->found.add();
       loc->index = cursor;
       loc->l     = nline;
       loc->c     = nchar;
       loc->size  = s.size;
 
-      go_to = (!go_to && loc->index >= buffer->cursor) ? &loc->index : NULL;
+      go_to = (loc->index >= buffer->cursor) ? &loc->index : NULL;
     }
 
-    if(buffer->file->buffer[cursor] == '\n') {
+    if(buffer->buffer[cursor] == '\n') {
       nline++;
       nchar = 0;
     } else {
       nchar++;
     }
     cursor++;
-  }
 
-  if(go_to) {
-    while(buffer->cursor != *go_to) {
-      buffer->go_right();
+    if(go_to) {
+      while(buffer->cursor != *go_to) {
+        buffer->go_right();
+      }
+      break;
     }
   }
 }
-
-
-static const char stop_chars[] = { ' ', '(', '{', ')', '}', '#', '\"', '\'', '/', '\\', '.', ';', '\n' };
-int go_word_forward() {
-  auto buffer = active_tab->current_buffer;
-
-  int count = 0;
-  if(is_one_of(buffer->file->buffer[buffer->cursor+count], stop_chars)) {
-    count++;
-
-  } else {
-    count++;
-    while(!is_one_of(buffer->file->buffer[buffer->cursor+count], stop_chars)) {
-      count++;
-    }
-  }
-  if(buffer->file->buffer[buffer->cursor+count] == ' ') { count++; }
-  return count;
-}
-
-int go_word_backwards() {
-  auto buffer = active_tab->current_buffer;
-
-  int count = 0;
-  if(is_one_of(buffer->file->buffer[buffer->cursor-count], stop_chars)) {
-    count++;
-
-  } else {
-    int c = 0;
-    while(!is_one_of(buffer->file->buffer[buffer->cursor-count], stop_chars)) {
-      count++;
-      c++;
-    }
-
-    if(c != 1) { count--; }
-  }
-  if(buffer->file->buffer[buffer->cursor-count] == ' ') { count++; }
-  return count;
-}
-
-int compute_to_beginning_of_line() {
-  return active_tab->current_buffer->n_character;
-}
-
-int compute_to_end_of_line() {
-  auto active_buffer = active_tab->current_buffer;
-  assert(active_buffer->file->buffer[active_buffer->cursor-active_buffer->n_character + active_buffer->get_line_length(active_buffer->cursor-active_buffer->n_character) - 1] == '\n');
-  return active_buffer->get_line_length(active_buffer->cursor - active_buffer->n_character) - active_buffer->n_character - 1;
-}
-
+// 
 
 // Undo/Redo.
-static void save_current_state_for_backup(buffer_t *b, array<buffer_t> *states) {
-  auto a  = states->add();
-  a->file = new file_buffer_t;
-
-  copy_gap_buffer(a->file->buffer, b->file->buffer);
-  copy_window_position(a, b);
-}
-
-static void to_previous_buffer_state(buffer_t *b, array<buffer_t> *active_states, array<buffer_t> *passive_states) {
-  if(active_states->empty()) { return; }
+static void to_previous_buffer_state(buffer_t *b, array<buffer_t> *active_states, array<buffer_t> *backup_states) {
+  if(!active_states->size) { return; }
   auto state = active_states->pop();
 
-  save_current_state_for_backup(b, passive_states);
+  { // save current state for backup. @Copy&Paste: of save_current_state_for_undo.
+    auto a = backup_states->add(*b);
+    copy_gap_buffer(&a->buffer, &b->buffer);
+  }
 
-  auto tmp = new file_buffer_t; // For some reason, we can't just modify b->file directly.
-  tmp->buffer = state->file->buffer;
-  tmp->undo   = b->file->undo;
-  tmp->redo   = b->file->redo;
+  // We wan't to copy everything, execept for undo, redo arrays.
+  const array<buffer_t> undo = b->undo;
+  const array<buffer_t> redo = b->redo;
 
-  delete b->file;
-  b->file = tmp;
-
-  copy_window_position(b, state);
-  delete state->file;
+  *b = *state;
+  copy_gap_buffer(&b->buffer, &state->buffer);
+  b->undo = undo;
+  b->redo = redo;
 }
-
 
 void save_current_state_for_undo(buffer_t *b) {
-  save_current_state_for_backup(b, &b->file->undo);
+  auto a = b->undo.add(*b);
+  copy_gap_buffer(&a->buffer, &b->buffer);
 }
 
-void undo(buffer_t *b) {
-  to_previous_buffer_state(b, &b->file->undo, &b->file->redo);
-}
+void undo(buffer_t *b) { to_previous_buffer_state(b, &b->undo, &b->redo); }
+void redo(buffer_t *b) { to_previous_buffer_state(b, &b->redo, &b->undo); }
+// 
 
-void redo(buffer_t *b) {
-  to_previous_buffer_state(b, &b->file->redo, &b->file->undo);
-}
-// end of Undo/Redo.

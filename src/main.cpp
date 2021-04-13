@@ -4,117 +4,193 @@
 #include "font.h"
 #include "console.h"
 #include "interp.h"
-
-#include "our_string.h" 
 #include "hotloader.h"
 
 
+static void no_action(buffer_t*) {}
 
-
-static const u8 Editor     = 0;
-static const u8 Console    = 1;
-
-static const u8 NormalMode = 0;
-static const u8 InsertMode = 1;
-static const u8 VisualMode = 2;
-
-static u8   editor_state = Editor;
-static u8   mode         = NormalMode;
-static bool no_input     = false;
+bool no_input = false;
+void (*current_action)(buffer_t*);
+void (*handle_keydown)(SDL_Keysym);
 
 
 
+void open_console();
+void close_console();
+
+void handle_console_keydown(SDL_Keysym);
+void handle_insert_mode_keydown(SDL_Keysym);
+void handle_visual_mode_keydown(SDL_Keysym);
+void handle_normal_mode_keydown(SDL_Keysym);
 
 
-static void to_normal_mode() {
-  mode = NormalMode;
+static bool is_normal_mode() { return handle_keydown == handle_normal_mode_keydown; }
+static bool is_insert_mode() { return handle_keydown == handle_insert_mode_keydown; }
+static bool is_visual_mode() { return handle_keydown == handle_visual_mode_keydown; }
+static bool is_console_mode() { return handle_keydown == handle_console_keydown; }
+
+
+void to_normal_mode() {
+  handle_keydown = handle_normal_mode_keydown;
   console_clear();
 }
 
-static void to_insert_mode() {
-  mode     = InsertMode;
+void to_insert_mode() {
   no_input = true;
+  handle_keydown = handle_insert_mode_keydown;
   console_put_text("-- INSERT --");
 }
 
-static void to_visual_mode() {
-  mode = VisualMode;
+void to_visual_mode() {
+  get_selection().first = get_current_buffer()->cursor;
+  current_action = select_char;
+  handle_keydown = handle_visual_mode_keydown;
   console_put_text("-- VISUAL --");
 }
 
-
-static void open_console() { 
-  editor_state = Console;
+void open_console() { 
+  handle_keydown = handle_console_keydown;
   console_clear(); 
 }
 
-static void close_console() {
-  editor_state = Editor;
+void close_console() {
+  handle_keydown = handle_normal_mode_keydown;
 }
 
-static void no_mod_keydown(int key) {
-  switch(mode) {
-  case NormalMode:
-    switch(key) {
-    case 'a':
-      get_current_buffer()->go_right();
-      to_insert_mode();
-      return;
-    case 'h': get_current_buffer()->go_left();  return; 
-    case 'l': get_current_buffer()->go_right(); return;
-    case 'j': get_current_buffer()->go_down();  return;
-    case 'k': get_current_buffer()->go_up();    return; 
-    case 'x': get_current_buffer()->put_delete(); return;
-    case 'i': to_insert_mode(); return;
-    case 'v': to_visual_mode(); return;
-    case '/': open_console();   return;
-    case SDLK_ESCAPE:    should_quit = true; return;
-    default: return;
-    }
-
-  case InsertMode:
-    switch(key) {
-    case SDLK_RETURN:    get_current_buffer()->put_return(); return;
-    case SDLK_DELETE:    get_current_buffer()->put_delete(); return;
-    case SDLK_BACKSPACE: get_current_buffer()->put_backspace(); return;
-    case SDLK_ESCAPE: to_normal_mode(); return;
-    default: return;
-    }
-
-  case VisualMode:
-    switch(key) {
-    case 'v':
-    case SDLK_ESCAPE: to_normal_mode(); return;
-    default: return;
-    }
-  }
-}
-
-static void shifted_keydown(int key) {
-  switch(key) {
-  case ';': open_console(); return; // ':'
-  default: return;
-  }
-}
-
-static void no_mod_console(int key) {
-  switch(key) {
-  case SDLK_ESCAPE:    close_console(); return;
-  case SDLK_BACKSPACE: console_backspace(); return;
-  case SDLK_DELETE:    console_del(); return;
+void handle_console_keydown(SDL_Keysym e) {
+  switch(e.sym) {
+  case SDLK_ESCAPE:    close_console(); break;
+  case SDLK_BACKSPACE: console_backspace(); break;
+  case SDLK_DELETE:    console_del(); break;
   case SDLK_RETURN: 
     console_run_command(); 
     close_console(); 
-    return;
-  default: return;
+    break;
+  default: break;
   }
 }
+
+void handle_insert_mode_keydown(SDL_Keysym e) {
+  switch(e.sym) {
+  case SDLK_LEFT:      get_current_buffer()->go_left();  break;
+  case SDLK_RIGHT:     get_current_buffer()->go_right(); break;
+  case SDLK_UP:        get_current_buffer()->go_up();    break;
+  case SDLK_DOWN:      get_current_buffer()->go_down();  break;
+  case SDLK_RETURN:    get_current_buffer()->put_return(); break;
+  case SDLK_DELETE:    get_current_buffer()->put_delete(); break;
+  case SDLK_BACKSPACE: get_current_buffer()->put_backspace(); break;
+  case SDLK_TAB:       get_current_buffer()->put_tab(); break;
+  case SDLK_ESCAPE:    to_normal_mode(); break;
+  default: break;
+  }
+}
+
+void handle_visual_mode_keydown(SDL_Keysym e) {
+  switch(e.sym) {
+  case 'h':
+  case SDLK_LEFT:  get_current_buffer()->go_left();  break;
+  case 'l':
+  case SDLK_RIGHT: get_current_buffer()->go_right(); break;
+  case 'k':
+  case SDLK_UP:    get_current_buffer()->go_up();    break;
+  case 'j':
+  case SDLK_DOWN:  get_current_buffer()->go_down();  break;
+
+  case 'v':
+  case SDLK_ESCAPE: {
+    auto &selection = get_selection();
+    selection.first = 0;
+    selection.last  = 0;
+    current_action = no_action;
+    to_normal_mode();
+    break;
+  }
+
+  default: break;
+  }
+}
+
+static bool is_modifing_key(int key) {
+  switch(key) {
+  case 'x':
+  case 'i':
+  case 'a':
+    return true;
+  default:
+    return false;
+  }
+}
+
+void handle_normal_mode_keydown(SDL_Keysym e) { 
+  int key = e.sym;
+  int mod = e.mod;
+
+  if(is_modifing_key(key)) {
+    save_current_state_for_undo(get_current_buffer());
+  }
+
+  if(mod & KMOD_SHIFT && mod & KMOD_CTRL) {
+  } else if(mod & KMOD_CTRL) {
+  } else if(mod & KMOD_SHIFT) {
+    switch(key) {
+    case 'a':                                  // 'A'
+      go_to_end_of_line();
+      to_insert_mode();
+      break;
+    case ';': open_console();      break;      // ':'
+    case '4': go_to_end_of_line(); break;      // '$'
+    case '[': go_paragraph_backwards(); break; // '{'
+    case ']': go_paragraph_forward();   break; // '}'
+    default: break;
+    }
+
+  } else { // no mods.
+    switch(key) {
+    case '0': go_to_beginning_of_line(); break;
+    case 'w': go_word_forward();         break;
+    case 'b': go_word_backwards();       break;
+      
+    case 'a':
+      get_current_buffer()->go_right();
+      to_insert_mode();
+      break;
+
+    case SDLK_BACKSPACE:
+    case SDLK_LEFT: 
+    case 'h':
+      get_current_buffer()->go_left();  break; 
+    case SDLK_SPACE:
+    case SDLK_RIGHT: 
+    case 'l':
+      get_current_buffer()->go_right(); break;
+    case SDLK_RETURN: 
+    case SDLK_DOWN: 
+    case 'j':
+      get_current_buffer()->go_down();  break;
+    case SDLK_UP: 
+    case 'k':
+      get_current_buffer()->go_up();    break; 
+    case 'x': get_current_buffer()->put_delete(); break;
+    case 'i': to_insert_mode();           break;
+    case 'u': undo(get_current_buffer()); break; 
+    case 'r': redo(get_current_buffer()); break;
+    case 'v': to_visual_mode();           break;
+    case '/': open_console();             break;
+    case SDLK_ESCAPE: should_quit = true; break; // @Temporary: to_normal_mode();
+    default: break;
+    }
+  }
+}
+
 
 int main(int argc, char **argv) {
   if(Init_SDL()) return 1;
   init(argc, argv);
 
   Settings_Hotloader hotloader(settings_filename);
+
+  current_action = no_action;
+  handle_keydown = handle_normal_mode_keydown;
 
   while(!should_quit) {
     // measure_scope();
@@ -126,46 +202,19 @@ int main(int argc, char **argv) {
           should_quit = true;
         } break;
 
-        case SDL_KEYDOWN: {
-          auto key = e.key.keysym.sym;
-          auto mod = e.key.keysym.mod;
+        case SDL_KEYDOWN:
+          handle_keydown(e.key.keysym);
+          break;
 
-          if(editor_state == Editor) {
-            if(mod & KMOD_CTRL && mod & KMOD_SHIFT) {
-
-            } else if(mod & KMOD_CTRL) {
-
-            } else if(mod & KMOD_SHIFT) {
-              shifted_keydown(key);
-
-            } else {
-              no_mod_keydown(key);
-            }
-
-          } else {
-            assert(editor_state == Console);
-
-            if(mod & (KMOD_CTRL | KMOD_SHIFT)) {
-              // No special commands.
-            } else {
-              no_mod_console(key);
-            }
-          }
-        } break;
-
-        case SDL_TEXTINPUT: {
-          switch(editor_state) {
-          case Editor:
-            if(mode != InsertMode) { break; }
-            if(no_input)           { no_input = false; break; }
+        case SDL_TEXTINPUT:
+          if(is_insert_mode() && !no_input) { // @Hack: but whatever.
             get_current_buffer()->put(e.text.text[0]);
-            break;
-
-          case Console:
+          } else if(is_console_mode()) {
             console_put(e.text.text[0]);
-            break;
           }
-        } break;
+
+          if(no_input) { no_input = false; }
+          break;
 
         case SDL_WINDOWEVENT: {
           if(e.window.event == SDL_WINDOWEVENT_RESIZED) {
@@ -196,21 +245,50 @@ int main(int argc, char **argv) {
     }
 
     // update.
-    switch(editor_state) {
-    case Editor: {
+    if(is_normal_mode() || is_insert_mode() || is_visual_mode()) {
       draw_rect(0, 0, Width, get_console()->bottom_y, background_color);
-      draw_tab(get_current_tab(), mode == VisualMode);
-      SDL_RenderPresent(get_renderer());
-      break;
-    }
+      draw_tab(get_current_tab());
 
-    case Console: {
+      if(is_visual_mode()) { // @Copy&Paste: 
+        // render selected lines.
+        auto b          = get_current_buffer();
+        auto &buffer    = b->buffer;
+        auto &selection = get_selection();
+
+        int i = b->offset_from_beginning;
+
+        int x = b->get_relative_pos_x(-b->offset_on_line);
+        int y = b->get_relative_pos_y(0);
+
+        while(i < buffer.size()) {
+          int current_line_length = b->get_line_length(i);
+
+          if(i >= selection.first && i < selection.last) {
+            size_t selected_size = current_line_length;
+            char selected[selected_size+1] = {0};
+
+            for(size_t j = i; j < min(selected_size-i, b->cursor); j++) {
+              selected[j-i] = (buffer[j] == '\n') ? ' ' : buffer[j];
+            }
+
+
+            draw_text_shaded(get_font(), selected, background_color, text_color, x, y);
+            if(y >= get_console()->bottom_y - font_height) { break; }
+          }
+
+          y += font_height;
+          i += current_line_length;
+        }
+      }
+
+    } else if(is_console_mode()) {
       draw_rect(0, get_console()->bottom_y, Width, font_height, console_color);
       console_draw();
-      SDL_RenderPresent(get_renderer());
-      break;
+
+    } else {
+      assert(0);
     }
-    }
+    SDL_RenderPresent(get_renderer());
 
     if(hotloader.settings_need_reload()) {
       hotloader.reload_file(settings_filename);
@@ -221,56 +299,6 @@ int main(int argc, char **argv) {
     }
   }
 
-/* @MemoryLeak: Whatever.
-  {
-    auto &tabs = get_tabs();
-    for(size_t k = 0; k < tabs.size; k++) {
-      auto tab = &tabs[k];
-
-      // @Incomplete:
-      // If same file_buffer_t is used in different tabs,
-      // This will cause double free of file_buffer_t,
-      // Cause now we're freeing same buffers only for single tab.
-      file_buffer_t *all_files[tab->buffers.size];
-      size_t files_size = 0;
-
-      for(size_t i = 0; i < tab->buffers.size; i++) {
-        auto file_buffer = tab->buffers[i].file;
-        if (!file_buffer) continue;
-
-        // Check if file_buffer is already in all_files.
-        bool already_in_files = false;
-        for(size_t j = 0; j < files_size; j++) {
-          if(file_buffer == all_files[j]) { already_in_files = true; break; }
-        }
-        // 
-
-        if(already_in_files) {
-          // Nothing.
-        } else {
-          all_files[files_size++] = file_buffer;
-        }
-      }
-
-      for(size_t i = 0; i < files_size; i++) {
-        auto file = all_files[i];
-
-        for(size_t j = 0; j < file->undo.size; j++) { assert(file->undo[j].file); delete file->undo[j].file; }
-        for(size_t j = 0; j < file->redo.size; j++) { assert(file->redo[j].file); delete file->redo[j].file; }
-        delete file;
-      }
-    }
-
-    for(size_t k = 0; k < tabs.size; k++) {
-      auto tab = &tabs[k];
-      for(size_t i = 0; i < tab->buffers.size; i++) {
-        auto buffer = &tab->buffers[i];
-        buffer->~buffer_t();
-      }
-      tab->~tab_t();
-    }
-  }
-*/
   SDL_DestroyRenderer(get_renderer());
   SDL_DestroyWindow(get_win());
   TTF_CloseFont(get_font());

@@ -47,7 +47,7 @@ struct gap_buffer {
 
   void add(char val) {
     if(gap_len == 0)  {
-    /*
+      /*
       Allocate chars with new gap.
         1) allocate new chars of (size*2).
         2) move gap left by post_len # of times.
@@ -65,7 +65,8 @@ struct gap_buffer {
 
       // [1, 2, [' ', ' ', ' ', ' ', ' '], 3, 4, 5]
       //         moving gap(3 times left).
-    */
+      */
+
       size_t size     = chars.size;
       size_t post_len = size - pre_len;
       pre_len = size;
@@ -148,10 +149,11 @@ inline bool operator==(const gap_buffer &a, const gap_buffer &b) {
 
 inline bool operator!=(const gap_buffer &a, const gap_buffer &b) { return !(a == b); }
 
-inline void copy_gap_buffer(gap_buffer &a, const gap_buffer &b) {
-  copy_string(a.chars, b.chars);
-  a.pre_len = b.pre_len;
-  a.gap_len = b.gap_len;
+inline void copy_gap_buffer(gap_buffer *a, const gap_buffer *b) {
+  new (a) gap_buffer(); // this handles the case, when a & b point to the same gap_buffer.
+  copy_string(&a->chars, &b->chars);
+  a->pre_len = b->pre_len;
+  a->gap_len = b->gap_len;
 }
 
 #endif

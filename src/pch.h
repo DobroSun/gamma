@@ -7,18 +7,16 @@
 #include <fcntl.h>
 
 #include <cassert>
-#include <cstdint>
 
-#include <unordered_map> // @Temporary.
-#include <algorithm>     // @Temporary.
-
-#include <iostream> // print
+#include <algorithm> // @Temporary:
+#include <iostream>  // cout
 #include <chrono>
-#include <cstring> // strncmp.
+#include <cstring>   // strncmp
 
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_ttf.h>
 
+#include <cstdint>
 typedef int64_t  s64;
 typedef int32_t  s32;
 typedef int16_t  s16;
@@ -32,7 +30,6 @@ typedef double   f64;
 
 #include "fwd.h"
 #include "array.h"
-#include "our_string.h"
 #include "gap_buffer.h"
 #include "utility.h"
 #include "globals.h"

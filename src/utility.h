@@ -5,11 +5,11 @@ inline char *concat(const char *a, const char *b) {
   const size_t s1 = strlen(a);
   const size_t s2 = strlen(b);
 
-  char *ret = (char *)malloc(sizeof(char) * (s1 + s2 + 1));
+  char *ret = (char *)malloc(s1+s2+1);
   assert(ret);
 
-  memcpy(ret, a, sizeof(char) * s1);
-  memcpy(ret + s1, b, sizeof(char) * s2);
+  memcpy(ret, a, s1);
+  memcpy(ret + s1, b, s2);
   ret[s1+s2] = '\0';
 
   return ret;
@@ -26,9 +26,7 @@ struct ScopeGuard {
   F fun;
 
   ScopeGuard(F &&f): fun{std::move(f)} {}
-  ~ScopeGuard() {
-      fun();
-  }
+  ~ScopeGuard() { fun(); }
 };
 
 template<class F>
@@ -134,7 +132,7 @@ struct Timer {
   ~Timer() { 
     end = std::chrono::steady_clock::now(); 
   
-    double delta = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
+    f64 delta = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
     print.sep = "";
     if(delta < 1000) {
       print("ns: ", delta);
@@ -147,10 +145,13 @@ struct Timer {
 };
 
 #define measure_scope() Timer ANONYMOUS_NAME;
+#define max(a, b) (((a) > (b)) ? (a) : (b))
+#define min(a, b) (((a) < (b)) ? (a) : (b))
+#define square(a) ((a)*(a))
 
 
 template<class T, class U, size_t N>
-bool is_one_of(const T c, const U (&x)[N]) {
+bool one_of(const T c, const U (&x)[N]) {
   for(size_t i = 0; i < N; i++) {
     if(c == x[i]) { return true; }
   }
