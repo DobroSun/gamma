@@ -8,7 +8,7 @@ static console_t console;
 static bool is_input = false;
 
 
-void console_init() { /*console.buffer.chars.resize(console.buffer.gap_len);*/ }
+void console_init() { console.buffer.chars.resize(console.buffer.gap_len); }
 
 
 void console_draw() {
