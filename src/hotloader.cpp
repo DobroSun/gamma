@@ -3,7 +3,7 @@
 #include "buffer.h"
 #include "interp.h"
 
-Settings_Hotloader::Settings_Hotloader(const char *filename) {
+Settings_Hotloader::Settings_Hotloader(const char *name) {
   fd = inotify_init();
 
   if(fd == -1) { fprintf(stderr, "Inotify init failed!\n"); }
@@ -11,13 +11,12 @@ Settings_Hotloader::Settings_Hotloader(const char *filename) {
   int flags = fcntl(fd, F_GETFL, 0);
   fcntl(fd, F_SETFL, flags | O_NONBLOCK);
 
-	wd = inotify_add_watch(fd, filename, IN_ALL_EVENTS);
+	wd = inotify_add_watch(fd, name, IN_ALL_EVENTS);
   if(wd == -1) { fprintf(stderr, "Failed to add a watch for `syntax.m`\n"); }
 }
 
-Settings_Hotloader::~Settings_Hotloader() {
-  close(fd);
-}
+Settings_Hotloader::~Settings_Hotloader() { close(fd); }
+
 
 bool Settings_Hotloader::settings_need_reload() {
   if(is_not_reloaded) { return true; } // needs a reload.

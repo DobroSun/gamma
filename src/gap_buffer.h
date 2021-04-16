@@ -134,26 +134,24 @@ struct gap_buffer {
   size_t size() const { return chars.size - gap_len; }
 };
 
-inline bool operator==(const gap_buffer &a, const gap_buffer &b) {
-  if(a.size() == b.size()) {
-    for(size_t i = 0; i < a.size(); i++) {
-      if(a[i] != b[i]) {
-        return false;
-      }
-    }
-    return true;
-  } else {
-    return false;
-  }
-}
-
-inline bool operator!=(const gap_buffer &a, const gap_buffer &b) { return !(a == b); }
-
 inline void copy_gap_buffer(gap_buffer *a, const gap_buffer *b) {
   new (a) gap_buffer(); // this handles the case, when a & b point to the same gap_buffer.
   copy_string(&a->chars, &b->chars);
   a->pre_len = b->pre_len;
   a->gap_len = b->gap_len;
+}
+
+inline char *string_from_gap_buffer(const gap_buffer *g) {
+  const size_t size    = g->size();
+  const size_t pre_len = g->pre_len;
+  const size_t gap_len = g->gap_len;
+
+  char *r = (char*)allocate_and_zero(size+1);
+
+  memcpy(r,           g->chars.data,                     pre_len);
+  memcpy(r + pre_len, g->chars.data + pre_len + gap_len, size-pre_len);
+
+  return r;
 }
 
 #endif

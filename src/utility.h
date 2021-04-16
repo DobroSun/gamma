@@ -158,4 +158,13 @@ bool one_of(const T c, const U (&x)[N]) {
   return false;
 }
 
+template<class T, class F>
+T* find_if(array<T> a, F f) {
+  for(size_t i = 0; i < a.size; i++) {
+    if(f(a[i])) {
+      return &a[i];
+    }
+  }
+  return NULL;
+}
 #endif

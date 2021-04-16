@@ -10,6 +10,9 @@ static bool is_input = false;
 
 void console_init() { console.buffer.chars.resize(console.buffer.gap_len); }
 
+void console_on_resize(int n_height) {
+  console.bottom_y = (n_height > font_height) ? (n_height-font_height) : 1;
+}
 
 void console_draw() {
   auto &buffer = console.buffer;
@@ -60,6 +63,10 @@ void console_backspace() {
   if(console.cursor > 0) { console.cursor--; }
 }
 
+void console_del() {
+  console.buffer.del();
+}
+
 void console_run_command() {
   size_t size = console.buffer.size();
   char cmd[size+1] = {0};
@@ -71,30 +78,5 @@ void console_run_command() {
   interp_single_command(cmd);
 }
 
-
-void console_del() {
-  console.buffer.del();
-}
-
-void console_go_left() {
-  console.buffer.move_left();
-  if(console.cursor > 0) { console.cursor--; }
-}
-
-
-void console_go_right() {
-  console.buffer.move_right();
-
-  if(console.cursor != console.buffer.size()) {
-    console.cursor++;
-  }
-}
-
-void console_on_resize(int n_height) {
-  console.bottom_y = (n_height > font_height) ? (n_height-font_height) : 1;
-}
-
-console_t *get_console() {
-  return &console;
-}
+console_t *get_console() { return &console; }
 

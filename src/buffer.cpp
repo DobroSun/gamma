@@ -10,11 +10,10 @@ extern void (*current_action)(buffer_t*);
 
 
 static literal get_file_extension(string filename) {
-  const char *iter; size_t index;
-  filename.find('.', &iter, &index);
-
   literal r;
-  if(iter) {
+
+  size_t index;
+  if(filename.find('.', &index)) {
     r.data = filename.data + index;
     r.size = filename.size - index;
   }
@@ -40,61 +39,20 @@ static void split(array<literal> *lines, literal l, literal split_by) {
   lines->add(literal(data, size));
 }
 
-// @Speed:
-// No need to iterate and get them 
-// each time, better solution is to keep 
-// an array of currently used buffers.
-#define get_used_buffers(name, size_name, buffers) \
-  buffer_t *name[buffers.size]; \
-  size_t size_name = 0; \
-  for(size_t i = 0; i < buffers.size; i++) { \
-    if(buffers[i].is_used) { \
-      name[size_name++] = &buffers[i]; \
-    } \
-  }
-
-
 static array<tab_t>  tabs;
 static tab_t        *active_tab = NULL;
 
 static selection_buffer_t selection;
 
 array<tab_t>      &get_tabs()            { return tabs; }
-tab_t             *&get_current_tab()    { return active_tab; }
-buffer_t          *&get_current_buffer() { return active_tab->current_buffer; }
+tab_t             *&get_current_tab()    { return assert(active_tab), active_tab; }
+buffer_t          *&get_current_buffer() { return assert(active_tab->current_buffer), active_tab->current_buffer; }
 selection_buffer_t &get_selection()      { return selection; }
 
 
 
-template<class T>
-T *get_free_source(array<T> &source, T* p) {
-  T *ret = NULL;
-  for(size_t i = 0; i < source.size; i++) {
-    if(!source[i].is_used) {
-      ret = &source[i];
-      break;
-    }
-  }
-
-  if(!ret) {
-    // 
-    // @Note: The reason we do `find` & `insert` here is because of split system, where
-    // when we add a new buffer, we want it to be placed in array after the
-    // current one, so we can close & delete it easily.
-    // 
-    T *iter; size_t index;
-    source.find_pointer(p, &iter, &index);
-    ret = (iter) ? source.insert(index+1) : source.add();
-  } else {
-    // Already found.
-  }
-  assert(ret);
-  ret->is_used = true;
-  return ret;
-}
-
-static tab_t    *get_free_tab()               { return get_free_source(tabs, (tab_t*)NULL); }
-static buffer_t *get_free_buffer(buffer_t *p) { return get_free_source(active_tab->buffers, p); }
+tab_t    *get_free_tab()    { return tabs.add(); }
+buffer_t *get_free_buffer() { return active_tab->buffers.add(); }
 
 size_t read_file_into_memory(FILE *f, char **mem, size_t gap_len) {
   size_t size, result;
@@ -112,21 +70,13 @@ size_t read_file_into_memory(FILE *f, char **mem, size_t gap_len) {
 tab_t *open_new_tab(string s) {
   auto tab   = get_free_tab();
   active_tab = tab;
-  open_new_buffer(s); // @Incomplete: What if filename is already opened?
+  open_new_buffer(s); // @Incomplete: What if `s` is already opened?
   resize_tab(tab);
   return tab;
 }
 
-void change_tab(s32 index) {
-  if(index >= 0 && index < tabs.size && tabs[index].is_used) {
-    active_tab = &tabs[index];
-  } else {
-    // Nothing.
-  }
-}
-
 buffer_t *open_new_buffer(string s) {
-  auto buffer = get_free_buffer(active_tab->current_buffer);
+  auto buffer = get_free_buffer();
   active_tab->current_buffer = buffer;
 
   assert(s.size != 0);
@@ -148,7 +98,7 @@ buffer_t *open_new_buffer(string s) {
 }
 
 void open_existing_buffer(buffer_t *prev) {
-  auto buffer = get_free_buffer(active_tab->current_buffer);
+  auto buffer = get_free_buffer();
   active_tab->current_buffer = buffer;
 
   buffer->buffer   = prev->buffer;
@@ -159,58 +109,39 @@ void open_existing_buffer(buffer_t *prev) {
 }
 
 void open_existing_or_new_buffer(string s) {
-  get_used_buffers(used_bufs, size, active_tab->buffers);
+  buffer_t *p = find_if(active_tab->buffers,
+                        [s](buffer_t b) { return b.filename == s; });
 
-  for(size_t i = 0; i < size; i++) {
-    if(used_bufs[i]->filename == s) {
-      open_existing_buffer(used_bufs[i]);
-      return;
-    }
+  if(p) {
+    open_existing_buffer(p);
+  } else {
+    open_new_buffer(s);
   }
-  open_new_buffer(s);
 }
 
-void draw_tab(const tab_t *tab) {
-  auto buffer = tab->current_buffer;
-
-  for(auto &b : tab->buffers) { b.draw(); }
-
-  if(buffer) {
-    // Update cursor.
-    char s = buffer->buffer[buffer->cursor];
-    s = (s == '\n')? ' ': s;
-
-    const int px = buffer->get_relative_pos_x(buffer->n_character - buffer->offset_on_line);
-    const int py = buffer->get_relative_pos_y(buffer->n_line - buffer->start_pos);
-
-    draw_text_shaded(get_font(), s, cursor_text_color, cursor_color, px, py);
+void change_tab(s32 index) {
+  if(index >= 0 && index < tabs.size) {
+    active_tab = &tabs[index];
+  } else {
+    // Nothing.
   }
-  draw_rect(0, get_console()->bottom_y, Width, font_height, background_color);
-  console_draw();
 }
 
 void buffer_t::draw() const {
   const size_t buffer_size = buffer.size();
 
-  size_t current_token_index = 0;
   size_t i = offset_from_beginning;
 
   int x = get_relative_pos_x(-offset_on_line); // @CleanUp: 
   int y = get_relative_pos_y(0);
 
   while(i < buffer.size()) {
-    const int current_line_length = get_line_length(i);
+    int current_line_length = get_line_length(i);
 
-    char string[current_line_length + 1];
-    string[current_line_length] = '\0';
+    char string[current_line_length+1] = {0};
 
-    for(size_t j = i; j < i + current_line_length; j++) {
-      char c = buffer[j];
-      if(c == '\n') {
-        string[j-i] = ' ';
-      } else {
-        string[j-i] = c;
-      }
+    for(size_t j = 0; j < current_line_length; j++) {
+      string[j] = (buffer[j+i] == '\n') ? ' ' : buffer[j+i];
     }
 
     if(y >= get_console()->bottom_y - font_height) { break; }
@@ -221,12 +152,9 @@ void buffer_t::draw() const {
     i += current_line_length;
   }
 
+  char *string = string_from_gap_buffer(&buffer);
+  defer { deallocate(string); };
 
-  char string[buffer_size+1];
-
-  memcpy(string, buffer.chars.data, buffer.pre_len);
-  memcpy(string + buffer.pre_len, buffer.chars.data + buffer.pre_len + buffer.gap_len, buffer_size-buffer.pre_len);
-  string[buffer_size] = '\0';
 
   auto syntax = get_language_syntax(get_file_extension(filename));
   if(syntax) {
@@ -244,8 +172,7 @@ void buffer_t::draw() const {
 
     lexer.process_input(string);
 
-    auto &tokens = lexer.tokens;
-    for(auto &tok : tokens) {
+    for(auto &tok : lexer.tokens) {
       if(tok.l < start_pos && tok.type != TOKEN_STRING_LITERAL && tok.type != TOKEN_MULTI_LINE_COMMENT && tok.type != TOKEN_SINGLE_LINE_COMMENT) continue;
 
       literal l = tok.string_literal;
@@ -356,7 +283,7 @@ void buffer_t::draw() const {
         continue;
       }
 
-      struct string *it; size_t index;
+      const struct string *it; size_t index;
       syntax->names.find(l, &it, &index);
       if(it) {
         const int px = get_relative_pos_x(-offset_on_line + tok.c); // @Hack:
@@ -369,7 +296,7 @@ void buffer_t::draw() const {
     }
   }
 
-  // search highlight.
+  // search highlighting.
   for(size_t i = 0; i < found.size; i++) {
     Loc loc = found[i];
 
@@ -446,7 +373,7 @@ int buffer_t::count_total_lines() const {
 void buffer_t::go_right() {
   if(cursor == buffer.size()-1) return;
 
-  current_action(this);
+  //current_action(this);
 
   buffer.move_right();
   if(buffer[cursor] == '\n') {
@@ -472,7 +399,8 @@ void buffer_t::go_left() {
   if(cursor == 0) return;
   assert(cursor > 0);
 
-  current_action(this);
+  //current_action(this);
+
   buffer.move_left();
 
   // dec_cursor.
@@ -510,6 +438,7 @@ void buffer_t::put_backspace() {
     // but since go_left calls       gap_buffer.move_left(),
     // we have to compensate it with gap_buffer.move_right().
     buffer.move_right();
+
     go_left();
 
     if(buffer[cursor] == '\n') total_lines--;
@@ -544,36 +473,28 @@ void buffer_t::put(char c) {
 }
 
 void buffer_t::put_tab() {
-  for(int i = 0; i < tabstop; i++) {
-    put(' ');
-  }
+  for(int i = 0; i < tabstop; i++) { put(' '); }
 }
 
 void buffer_t::go_down() {
-  auto buffer = active_tab->current_buffer;
-  int n = buffer->compute_go_down();
-  while(n) {
-    buffer->go_right();
-    n--;
-  }
-}
+  if(n_line == total_lines-1) return;
 
-// @CleanUp: @RemoveMe:
-int buffer_t::compute_go_down() {
-  if(n_line == total_lines-1) return 0;
-  int count = 0;
-
+  const size_t tmp_saved_pos 		  = saved_pos;
   const size_t prev_character_pos = n_character;
   for(size_t i = cursor; buffer[i] != '\n'; i++) {
-    count++;
+    go_right();
   }
-  count++;
+
+  go_right();
+  assert(n_character == 0 && offset_on_line == 0);
   
-  for(size_t i = 0; i < prev_character_pos; i++) {
-    if(buffer[cursor+count] == '\n') return count;
-    count++;
+  const size_t go_till = max(prev_character_pos, tmp_saved_pos);
+  for(size_t i = 0; i < go_till; i++) {
+    if(buffer[cursor] == '\n') break;
+    go_right();
   }
-  return count;
+
+  saved_pos = tmp_saved_pos;
 }
 
 void buffer_t::go_up() {
@@ -641,72 +562,21 @@ int get_current_line_indent(buffer_t *buffer) {
 }
 */
 
-/*
-void do_selection_to_left(buffer_t *buffer) {
+void no_action(buffer_t *buffer) {}
+
+void select_action(buffer_t *buffer) {
   auto &selection = get_selection();
   auto &cursor    = buffer->cursor;
 
-  if(selection.direction == left) {
-    if(cursor > 0) {
-      selection.start_index = cursor - 1;
-      selection.size++;
-    }
-
-  } else if(selection.direction == right) {
-    assert(selection.size > 0);
-    selection.size--;
-
-  } else {
-    assert(selection.direction == none && selection.size == 0);
-    selection.direction = left;
-
-    // Copy&Paste: of left case.
-    if(cursor > 0) {
-      selection.start_index = cursor - 1;
-      selection.size++;
-      assert(selection.size == 1);
-    }
-  }
-  if(selection.size == 0) { selection.direction = none; }
-}
-
-void do_selection_to_right(buffer_t *buffer) {
-  auto &selection = get_selection();
-  auto &cursor    = buffer->cursor;
-
-  if(selection.direction == left) {
-    assert(selection.size > 0);
-    selection.start_index = buffer->cursor + 1;
-    selection.size--;
-
-  } else if(selection.direction == right) {
-    if(cursor < buffer->buffer.size()-1) {
-      selection.size++;
-    }
-
-  } else {
-    assert(selection.direction == none && selection.size == 0);
-    selection.direction = right;
-
-    // Copy&Paste: of right case.
-    if(cursor < buffer->buffer.size()-1) {
-      selection.size++;
-    }
-  }
-  if(selection.size == 0) { selection.direction = none; }
-}
-*/
-
-
-void select_char(buffer_t *buffer) {
-  auto &selection = get_selection();
-  auto &cursor    = buffer->cursor;
-
-  if(cursor >= selection.first) {
+  if(cursor > selection.first) {
     selection.last = cursor;
   } else {
     selection.first = cursor;
   }
+}
+
+void delete_action(buffer_t *buffer) {
+  buffer->put_backspace();
 }
 
 void init(int argc, char **argv) {
@@ -779,121 +649,31 @@ void init(int argc, char **argv) {
   open_new_tab(filename);
 }
 
-/*
-void delete_selected() {
-  assert(selection.start_index != -1);
-  auto buffer = active_tab->current_buffer;
-
-  int cursor = buffer->cursor;
-  int index  = selection.start_index;
-
-  if(cursor < index) {
-    size_t diff = index - cursor;
-    for(size_t i = 0; i < diff; i++) {
-      buffer->go_right();
-    }
-
-  } else if(cursor > index) {
-    size_t diff = cursor - index;
-    for(size_t i = 0; i < diff; i++) {
-      buffer->go_left();
-    }
-  } else {
-    assert(index == cursor);
-  }
-
-  for(size_t i = 0; i < selection.size+1; i++) {
-    buffer->put_delete();
-  }
-}
-
-void copy_selected() {
-  assert(selection.start_index != -1);
-  int start = selection.start_index;
-
-  auto &gap_buffer = active_tab->current_buffer->buffer;
-  for(size_t i = 0; i < selection.size+1; i++) {
-    char c = gap_buffer[start+i];
-    global_copy_buffer.buffer.add(c);
-  }
-  console_put_text("Copied!");
-}
-
-void clear_selection() {
-  selection.start_index = -1;
-  selection.size = 0;
-  selection.direction = none;
-}
-
-
-void paste_from_global_copy() {
-  auto buffer = active_tab->current_buffer;
-  auto &gap_buffer = global_copy_buffer.buffer;
-
-  for(size_t i = 0; i < gap_buffer.size(); i++) {
-    buffer->put(gap_buffer[i]);
-  }
-  console_put_text("Pasted!");
-}
-
-void go_to_line(int line) {
-  auto total_lines = active_tab->current_buffer->total_lines;
-
-  if(line < 0) {
-    line = total_lines + line;
-    if(line <= 0) {
-      line = 1;
-    }
-  } else if(line > total_lines) {
-    line = total_lines;
-  } else if(line == 0) {
-    line++;
-  }
-
-  while(line > (int)active_tab->current_buffer->n_line+1) active_tab->current_buffer->go_down();
-  while(line < (int)active_tab->current_buffer->n_line+1) active_tab->current_buffer->go_up();
-}
-*/
-
-static FILE *get_file_or_create(const char *filename, const char *mods) {
-  FILE *ret = fopen(filename, mods);
-  if(!ret) {
-    int fd = open(filename, O_RDWR | O_CREAT, 0);
-    assert(fd);
-    return fopen(filename, mods);
-  } else {
-    return ret;
-  }
-}
-
 void save() {
-  auto buffer = active_tab->current_buffer;
-  if(buffer->filename.empty()) {
+  auto   buffer   = active_tab->current_buffer;
+  string filename = buffer->filename;
+  if(!filename.size) {
     console_put_text("Error: File has no name.\n");
+		return;
+	}
 
-  } else {
-    assert(!buffer->filename.empty());
-
-    FILE *f = get_file_or_create(buffer->filename.data, "w");
-    defer { fclose(f); };
-
-    if(!f) {
-      // @Incomplete: report error.
-      assert(0);
-      print("No file for me (:");
-    }
-
-    size_t i = 0u;
-    for( ; i < buffer->buffer.size(); i++) {
-      fprintf(f, "%c", buffer->buffer[i]);
-    }
-    if(!buffer->buffer.size() || buffer->buffer[i-1] != '\n') {
-      fprintf(f, "\n");
-    }
-
-    fflush(f);
-    console_put_text("File saved.");
+  FILE *f = fopen(filename.data, "w");
+  if(!f) {
+    open(filename.data, O_RDWR | O_CREAT, 0);
+    f = fopen(filename.data, "w");
   }
+	defer { if(f) fclose(f); };
+
+	size_t i = 0;
+	for( ; i < buffer->buffer.size(); i++) {
+		fprintf(f, "%c", buffer->buffer[i]);
+	}
+	if(!buffer->buffer.size() || buffer->buffer[i-1] != '\n') {
+		fprintf(f, "\n");
+	}
+
+	fflush(f);
+	console_put_text("File saved.");
 }
 
 // Commands.
@@ -954,133 +734,30 @@ void go_paragraph_backwards() { // @StartEndNotHandled:
 }
 // 
 
+
 // Splits.
-static int compute_start_to_left(int current, buffer_t *b)  { return current - b->start_x; }
-static int compute_start_to_right(int current, buffer_t *b) { return b->start_x - current; }
-static int compute_start_to_up(int current, buffer_t *b)    { return current - b->start_y; }
-static int compute_start_to_down(int current, buffer_t *b)  { return b->start_y - current; }
+static void assert_buffers_sorted_by_x(array<buffer_t> buffers) {
+  for(size_t i = 0; i < buffers.size-1; i++) {
+    assert(buffers[i].start_x <  buffers[i+1].start_x);
+    assert(buffers[i].start_y == buffers[i+1].start_y);
+  }
+}
 
-void change_buffer(direction_t d) {
-  auto &p = active_tab->current_buffer;
-  assert(d != none); // Doesn't make any sense to call this with none.
+void change_buffer(s32 left) {
+  auto tab     = active_tab;
+  auto buffers = tab->buffers;
 
-  get_used_buffers(used_bufs, usize, active_tab->buffers);
-  if(usize == 1) return;
+  assert_buffers_sorted_by_x(buffers);
 
-  buffer_t *n;
-  // Ex. for d == left : 
-  // Need to find out which buffer has `start_x` < than the current_x.
-  // Not the lowest value, just nearest to current.
-  // Than find buffer with that value, and change current buffer to it.
-  //
+  size_t index;
+  buffers.find_pointer(tab->current_buffer, &index);
 
-  // @CleanUp:
-  int current; int another;
-  if(d == left || d == right) {
-    current = p->start_x;
-    another = p->start_y;
+  if(left) {
+    index = (index) ? index-1 : 0;
   } else {
-    assert(d == up || d == down);
-    current = p->start_y;
-    another = p->start_x;
+    index = (index != buffers.size-1) ? index+1 : index;
   }
-  
-  int (*compute_buffer_start_position)(int,buffer_t*) = NULL;
-  switch(d) {
-    case left  : compute_buffer_start_position = &compute_start_to_left; break;
-    case right : compute_buffer_start_position = &compute_start_to_right; break;
-    case up    : compute_buffer_start_position = &compute_start_to_up; break;
-    case down  : compute_buffer_start_position = &compute_start_to_down; break;
-    case none  : assert(0); break;
-  }
-
-  int starts[usize];
-  for(size_t i = 0; i < usize; i++) {
-    starts[i] = compute_buffer_start_position(current, used_bufs[i]);
-  }
-
-  std::sort(starts, starts+usize); // Maybe I need my implementation of this?
-  if(starts[usize-1] == 0) return; // If there is no values after 0.
-
-  int actual_start; int count = 0;
-  bool first_found = true;
-
-  for(size_t i = 0; i < usize; i++) {
-    if(starts[i] > 0) {
-      if(first_found) { actual_start = starts[i]; first_found = false; }
-      count++;
-    }
-  }
-
-  buffer_t *same_bufs[count]; count = 0;
-  for(size_t i = 0; i < usize; i++) {
-    if(actual_start == compute_buffer_start_position(current, used_bufs[i])) {
-      same_bufs[count++] = used_bufs[i];
-    }
-  }
-  
-  if(count == 1) {
-    n = same_bufs[0];
-    goto done;
-  }
-
-  if(d == up || d == down) {
-    std::sort(same_bufs, same_bufs+count, [](const buffer_t *b, const buffer_t *p) {
-      return b->start_x < p->start_x;
-    });
-  } else {
-    assert(d == left || d == right);
-    std::sort(same_bufs, same_bufs+count, [](const buffer_t *b, const buffer_t *p) {
-      return b->start_y < p->start_y;
-    });
-  }
-
-  buffer_t *yield;
-  first_found = false; 
-  for(size_t i = 0; i < count; i++) {
-    if(d == up || d == down) {
-      if(same_bufs[i]->start_x < another) {
-        first_found = true;
-        yield = same_bufs[i];
-
-      } else if(same_bufs[i]->start_x > another) {
-        if(first_found) {
-          n = yield;
-          goto done;
-        } else {
-          assert(0);
-        }
-      } else {
-        assert(another == same_bufs[i]->start_x);
-        n = same_bufs[i];
-        goto done;
-      }
-
-    } else {
-      assert(d == left || d == right);
-      if(same_bufs[i]->start_y < another) {
-        first_found = true;
-        yield = same_bufs[i];
-
-      } else if(same_bufs[i]->start_y > another) {
-        if(first_found) {
-          n = yield;
-          goto done;
-        } else {
-          assert(0);
-        }
-      } else {
-        assert(another == same_bufs[i]->start_y);
-        n = same_bufs[i];
-        goto done;
-      }
-    }
-  }
-  n = yield;
-
-done:
-  assert(n && n != p);
-  active_tab->current_buffer = n;
+  tab->current_buffer = &buffers[index];
 }
 
 void resize_tab(tab_t *tab) {
@@ -1102,19 +779,16 @@ void resize_tab(tab_t *tab) {
 
 void close_buffer(tab_t *tab) {
   array<buffer_t> &buffers = tab->buffers;
-  buffer_t       **current = &tab->current_buffer;
 
-  buffer_t *iter; size_t index;
-  buffers.find_pointer(*current, &iter, &index);  assert(iter);
+  size_t index;
+  buffers.find_pointer(tab->current_buffer, &index);
   buffers.remove(index);
 
   if(buffers.size) {
-    if(index == buffers.size) {
-      *current = &buffers[index-1];
-    } else {
-      *current = &buffers[index];
-    }
+    index = (index == buffers.size) ? index-1 : index;
+    tab->current_buffer = &buffers[index];
     resize_tab(tab);
+
   } else {
     should_quit = true;
   }

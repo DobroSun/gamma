@@ -29,9 +29,9 @@ typedef float    f32;
 typedef double   f64;
 
 #include "fwd.h"
+#include "globals.h"
 #include "array.h"
 #include "gap_buffer.h"
 #include "utility.h"
-#include "globals.h"
 
 #endif

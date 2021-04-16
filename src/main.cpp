@@ -7,8 +7,6 @@
 #include "hotloader.h"
 
 
-static void no_action(buffer_t*) {}
-
 bool no_input = false;
 void (*current_action)(buffer_t*);
 void (*handle_keydown)(SDL_Keysym);
@@ -43,7 +41,7 @@ void to_insert_mode() {
 
 void to_visual_mode() {
   get_selection().first = get_current_buffer()->cursor;
-  current_action = select_char;
+  current_action = select_action;
   handle_keydown = handle_visual_mode_keydown;
   console_put_text("-- VISUAL --");
 }
@@ -149,6 +147,9 @@ void handle_normal_mode_keydown(SDL_Keysym e) {
     case '0': go_to_beginning_of_line(); break;
     case 'w': go_word_forward();         break;
     case 'b': go_word_backwards();       break;
+
+    case 'd': current_action = delete_action;
+      break;
       
     case 'a':
       get_current_buffer()->go_right();
@@ -187,20 +188,20 @@ int main(int argc, char **argv) {
   if(Init_SDL()) return 1;
   init(argc, argv);
 
+  // Combine these into init(argc, argv);
   Settings_Hotloader hotloader(settings_filename);
-
   current_action = no_action;
   handle_keydown = handle_normal_mode_keydown;
 
   while(!should_quit) {
-    // measure_scope();
+    measure_scope();
 
     SDL_Event e;
     if(SDL_PollEvent(&e)) {
       switch(e.type) {
-        case SDL_QUIT: {
+        case SDL_QUIT:
           should_quit = true;
-        } break;
+          break;
 
         case SDL_KEYDOWN:
           handle_keydown(e.key.keysym);
@@ -216,12 +217,12 @@ int main(int argc, char **argv) {
           if(no_input) { no_input = false; }
           break;
 
-        case SDL_WINDOWEVENT: {
+        case SDL_WINDOWEVENT:
           if(e.window.event == SDL_WINDOWEVENT_RESIZED) {
             SDL_GetWindowSize(get_win(), &Width, &Height);
-            for(auto &tab : get_tabs()) { resize_tab(&tab); }
+            for(auto tab : get_tabs()) { resize_tab(&tab); }
           }
-        } break;
+          break;
 
         case SDL_MOUSEWHEEL: {
           auto buffer = get_current_buffer();
@@ -237,59 +238,15 @@ int main(int argc, char **argv) {
           } else {
             assert(0);
           }
-        } break;
-
-        default: {
-        } break;
-      }
-    }
-
-    // update.
-    if(is_normal_mode() || is_insert_mode() || is_visual_mode()) {
-      draw_rect(0, 0, Width, get_console()->bottom_y, background_color);
-      draw_tab(get_current_tab());
-
-      if(is_visual_mode()) { // @Copy&Paste: 
-        // render selected lines.
-        auto b          = get_current_buffer();
-        auto &buffer    = b->buffer;
-        auto &selection = get_selection();
-
-        int i = b->offset_from_beginning;
-
-        int x = b->get_relative_pos_x(-b->offset_on_line);
-        int y = b->get_relative_pos_y(0);
-
-        while(i < buffer.size()) {
-          int current_line_length = b->get_line_length(i);
-
-          if(i >= selection.first && i < selection.last) {
-            size_t selected_size = current_line_length;
-            char selected[selected_size+1] = {0};
-
-            for(size_t j = i; j < min(selected_size-i, b->cursor); j++) {
-              selected[j-i] = (buffer[j] == '\n') ? ' ' : buffer[j];
-            }
-
-
-            draw_text_shaded(get_font(), selected, background_color, text_color, x, y);
-            if(y >= get_console()->bottom_y - font_height) { break; }
-          }
-
-          y += font_height;
-          i += current_line_length;
+          break;
         }
+
+        default: break;
       }
-
-    } else if(is_console_mode()) {
-      draw_rect(0, get_console()->bottom_y, Width, font_height, console_color);
-      console_draw();
-
-    } else {
-      assert(0);
     }
-    SDL_RenderPresent(get_renderer());
 
+
+    // hotload settings.
     if(hotloader.settings_need_reload()) {
       hotloader.reload_file(settings_filename);
 
@@ -297,6 +254,31 @@ int main(int argc, char **argv) {
       clear_font();
       make_font();
     }
+
+
+    // rendering.
+    if(is_normal_mode() || is_insert_mode() || is_visual_mode()) {
+      draw_rect(0, 0, Width, get_console()->bottom_y, background_color);
+
+
+      auto buffer = get_current_buffer();
+      // @UpdateMultipleInstances: If given file is opened multiple times, we need to update them all.
+      buffer->draw(); 
+
+      // Update cursor.
+      char s = buffer->buffer[buffer->cursor];
+      s = (s == '\n')? ' ': s;
+      const int px = buffer->get_relative_pos_x(buffer->n_character - buffer->offset_on_line);
+      const int py = buffer->get_relative_pos_y(buffer->n_line - buffer->start_pos);
+      draw_text_shaded(get_font(), s, cursor_text_color, cursor_color, px, py);
+
+    } else {
+      assert(is_console_mode());
+    }
+
+    draw_rect(0, get_console()->bottom_y, Width, font_height, console_color);
+    console_draw();
+    SDL_RenderPresent(get_renderer());
   }
 
   SDL_DestroyRenderer(get_renderer());

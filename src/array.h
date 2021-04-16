@@ -35,39 +35,79 @@ struct array {
   }
 
   template<class U, class B> // U for different types, B for constness.
-  void find(U v, B **iter, size_t *index) {
+  bool find(U v, B **iter, size_t *index) {
     for(size_t i = 0; i < size; i++) {
       if(this->operator[](i) == v) {
         *iter  = &this->operator[](i);
         *index = i;
-        return;
+        return true;
       }
     }
     *iter = NULL;
+    return false;
   }
 
   template<class U, class B>
-  void find(U v, B **iter) { // @Copy&Paste:
+  bool find(U v, B **iter) { // @Copy&Paste:
     for(size_t i = 0; i < size; i++) {
       if(this->operator[](i) == v) {
         *iter = &this->operator[](i);
-        return;
+        return true;
       }
     }
     *iter = NULL;
+    return false;
+  }
+
+  template<class U>
+  bool find(U v, size_t *index) { // @Copy&Paste: 
+    for(size_t i = 0; i < size; i++) {
+      if(this->operator[](i) == v) {
+        *index = i;
+        return true;
+      }
+    }
+    return false;
   }
 
   template<class U, class B>
-  void find_pointer(U *v, B **iter, size_t *index) { // @Copy&Paste: We can reduce this boilerplate by doing some compiler time indirection (probably).
+  bool find_pointer(U *v, B **iter, size_t *index) { // @Copy&Paste: We can reduce this boilerplate by doing some compiler time indirection (probably).
     for(size_t i = 0; i < size; i++) {
       if(&this->operator[](i) == v) {
         *iter  = &this->operator[](i);
         *index = i;
-        return;
+        return true;
       }
     }
-    *iter = NULL;
+    assert(0);
+    return false;
   }
+
+  template<class U>
+  bool find_pointer(U *v, size_t *index) { // @Copy&Paste:
+    for(size_t i = 0; i < size; i++) {
+      if(&this->operator[](i) == v) {
+        *index = i;
+        return true;
+      }
+    }
+    assert(0);
+    return false;
+  }
+
+  template<class U, class B>
+  bool find_pointer(U *v, B **iter) { // @Copy&Paste: 
+    for(size_t i = 0; i < size; i++) {
+      if(&this->operator[](i) == v) {
+        *iter = &this->operator[](i);
+        return true;
+      }
+    }
+    assert(0);
+    return false;
+  }
+
+
 
   T* remove(size_t index) {
     if(index >= size) { return &data[size--]; }

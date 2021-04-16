@@ -1,42 +1,23 @@
 #ifndef GAMMA_BUFFER_H
 #define GAMMA_BUFFER_H
 
-enum split_type_t : u8 {
-  hsp_type,
-  vsp_type,
-};
 
 
-enum direction_t : u8 {
-  left = 0,
-  right,
-  up,
-  down,
-  none,
-};
-
-
-struct selection_buffer_t {
-  size_t first = 0, last = 0;
-};
-
+struct selection_buffer_t { size_t first = 0, last = 0; };
 struct Loc { size_t index, l, c, size; };
+
 
 struct buffer_t {
   gap_buffer      buffer;
   array<buffer_t> undo;
   array<buffer_t> redo;
 
-  bool is_used = false;
   string filename;
-
   array<Loc> found; // search.
 
   int start_x, start_y, width, height;
   size_t cursor = 0, n_character = 0, n_line = 0, total_lines = 0;
   size_t offset_on_line = 0, offset_from_beginning = 0, start_pos = 0, saved_pos = 0;
-
-  static const int tabstop = 2; // @CleanUp: 
 
 
   void draw() const;
@@ -47,20 +28,13 @@ struct buffer_t {
   void scroll_up();
   void go_right();
   void go_left();
+  void go_down();
+  void go_up();
   void put_backspace();
   void put_return();
   void put_delete();
   void put(char);
   void put_tab();
-
-
-  
-  void go_down();
-  void go_up();
-
-  // @CleanUp: @RemoveMe:
-  int compute_go_down();
-  int compute_go_up();
 
 
   void shift_beginning_down();
@@ -77,12 +51,9 @@ struct buffer_t {
 
 struct tab_t {
   array<buffer_t> buffers;
-  buffer_t       *current_buffer = NULL;
-  bool            is_used        = false;
+  buffer_t *current_buffer = NULL;
 };
 
-
-void draw_tab(const tab_t *);
 
 int number_lines_fits_in_window(const buffer_t *);
 int number_chars_on_line_fits_in_window(const buffer_t *);
@@ -94,7 +65,6 @@ buffer_t    *&get_current_buffer();
 selection_buffer_t &get_selection();
 
 void init(int, char**);
-void update();
 
 buffer_t *open_new_buffer(string);
 void open_existing_or_new_buffer(string);
@@ -113,8 +83,8 @@ void paste_from_global_copy();
 void go_to_line(int);
 void save();
 
-void resize_tab(tab_t*);
-void change_buffer(direction_t);
+void resize_tab(tab_t *);
+void change_buffer(s32);
 void close_buffer(tab_t*);
 
 void find_in_buffer(string);
@@ -132,7 +102,9 @@ void go_word_backwards();
 void go_paragraph_forward();
 void go_paragraph_backwards();
 
-void select_char(buffer_t*);
+void no_action(buffer_t*);
+void select_action(buffer_t*);
+void delete_action(buffer_t*);
 
 void save_current_state_for_undo(buffer_t *);
 void undo(buffer_t *);

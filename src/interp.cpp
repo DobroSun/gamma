@@ -3,6 +3,7 @@
 #include "buffer.h"
 #include "console.h"
 
+
 inline bool ensure_space(const char *c, size_t n) {
   for(size_t i = 0; i < n; i++) {
     if(*c == '\0') { return false; }
@@ -32,7 +33,7 @@ inline void ADVANCE(const char *&c, size_t n, s32 &nl, s32 &nc) {
 static const u16 MAX_ERROR_STRING_SIZE = 2048;
 
 void report_error(const char *fmt, va_list args) {
-  char r[MAX_ERROR_STRING_SIZE];
+  char r[MAX_ERROR_STRING_SIZE] = {0};
   vsnprintf(r, MAX_ERROR_STRING_SIZE, fmt, args);
   console_put_text(r);
 }
@@ -40,7 +41,7 @@ void report_error(const char *fmt, va_list args) {
 void report_error(const char *fmt, ...) {
   va_list args;
   va_start(args, fmt);
-  char r[MAX_ERROR_STRING_SIZE];
+  char r[MAX_ERROR_STRING_SIZE] = {0};
   vsnprintf(r, MAX_ERROR_STRING_SIZE, fmt, args);
   console_put_text(r);
   va_end(args);
@@ -147,10 +148,8 @@ struct Hotloaded_Variables { // @Speed: Hashtable.
 static Hotloaded_Variables attach_table;
 
 static void attach_value(bool *val, literal name) {
-  literal *it; size_t index;
-  attach_table.literals.find(name, &it, &index);
-
-  if(it) {
+  size_t index;
+  if(attach_table.literals.find(name, &index)) {
     Var *r = &attach_table.rvalues[index];
     if(r->type == TOKEN_BOOLEAN) {
       *val = r->bool_;
@@ -164,10 +163,8 @@ static void attach_value(bool *val, literal name) {
 }
 
 static void attach_value(int *val, literal name) {
-  literal *it; size_t index;
-  attach_table.literals.find(name, &it, &index);
-
-  if(it) {
+  size_t index;
+  if(attach_table.literals.find(name, &index)) {
     Var *r = &attach_table.rvalues[index];
     if(r->type == TOKEN_NUMBER) {
       *val = r->s64_;
@@ -181,10 +178,8 @@ static void attach_value(int *val, literal name) {
 }
 
 static void attach_value(const char **val, literal name) {
-  literal *it; size_t index;
-  attach_table.literals.find(name, &it, &index);
-
-  if(it) {
+  size_t index;
+  if(attach_table.literals.find(name, &index)) {
     Var *r = &attach_table.rvalues[index];
     if(r->type == TOKEN_STRING_LITERAL) {
       *val = r->string_; // @MemoryLeak:
@@ -198,10 +193,10 @@ static void attach_value(const char **val, literal name) {
 }
 
 static void attach_value(SDL_Color *val, literal name) {
-  literal *it; size_t index;
-  attach_table.literals.find(name, &it, &index);
+  size_t index;
+  
 
-  if(it) {
+  if(attach_table.literals.find(name, &index)) {
     Var *r = &attach_table.rvalues[index];
     if(r->type == TOKEN_COLOR) { // @ReName:
       *val = r->color_;
@@ -531,9 +526,9 @@ static size_t keyword_count = 1000; // @ResetOnFileChange: every time we change 
 
 Language_Syntax_Struct* get_language_syntax(literal file_extension) {
   if(file_extension.size) {
-    string *iter; size_t index;
-    settings.extensions.find(file_extension, &iter, &index);
-    return iter ? settings.syntax[index] : NULL;
+    size_t index;
+    bool found = settings.extensions.find(file_extension, &index);
+    return found ? settings.syntax[index] : NULL;
   } else {
     return NULL;
   }
@@ -544,9 +539,8 @@ static bool end_of_block(Lexer &lexer) {
 }
 
 static void attach_var_if_found(literal ident, Var var) {
-  literal *it; size_t index;
-  attach_table.literals.find(ident, &it, &index);
-  if(it) {
+  size_t index;
+  if(attach_table.literals.find(ident, &index)) {
     attach_table.rvalues[index] = var;
   } else {
     static_string_from_literal(s, ident);
@@ -771,11 +765,11 @@ static void parse_single_command(Lexer &lexer) {
     REPORT_ERROR_IF_NOT_TOKEN(tok, TOKEN_NUMBER, "Error: expected `%s` after `change_buffer` command.\n", name_from_tok(TOKEN_NUMBER));
 
     // @Hack: @CleanUp:
-    // left = 0, right = 1, up = 2, down = 3
+    // right = 0, left = 1
     // We can implement variables for a syntax.m file, than assign left = ..., etc.
     // Than we will be able to use this command as follows: `:change_buffer left`.
     // 
-    change_buffer((direction_t)tok->var.s64_);
+    change_buffer(tok->var.s64_);
  
   } else {
     static_string_from_literal(s, tok->string_literal);

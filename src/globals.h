@@ -31,4 +31,14 @@ inline const char *settings_filename = "syntax.m";
 const SDL_Color WhiteColor = {255, 255, 255, 255};
 const SDL_Color BlackColor = {0, 0, 0, 255};
 
+inline void* allocate(size_t bytes) { return malloc(bytes); }
+inline void  deallocate(void *ptr)  { return free(ptr); }
+
+inline void* allocate_and_zero(size_t bytes) {
+  void *r = allocate(bytes);
+  memset(r, 0, bytes);
+  return r;
+}
+
+
 #endif
