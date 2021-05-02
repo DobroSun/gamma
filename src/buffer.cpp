@@ -333,7 +333,6 @@ void buffer_t::shift_beginning_down() {
   int count = 2;
   if(offset_from_beginning < count) {
     assert(offset_from_beginning == 1);
-
   } else {
     while(buffer[offset_from_beginning-count] != '\n') {
       if(count == offset_from_beginning) { count++; break; }
@@ -360,6 +359,7 @@ void buffer_t::go_left(size_t n) {
 
     buffer.move_left();
     if(buffer.eol()) {
+      if(start_pos == n_line) { shift_beginning_down(); }
 
       // Compute n_character position.
       go_left(); to_beginning_of_line();
@@ -376,8 +376,8 @@ void buffer_t::go_left(size_t n) {
 void buffer_t::go_right(size_t n) {
   for(size_t i = 0; i < n; i++) {
     if(buffer.eof()) return;
-
     if(buffer.eol()) {
+      if(number_lines_fits_in_window(this)+start_pos-1 == n_line) { shift_beginning_up(); }
       n_character = 0;
       n_line++;
     } else {
@@ -385,59 +385,6 @@ void buffer_t::go_right(size_t n) {
     }
     buffer.move_right();
   }
-}
-
-void buffer_t::to_beginning_of_line() {
-  while(!buffer.eol() && !buffer.start()) { go_left(); }
-}
-
-void buffer_t::to_end_of_line() {
-  while(!buffer.eol() && !buffer.eof()) { go_right(); }
-}
-
-void buffer_t::put_backspace() {
-  if(cursor == 0) {
-    // Do nothing.
-  } else {
-    // We don't need to move gap at all,
-    // but since go_left calls       gap_buffer.move_left(),
-    // we have to compensate it with gap_buffer.move_right().
-    buffer.move_right();
-
-    go_left();
-
-    if(buffer[cursor] == '\n') total_lines--;
-    buffer.backspace();
-  }
-}
-
-void buffer_t::put_delete() {
-  if(cursor == buffer.size()-1) return;
-  if(buffer[cursor] == '\n') total_lines--;
-
-  buffer.del();
-}
-
-void buffer_t::put_return() {
-  buffer.add('\n');
-  total_lines++;
-
-  go_right();
-  buffer.move_left(); // Same hack as for ::put_backspace().
-  assert(offset_on_line == 0);
-
-  //int indent = get_current_line_indent(this);
-  //for(int i = 0; i < indent; i++) { put(' '); }
-}
-
-void buffer_t::put(char c) {
-  buffer.add(c);
-  go_right();
-  buffer.move_left();
-}
-
-void buffer_t::put_tab() {
-  for(int i = 0; i < tabstop; i++) { put(' '); }
 }
 
 void buffer_t::go_down() {
@@ -457,6 +404,45 @@ void buffer_t::go_up() {
   to_beginning_of_line();
   size_t size = n_character;
   go_left(size-tmp);
+}
+
+void buffer_t::put_backspace() {
+  if(buffer.start()) return;
+  go_left();
+  put_delete();
+}
+
+void buffer_t::put_delete() {
+  if(buffer.eof()) return;
+  if(buffer.eol()) total_lines--;
+  buffer.del();
+}
+
+void buffer_t::put_return() {
+  buffer.add('\n');
+  total_lines++;
+
+  n_character = 0;
+  n_line++;
+}
+
+void buffer_t::put(char c) {
+  buffer.add(c);
+  n_character++;
+}
+
+void buffer_t::put_tab() {
+  for(int i = 0; i < tabstop; i++) {
+    put(' ');
+  }
+}
+
+void buffer_t::to_beginning_of_line() {
+  while(!buffer.eol() && !buffer.start()) { go_left(); }
+}
+
+void buffer_t::to_end_of_line() {
+  while(!buffer.eol() && !buffer.eof()) { go_right(); }
 }
 
 void buffer_t::scroll_down() {
@@ -499,7 +485,6 @@ int get_current_line_indent(buffer_t *buffer) {
 }
 */
 
-void no_action(buffer_t *buffer) {}
 
 void select_action(buffer_t *buffer) {
   auto &selection = get_selection();

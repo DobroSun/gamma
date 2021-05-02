@@ -2,7 +2,6 @@
 #define GAMMA_PRECOMPILED_HEADER_H
 
 #include <sys/inotify.h>
-#include <sys/stat.h>   // stat
 #include <unistd.h>
 #include <fcntl.h>
 

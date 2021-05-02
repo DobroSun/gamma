@@ -26,7 +26,7 @@ struct buffer_t {
   // for rendering & user commands.
   int start_x, start_y, width, height;
   size_t cursor = 0, n_character = 0, n_line = 0, total_lines = 0;
-  size_t offset_on_line = 0, offset_from_beginning = 0, start_pos = 0, saved_pos = 0;
+  size_t offset_on_line = 0, offset_from_beginning = 0, start_pos = 0;
   // 
 
   void draw() const;
@@ -110,7 +110,6 @@ void go_word_backwards();
 void go_paragraph_forward();
 void go_paragraph_backwards();
 
-void no_action(buffer_t*);
 void select_action(buffer_t*);
 void delete_action(buffer_t*);
 

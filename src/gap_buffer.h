@@ -132,7 +132,7 @@ struct gap_buffer {
 
   size_t size()    const { return chars.size - gap_len; }
   size_t cursor()  const { return pre_len; }
-  char   getchar() const { assert(pre_len + gap_len <= size()); return chars[pre_len+gap_len]; }
+  char   getchar() const { assert(pre_len + gap_len < chars.size); return chars[pre_len+gap_len]; }
   bool   eol()     const { return getchar() == '\n'; }
   bool   start()   const { return cursor()  == 0; }
   bool   eof()     const { return cursor()  == size()-1; }

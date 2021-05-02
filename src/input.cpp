@@ -3,12 +3,14 @@
 #include "buffer.h"
 #include "console.h"
 
+static void no_action(buffer_t*) {}
+
 
 bool no_input = false; // When we switch from normal mode to insert mode, it immediately puts `i` on screen, but we want it to wait untill next keydown.
 void set_input() { no_input = false; }
 
 
-void (*current_action)(buffer_t*)  = no_action;
+void (*current_action)(buffer_t*);
 void (*handle_keydown)(SDL_Keysym) = handle_normal_mode_keydown;
 
 void handle_input_keydown(SDL_Keysym k) { handle_keydown(k); }
