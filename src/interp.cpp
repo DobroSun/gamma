@@ -782,7 +782,10 @@ static void parse_find_command(Lexer &lexer) {
   Token *tok = lexer.peek_than_eat_token();
   REPORT_ERROR_IF_NOT_TOKEN(tok, TOKEN_STRING_LITERAL, "Error: expected `%s` after `search` command.\n", name_from_tok(TOKEN_STRING_LITERAL));
 
-	find_in_buffer(to_string(tok->string_literal));
+  string search;
+  search.data = (char*)tok->string_literal.data;
+  search.size =        tok->string_literal.size;
+	find_in_buffer(search);
 }
 
 

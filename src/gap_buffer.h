@@ -7,6 +7,7 @@ struct gap_buffer {
   size_t gap_len = 12; // @Speed: Check on the best default value for gap_len.
 
 
+
   void move_right() {
     auto post_start = pre_len + gap_len;
     if(chars.size == post_start) {
@@ -23,7 +24,7 @@ struct gap_buffer {
     chars[post_start-1] = chars[--pre_len];
   }
 
-  void move_until(size_t new_pre_len) {
+  void move_to(size_t new_pre_len) {
     if(new_pre_len == pre_len) {
       // Nothing.
 
@@ -108,8 +109,7 @@ struct gap_buffer {
     while(pre_len) {
       backspace(); // decreases pre_len by itself.
     }
-    assert(!pre_len);
-    assert(size() == 0);
+    assert(!pre_len && size() == 0);
   }
 
   char &operator[](size_t i) {
@@ -121,9 +121,8 @@ struct gap_buffer {
     }
   }
 
-  const char &operator[](size_t i) const {
-    // Copy&Paste.
-    assert(i < chars.size-gap_len);
+  const char &operator[](size_t i) const { // Copy&Paste.
+    assert(i < size());
     if(i < pre_len) {
       return chars[i];
     } else {
@@ -131,7 +130,13 @@ struct gap_buffer {
     }
   }
 
-  size_t size() const { return chars.size - gap_len; }
+  size_t size()    const { return chars.size - gap_len; }
+  size_t cursor()  const { return pre_len; }
+  char   getchar() const { assert(pre_len + gap_len <= size()); return chars[pre_len+gap_len]; }
+  bool   eol()     const { return getchar() == '\n'; }
+  bool   start()   const { return cursor()  == 0; }
+  bool   eof()     const { return cursor()  == size()-1; }
+
 };
 
 inline void copy_gap_buffer(gap_buffer *a, const gap_buffer *b) {

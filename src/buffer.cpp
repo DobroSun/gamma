@@ -4,9 +4,7 @@
 #include "font.h"
 #include "console.h"
 #include "interp.h"
-
-extern void (*current_action)(buffer_t*);
-
+#include "input.h"
 
 
 static literal get_file_extension(string filename) {
@@ -44,15 +42,12 @@ static tab_t        *active_tab = NULL;
 
 static selection_buffer_t selection;
 
-array<tab_t>      &get_tabs()            { return tabs; }
+array<tab_t>       &get_tabs()           { return tabs; }
 tab_t             *&get_current_tab()    { return assert(active_tab), active_tab; }
 buffer_t          *&get_current_buffer() { return assert(active_tab->current_buffer), active_tab->current_buffer; }
 selection_buffer_t &get_selection()      { return selection; }
+buffer_t          * get_free_buffer()    { return active_tab->buffers.add(); }
 
-
-
-tab_t    *get_free_tab()    { return tabs.add(); }
-buffer_t *get_free_buffer() { return active_tab->buffers.add(); }
 
 size_t read_file_into_memory(FILE *f, char **mem, size_t gap_len) {
   size_t size, result;
@@ -68,7 +63,7 @@ size_t read_file_into_memory(FILE *f, char **mem, size_t gap_len) {
 }
 
 tab_t *open_new_tab(string s) {
-  auto tab   = get_free_tab();
+  auto tab   = tabs.add();
   active_tab = tab;
   open_new_buffer(s); // @Incomplete: What if `s` is already opened?
   resize_tab(tab);
@@ -105,7 +100,7 @@ void open_existing_buffer(buffer_t *prev) {
   buffer->undo     = prev->undo;
   buffer->redo     = prev->redo;
   buffer->filename = prev->filename;
-  buffer->buffer.move_until(0);
+  buffer->buffer.move_to(0);
 }
 
 void open_existing_or_new_buffer(string s) {
@@ -320,6 +315,7 @@ int buffer_t::get_relative_pos_y(int n_place) const { return start_y + font_heig
 int buffer_t::get_line_length(int beginning) const {
   int count = 1;
   for(int i = beginning; buffer[i] != '\n'; i++) {
+    if(i == buffer.size()-1) { break; }
     count++;
   }
   return count;
@@ -332,7 +328,7 @@ void buffer_t::shift_beginning_up() {
 }
 
 void buffer_t::shift_beginning_down() {
-  assert(cursor > 0 && offset_from_beginning > 0);
+  assert(offset_from_beginning > 0);
 
   int count = 2;
   if(offset_from_beginning < count) {
@@ -350,18 +346,6 @@ void buffer_t::shift_beginning_down() {
   start_pos--;
 }
 
-int buffer_t::get_cursor_pos_on_line() const {
-  assert(offset_on_line == 0 && buffer[cursor] == '\n');
-  if(cursor == 0) return 0;
-  
-  int count = 1;
-  while(buffer[cursor-count] != '\n') {
-    if(cursor == count) { return count; }
-    count++;
-  }
-  return count-1;
-}
-
 int buffer_t::count_total_lines() const {
   int count = 0;
   for(auto i = 0u; i < buffer.size(); i++) {
@@ -370,64 +354,45 @@ int buffer_t::count_total_lines() const {
   return count;
 }
 
-void buffer_t::go_right() {
-  if(cursor == buffer.size()-1) return;
+void buffer_t::go_left(size_t n) {
+  for(size_t i = 0; i < n; i++) {
+    if(buffer.start()) return;
 
-  //current_action(this);
+    buffer.move_left();
+    if(buffer.eol()) {
 
-  buffer.move_right();
-  if(buffer[cursor] == '\n') {
-    n_character = 0;
-    offset_on_line = 0;
-    n_line++;
-  } else {
-    n_character++;
-    if(n_character - offset_on_line > number_chars_on_line_fits_in_window(this)) {
-      offset_on_line++;
+      // Compute n_character position.
+      go_left(); to_beginning_of_line();
+      n_character = 0;
+      go_right(); to_end_of_line();
+      // 
+      n_line--;
+    } else {
+      n_character--;
     }
-  }
-  cursor++;
-  saved_pos = n_character;
-
-  if(number_lines_fits_in_window(this) + start_pos == n_line) {  
-    shift_beginning_up();
   }
 }
 
+void buffer_t::go_right(size_t n) {
+  for(size_t i = 0; i < n; i++) {
+    if(buffer.eof()) return;
 
-void buffer_t::go_left() {
-  if(cursor == 0) return;
-  assert(cursor > 0);
-
-  //current_action(this);
-
-  buffer.move_left();
-
-  // dec_cursor.
-  cursor--;
-  if(buffer[cursor] == '\n') {
-    assert(offset_on_line == 0);
-    n_character = get_cursor_pos_on_line();
-    n_line--;
-
-    int diff = (int)n_character - number_chars_on_line_fits_in_window(this);
-    if(diff > 0 && diff > offset_on_line) {
-      offset_on_line = diff;
+    if(buffer.eol()) {
+      n_character = 0;
+      n_line++;
+    } else {
+      n_character++;
     }
-  } else {
-    n_character--;
+    buffer.move_right();
   }
-  saved_pos = n_character;
+}
 
+void buffer_t::to_beginning_of_line() {
+  while(!buffer.eol() && !buffer.start()) { go_left(); }
+}
 
-  if(n_character < offset_on_line) {
-    offset_on_line--;
-  }
-  //
-
-  if(start_pos-1 == n_line && start_pos != 0) {
-    shift_beginning_down();
-  }
+void buffer_t::to_end_of_line() {
+  while(!buffer.eol() && !buffer.eof()) { go_right(); }
 }
 
 void buffer_t::put_backspace() {
@@ -467,7 +432,6 @@ void buffer_t::put_return() {
 
 void buffer_t::put(char c) {
   buffer.add(c);
-
   go_right();
   buffer.move_left();
 }
@@ -479,47 +443,20 @@ void buffer_t::put_tab() {
 void buffer_t::go_down() {
   if(n_line == total_lines-1) return;
 
-  const size_t tmp_saved_pos 		  = saved_pos;
-  const size_t prev_character_pos = n_character;
-  for(size_t i = cursor; buffer[i] != '\n'; i++) {
-    go_right();
-  }
-
-  go_right();
-  assert(n_character == 0 && offset_on_line == 0);
-  
-  const size_t go_till = max(prev_character_pos, tmp_saved_pos);
-  for(size_t i = 0; i < go_till; i++) {
-    if(buffer[cursor] == '\n') break;
-    go_right();
-  }
-
-  saved_pos = tmp_saved_pos;
+  size_t tmp = n_character;
+  to_end_of_line();
+  go_right(tmp+1);
 }
 
 void buffer_t::go_up() {
   if(n_line == 0) return;
 
-  const size_t tmp_saved_pos = saved_pos;
-  const size_t prev_character_pos = n_character;
-  for(auto i = 0u; i < prev_character_pos; i++) {
-    go_left();
-  }
-  assert(n_character == 0 && offset_on_line == 0 && n_line > 0);
-	go_left();
+  size_t tmp = n_character;
 
-  while(n_character > 0) { // go till the beginning of line.
-    go_left();
-    if(buffer[cursor] == '\n') break;
-  }
-
-  const size_t go_till = max(prev_character_pos, tmp_saved_pos);
-  for(size_t i = 0; i < go_till; i++) { // from beginning to actual position.
-    if(buffer[cursor] == '\n') break;
-    go_right();
-  }
-
-  saved_pos = tmp_saved_pos;
+  go_left();
+  to_beginning_of_line();
+  size_t size = n_character;
+  go_left(size-tmp);
 }
 
 void buffer_t::scroll_down() {
@@ -677,16 +614,6 @@ void save() {
 }
 
 // Commands.
-void go_to_beginning_of_line() {
-  auto buffer = get_current_buffer();
-  while(buffer->n_character > 0) { buffer->go_left(); }
-}
-
-void go_to_end_of_line() {
-  auto buffer = get_current_buffer();
-  auto &gap_buffer = buffer->buffer;
-  while(gap_buffer[buffer->cursor] != '\n') { buffer->go_right(); }
-}
 
 // @StartEndNotHandled: corner cases just don't handled.
 void go_word_forward() { // @StartEndNotHandled: 
@@ -796,7 +723,7 @@ void close_buffer(tab_t *tab) {
 // 
 
 // Search.
-static bool string_match(const gap_buffer &buffer, size_t starting_index, string s) {
+static bool string_match(const gap_buffer &buffer, size_t starting_index, const string s) {
   if(buffer.size()-starting_index < s.size) { return false; }
   for(size_t i = 0; i < s.size; i++) {
     if(buffer[i+starting_index] != s[i]) {
@@ -806,23 +733,46 @@ static bool string_match(const gap_buffer &buffer, size_t starting_index, string
   return true;
 }
 
-void find_in_buffer(string s) {
-  auto buffer = active_tab->current_buffer;
+
+void to_prev_in_search() {
+  auto buffer = get_current_buffer();
+  if(buffer->found_in_a_file) {
+    buffer->search_index = (buffer->search_index) ? buffer->search_index : buffer->found.size;
+    Loc loc = buffer->found[--buffer->search_index];
+    //go_to
+  }
+}
+
+void to_next_in_search() {
+  auto buffer = get_current_buffer();
+  if(buffer->found_in_a_file) {
+    Loc loc = buffer->found[++buffer->search_index];
+    while(buffer->cursor != loc.index) {
+      buffer->go_right();
+    }
+  }
+}
+
+void find_in_buffer(const string s) {
+  auto buffer = get_current_buffer();
   if(buffer->found.size) { buffer->found.clear(); }
 
-  size_t *go_to = NULL;
+  bool found_in_a_file = false;
 
-  size_t cursor = 0, nline = 0, nchar = 0;
+  size_t cursor = 0;
+  size_t nline = 0;
+  size_t nchar = 0;
+
   while(cursor != buffer->buffer.size()) {
-
     if(string_match(buffer->buffer, cursor, s)) {
+      found_in_a_file = true;
+
       Loc *loc = buffer->found.add();
       loc->index = cursor;
       loc->l     = nline;
       loc->c     = nchar;
       loc->size  = s.size;
 
-      go_to = (loc->index >= buffer->cursor) ? &loc->index : NULL;
     }
 
     if(buffer->buffer[cursor] == '\n') {
@@ -832,14 +782,14 @@ void find_in_buffer(string s) {
       nchar++;
     }
     cursor++;
-
-    if(go_to) {
-      while(buffer->cursor != *go_to) {
-        buffer->go_right();
-      }
-      break;
-    }
   }
+
+  buffer->found_in_a_file = found_in_a_file;
+  buffer->search_index    = 0;
+  
+  // @Hack: Well, i don't want to Copy&Paste here, so ...
+  to_next_in_search();
+  to_prev_in_search();
 }
 // 
 
