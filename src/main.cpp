@@ -86,7 +86,7 @@ int main(int argc, char **argv) {
       buffer->draw(); 
 
       // Update cursor.
-      char s = buffer->buffer.getchar();
+      char s = buffer->getchar();
       s = (s == '\n')? ' ': s;
       const int px = buffer->get_relative_pos_x(buffer->n_character - buffer->offset_on_line);
       const int py = buffer->get_relative_pos_y(buffer->n_line - buffer->start_pos);

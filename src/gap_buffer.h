@@ -130,13 +130,9 @@ struct gap_buffer {
     }
   }
 
-  size_t size()    const { return chars.size - gap_len; }
-  size_t cursor()  const { return pre_len; }
-  char   getchar() const { assert(pre_len + gap_len < chars.size); return chars[pre_len+gap_len]; }
-  bool   eol()     const { return getchar() == '\n'; }
-  bool   start()   const { return cursor()  == 0; }
-  bool   eof()     const { return cursor()  == size()-1; }
-
+  size_t size() const {
+    return chars.size - gap_len;
+  }
 };
 
 inline void copy_gap_buffer(gap_buffer *a, const gap_buffer *b) {
