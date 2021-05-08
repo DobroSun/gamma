@@ -371,13 +371,15 @@ void buffer_t::shift_beginning_down() {
 
 void select_to_left(buffer_t*);
 void select_to_right(buffer_t*);
+void delete_to_left(buffer_t*);
+void delete_to_right(buffer_t*);
 
 size_t buffer_t::to_left(size_t cursor) {
   if(start(cursor)) return cursor;
   cursor--;
 
   if(eol(cursor)) {
-    if(start_pos == n_line) { shift_beginning_down(); }
+    if(start_pos == n_line && n_line != 0) { shift_beginning_down(); }
 
     // Compute n_character position.
     size_t tmp;
@@ -439,27 +441,50 @@ size_t buffer_t::to_up(size_t cursor) {
 }
 
 void buffer_t::go_to_index(size_t i) {
-  while(i != cursor()) {
-    if(i < cursor()) {
-      buffer.move_left();
-      if(current_action == select_action) {
-        current_action = select_to_left;
-      }
-      current_action(this);
-      if(current_action == select_to_left && selection.first == selection.last) {
-        current_action = select_action;
-      }
+  size_t cursor = this->cursor();
+  void (*select)(buffer_t*);
+  void (*delete_)(buffer_t*);
 
+  while(i != cursor) {
+
+    // 
+    // @Note: This turns out to be we need two overloads (left/right) for every action presented, 
+    // because right/left directions are not symmetric, so we get weird behaviour, without this trick.
+    // I haven't found a way around, so for now, it's going to be like this.
+    // 
+    if(i < cursor) {
+      buffer.move_left();
+      select  = select_to_left;
+      delete_ = delete_to_left;
     } else {
       buffer.move_right();
-      if(current_action == select_action) {
-        current_action = select_to_right;
-      }
-      current_action(this);
-      if(current_action == select_to_right && selection.first == selection.last) {
-        current_action = select_action;
-      }
+      select  = select_to_right;
+      delete_ = delete_to_right;
     }
+
+
+    if(current_action == select_action) {
+      current_action = select;
+    }
+    if(current_action == delete_action) {
+      current_action = delete_;
+    }
+    current_action(this);
+    if(current_action == select && selection.first == selection.last) {
+      current_action = select_action;
+    }
+
+
+    if(current_action == delete_to_right) {
+      cursor++;
+    } else {
+      cursor = this->cursor();
+    }
+  }
+  
+  assert(current_action != select_action || current_action != delete_action);
+  if(current_action == delete_to_right || current_action == delete_to_left) {
+    current_action = no_action;
   }
 }
 
@@ -475,7 +500,8 @@ size_t buffer_t::to_end_of_line(size_t cursor) {
 
 void buffer_t::put_backspace() {
   if(start()) return;
-  go_left();
+  to_left(cursor());
+  buffer.move_left();
   put_delete();
 }
 
@@ -549,35 +575,16 @@ int get_current_line_indent(buffer_t *buffer) {
 }
 */
 
-void select_to_right(buffer_t *buffer) {
-  selection.last = buffer->cursor();
-}
 
-void select_to_left(buffer_t *buffer) {
-  selection.first = buffer->cursor();
-}
-
+void no_action(buffer_t*) {}
 void select_action(buffer_t *) {}
+void delete_action(buffer_t *buffer) {}
 
-/*
-void select_action(buffer_t *buffer) {
-  auto cursor = buffer->buffer.cursor();
+void select_to_right(buffer_t *buffer) { selection.last  = buffer->cursor(); }
+void select_to_left(buffer_t *buffer)  { selection.first = buffer->cursor(); }
+void delete_to_right(buffer_t *buffer) { buffer->put_backspace(); }
+void delete_to_left(buffer_t *buffer)  { buffer->put_delete(); }
 
-  if(cursor > selection.last) {
-    selection.last = cursor;
-  } else {
-    if(buffer->moving_to_left && cursor > selection.first) { // the only use of moving_to_left.
-      selection.last = cursor;
-    } else {
-      selection.first = cursor;
-    }
-  }
-}
-*/
-
-void delete_action(buffer_t *buffer) {
-  buffer->put_backspace();
-}
 
 void init(int argc, char **argv) {
   init_variable_table();
@@ -680,45 +687,53 @@ void save() {
 
 // @StartEndNotHandled: corner cases just don't handled.
 void go_word_forward() { // @StartEndNotHandled: 
-  auto buffer = get_current_buffer();
-  while(buffer->getchar() == ' ') { buffer->go_right(); }
-  while(buffer->getchar() != ' ') { buffer->go_right(); }
+  auto   buffer = get_current_buffer();
+  size_t cursor = buffer->cursor();
+
+  while(buffer->getchar(cursor) == ' ') { cursor = buffer->to_right(cursor); }
+  while(buffer->getchar(cursor) != ' ') { cursor = buffer->to_right(cursor); }
+  buffer->go_to_index(cursor);
 }
 
 void go_word_backwards() { // @StartEndNotHandled: 
-  auto buffer = get_current_buffer();
-  while(buffer->getchar() == ' ') { buffer->go_left(); }
-  while(buffer->getchar() != ' ') { buffer->go_left(); }
+  auto   buffer = get_current_buffer();
+  size_t cursor = buffer->cursor();
+
+  while(buffer->getchar(cursor) == ' ') { cursor = buffer->to_left(cursor); }
+  while(buffer->getchar(cursor) != ' ') { cursor = buffer->to_left(cursor); }
+  buffer->go_to_index(cursor);
 }
 
 void go_paragraph_forward() { // @StartEndNotHandled: 
-  auto buffer = get_current_buffer();
+  auto   buffer = get_current_buffer();
+  size_t cursor = buffer->cursor();
 
-  while(buffer->n_character != 0) { buffer->go_right(); }
-  while(buffer->get_line_length(buffer->cursor()) == 1) {
+  while(buffer->n_character != 0) { cursor = buffer->to_right(cursor); }
+  while(buffer->get_line_length(cursor) == 1) {
     assert(buffer->n_character == 0);
-    buffer->go_down();
+    cursor = buffer->to_down(cursor);
   }
-
-  while(buffer->get_line_length(buffer->cursor()) != 1) {
+  while(buffer->get_line_length(cursor) != 1) {
     assert(buffer->n_character == 0);
-    buffer->go_down();
+    cursor = buffer->to_down(cursor);
   }
+  buffer->go_to_index(cursor);
 }
 
 void go_paragraph_backwards() { // @StartEndNotHandled: 
-  auto buffer = get_current_buffer();
+  auto   buffer = get_current_buffer();
+  size_t cursor = buffer->cursor();
 
-  while(buffer->n_character != 0) { buffer->go_left(); }
-  while(buffer->get_line_length(buffer->cursor()) == 1) {
+  while(buffer->n_character != 0) { cursor = buffer->to_left(cursor); }
+  while(buffer->get_line_length(cursor) == 1) {
     assert(buffer->n_character == 0);
-    buffer->go_up();
+    cursor = buffer->to_up(cursor);
   }
-
-  while(buffer->get_line_length(buffer->cursor()) != 1) {
+  while(buffer->get_line_length(cursor) != 1) {
     assert(buffer->n_character == 0);
-    buffer->go_up();
+    cursor = buffer->to_up(cursor);
   }
+  buffer->go_to_index(cursor);
 }
 // 
 

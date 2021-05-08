@@ -3,8 +3,6 @@
 #include "buffer.h"
 #include "console.h"
 
-static void no_action(buffer_t*) {}
-
 
 bool no_input = false; // When we switch from normal mode to insert mode, it immediately puts `i` on screen, but we want it to wait untill next keydown.
 void set_input() { no_input = false; }
@@ -19,6 +17,8 @@ void handle_input_keydown(SDL_Keysym k) { handle_keydown(k); }
 bool is_normal_mode()  { return handle_keydown == handle_normal_mode_keydown; }
 bool is_insert_mode()  { return handle_keydown == handle_insert_mode_keydown && !no_input; }
 bool is_console_mode() { return handle_keydown == handle_console_keydown; }
+
+// @Note: Since visual mode needs to be able to move cursor(i.e. reuse normal mode moving functions) we don't create new mode for that.
 bool is_visual_mode() { return current_action == select_action || current_action == select_to_left || current_action == select_to_right; }
 
 
@@ -120,14 +120,15 @@ void handle_normal_mode_keydown(SDL_Keysym e) {
     case 'w': go_word_forward();         break;
     case 'b': go_word_backwards();       break;
 
+    case 'd': current_action = delete_action; break;
+
 #if 0
-    case 'd': {
+    case 'e': {
       auto select = get_selection();
       auto buffer = get_current_buffer();
-
-      for(size_t i = select.first; i <= select.last; i++) {
-        printf("%c", buffer->buffer[i]);
-      }
+      
+      printf("\n");
+      for(size_t i = select.first; i <= select.last; i++) { printf("%c", buffer->buffer[i]); }
       printf("\n");
       break;
     }

@@ -132,10 +132,11 @@ void go_word_backwards();
 void go_paragraph_forward();
 void go_paragraph_backwards();
 
+void no_action(buffer_t*);
 void select_action(buffer_t*);
+void delete_action(buffer_t*);
 void select_to_left(buffer_t*);
 void select_to_right(buffer_t*);
-void delete_action(buffer_t*);
 
 void save_current_state_for_undo(buffer_t *);
 void undo(buffer_t *);
