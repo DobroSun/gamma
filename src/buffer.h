@@ -2,10 +2,6 @@
 #define GAMMA_BUFFER_H
 
 
-struct Location {
-  size_t index, l, c;
-};
-
 struct Select_Buffer {
   size_t first = 0, last = 0;
 };
@@ -31,6 +27,7 @@ struct buffer_t {
   int start_x, start_y, width, height;
   size_t n_character = 0, n_line = 0, total_lines = 0;
   size_t offset_on_line = 0, offset_from_beginning = 0, start_pos = 0;
+  size_t indentation_level = 0;
   // 
 
   void draw() const;
@@ -139,5 +136,7 @@ void select_to_right(buffer_t*);
 void save_current_state_for_undo(buffer_t *);
 void undo(buffer_t *);
 void redo(buffer_t *);
+
+void update_indentation_level(buffer_t*);
 
 #endif

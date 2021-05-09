@@ -469,15 +469,13 @@ void buffer_t::move_to(size_t i) {
       current_action = select_action;
     }
 
-
     if(current_action == delete_to_right) {
       cursor++;
     } else {
       cursor = this->cursor();
     }
   }
-  
-  assert(current_action != select_action || current_action != delete_action);
+
   if(current_action == delete_to_right || current_action == delete_to_left) {
     current_action = no_action;
   }
@@ -520,7 +518,9 @@ void buffer_t::put_return() {
   buffer.add('\n');
   total_lines++;
 
-  n_character = 0;
+  for(size_t i = 0; i < indentation_level; i++) { put(' '); }
+
+  n_character = indentation_level;
   n_line++;
 }
 
@@ -534,9 +534,8 @@ void buffer_t::put(char c) {
 }
 
 void buffer_t::put_tab() {
-  for(int i = 0; i < tabstop; i++) {
-    put(' ');
-  }
+  indentation_level += tabstop;
+  for(int i = 0; i < tabstop; i++) { put(' '); }
 }
 
 void buffer_t::scroll_down() {
@@ -622,13 +621,25 @@ void paste_from_buffer(buffer_t *buffer) {
 void no_action(buffer_t*) {}
 void select_action(buffer_t *) {}
 void delete_action(buffer_t *buffer) {}
-void yield_action(buffer_t *buffer) {}
+
+void yield_action(buffer_t *buffer) {
+  yielded.add(buffer->getchar());
+}
 
 void select_to_right(buffer_t *buffer) { selection.last  = buffer->cursor(); }
 void select_to_left(buffer_t *buffer)  { selection.first = buffer->cursor(); }
 void delete_to_right(buffer_t *buffer) { buffer->put_backspace(); }
 void delete_to_left(buffer_t *buffer)  { buffer->put_delete(); }
 
+
+void update_indentation_level(buffer_t *buffer) {
+  size_t indentation_level = 0;
+  size_t start_position = buffer->cursor() - buffer->n_character;
+  while(buffer->buffer[start_position++] == ' ') {
+    indentation_level++;
+  }
+  buffer->indentation_level = indentation_level;
+}
 
 
 void init(int argc, char **argv) {

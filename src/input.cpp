@@ -29,9 +29,9 @@ void to_normal_mode() {
 }
 
 void to_insert_mode() { // @Incomplete: When we are in visual mode we shouldn't be able to change it to insert mode directly.
-  if(is_visual_mode()) return;
   no_input = true;
   handle_keydown = handle_insert_mode_keydown;
+  update_indentation_level(get_current_buffer());
   console_put_text("-- INSERT --");
 }
 
@@ -81,11 +81,12 @@ void handle_insert_mode_keydown(SDL_Keysym e) {
   }
 }
 
-static bool is_modifing_key(int key) {
+static bool is_modifying_key(int key) {
   switch(key) {
   case 'd':
   case 'p':
   case 'x':
+  case 'o':
   case 'i':
   case 'a':
     return true;
@@ -98,18 +99,15 @@ void handle_normal_mode_keydown(SDL_Keysym e) {
   int key = e.sym;
   int mod = e.mod;
 
-  if(is_modifing_key(key)) {
+  if(is_modifying_key(key)) {
     save_current_state_for_undo(get_current_buffer());
   }
 
   if(mod & KMOD_SHIFT && mod & KMOD_CTRL) {
   } else if(mod & KMOD_CTRL) {
   } else if(mod & KMOD_SHIFT) {
-    switch(key) {
-    case 'a':                                  // 'A'
-      get_current_buffer()->move_to(get_current_buffer()->to_end_of_line(get_current_buffer()->cursor()));
-      to_insert_mode();
-      break;
+
+    switch(key) { 
     case ';': open_console();      break;      // ':'
     case '4': get_current_buffer()->move_to(get_current_buffer()->to_end_of_line(get_current_buffer()->cursor())); break; // '$'
     case '[': go_paragraph_backwards(); break; // '{'
@@ -117,50 +115,28 @@ void handle_normal_mode_keydown(SDL_Keysym e) {
     default: break;
     }
 
+    if(is_visual_mode()) {
+    } else {
+      switch(key) {
+      case 'd': {   // 'D'
+        auto buffer = get_current_buffer();
+        current_action = delete_action;
+        buffer->move_to(buffer->to_end_of_line(buffer->cursor()));
+        break;
+      }
+      case 'a':     // 'A'
+        get_current_buffer()->move_to(get_current_buffer()->to_end_of_line(get_current_buffer()->cursor()));
+        to_insert_mode();
+        break;
+      default: break;
+      }
+    }
+
   } else { // no mods.
     switch(key) {
     case '0': get_current_buffer()->move_to(get_current_buffer()->to_beginning_of_line(get_current_buffer()->cursor())); break;
-    case 'w': go_word_forward();         break;
-    case 'b': go_word_backwards();       break;
-
-    case 'y': 
-      if(is_visual_mode()) {
-        yield_selected(get_current_buffer());
-        to_normal_mode();
-      } else {
-        current_action = yield_action;
-      }
-      break;
-
-    case 'p':
-      paste_from_buffer(get_current_buffer());
-      break;
-
-    case 'd':
-      if(is_visual_mode()) {
-        delete_selected(get_current_buffer());
-        to_normal_mode();
-      } else {
-        current_action = delete_action;
-      }
-      break;
-
-#if 0
-    case 'e': {
-      auto select = get_selection();
-      auto buffer = get_current_buffer();
-      
-      printf("\n");
-      for(size_t i = select.first; i <= select.last; i++) { printf("%c", buffer->buffer[i]); }
-      printf("\n");
-      break;
-    }
-#endif
-
-    case 'a':
-      get_current_buffer()->go_right();
-      to_insert_mode();
-      break;
+    case 'w': go_word_forward();        break;
+    case 'b': go_word_backwards();      break;
 
     case SDLK_BACKSPACE:
     case SDLK_LEFT: 
@@ -177,33 +153,104 @@ void handle_normal_mode_keydown(SDL_Keysym e) {
     case SDLK_UP: 
     case 'k':
       get_current_buffer()->go_up();    break; 
-    case 'x': get_current_buffer()->put_delete(); break;
-    case 'i': to_insert_mode();           break;
-    case 'u': undo(get_current_buffer()); break; 
-    case 'r': redo(get_current_buffer()); break;
 
-    case 'v':
-      if(is_visual_mode()) {
-        to_normal_mode();
-      } else {
-        to_visual_mode();
-      }
+    case '/': open_console();           break;
+    case 'n': to_next_in_search();      break;
+    case 'm': to_prev_in_search();      break;
+
+#if 0
+    case 'e': {
+      auto select = get_selection();
+      auto buffer = get_current_buffer();
+      
+      printf("\n");
+      for(size_t i = select.first; i <= select.last; i++) { printf("%c", buffer->buffer[i]); }
+      printf("\n");
       break;
+    }
+#endif
+    default: break;
+    }
 
-    case '/': open_console();             break;
-    case 'n': to_next_in_search();        break;
-    case 'm': to_prev_in_search();        break;
+    if(is_visual_mode()) {
+      switch(key) {
+      case 'y':
+        yield_selected(get_current_buffer());
+        to_normal_mode();
+        break; 
+      case 'd':
+        delete_selected(get_current_buffer());
+        to_normal_mode();
+        break; 
 
-    case SDLK_ESCAPE:
-      if(is_visual_mode()) {
+      case 'x': /* ... */         break;
+      case 'v': to_normal_mode(); break;
+      case SDLK_ESCAPE:
         current_action = no_action;
         to_normal_mode();
-      } else {
-        should_quit = true; // @Temporary: 
-      }
-     break;
+        break;
 
-    default: break;
+      default: break;
+      }
+
+    } else {
+      switch(key) {
+      case 'a':
+        get_current_buffer()->go_right();
+        to_insert_mode();
+        break;
+
+      case 'y':
+        if(current_action == yield_action) { // 'yy'.
+#if 0
+          auto buffer = get_current_buffer();
+          auto select = get_selection();
+          size_t cursor = buffer->cursor();
+
+          select.first = buffer->to_beginning_of_line(buffer->cursor());
+          select.last  = buffer->to_end_of_line(buffer->cursor());
+
+          yield_selected(buffer);
+          to_normal_mode();
+
+          for(size_t i = buffer->cursor(); i != cursor; i--) {
+             buffer->to_left(buffer->cursor());
+          }
+#endif
+        } else {
+          current_action = yield_action;
+        }
+        break;
+
+      case 'd':
+        if(current_action == delete_action) { // 'dd'.
+          auto buffer = get_current_buffer();
+          buffer->move_to(buffer->to_end_of_line(buffer->cursor()));
+          current_action = delete_action;
+          buffer->move_to(buffer->to_beginning_of_line(buffer->cursor()));
+          buffer->put_delete();
+          to_normal_mode();
+        } else {
+          current_action = delete_action;
+        }
+        break; 
+
+      case 'o': 
+        get_current_buffer()->move_to(get_current_buffer()->to_end_of_line(get_current_buffer()->cursor()));
+        get_current_buffer()->put_return();
+        to_insert_mode();
+        break;
+
+      case 'p': paste_from_buffer(get_current_buffer()); break;
+      case 'x': get_current_buffer()->put_delete();      break;
+      case 'i': to_insert_mode();           break;
+      case 'u': undo(get_current_buffer()); break; 
+      case 'r': redo(get_current_buffer()); break;
+      case 'v': to_visual_mode();           break;
+      case SDLK_ESCAPE: should_quit = true; break; // @Temporary: 
+
+      default: break;
+      }
     }
   }
 }

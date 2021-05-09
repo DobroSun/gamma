@@ -67,7 +67,6 @@ int main(int argc, char **argv) {
     // hotload settings.
     if(hotloader.settings_need_reload()) {
       hotloader.reload_file(settings_filename);
-
       update_variables();
       clear_font();
       make_font();
