@@ -16,10 +16,8 @@ struct Loc { size_t index, l, c, size; };
 struct buffer_t {
   gap_buffer buffer;
 
-  // undo. 
   array<buffer_t> undo;
   array<buffer_t> redo;
-  // 
 
   string filename;
 
@@ -44,7 +42,8 @@ struct buffer_t {
   size_t to_up(size_t);
   size_t to_end_of_line(size_t);
   size_t to_beginning_of_line(size_t);
-  void   go_to_index(size_t);
+  void   move_to(size_t);
+  void   go_to(size_t);
 
   size_t get_line_length(size_t) const;
   size_t count_all_lines() const;
@@ -108,11 +107,9 @@ void open_existing_buffer(buffer_t *);
 tab_t *open_new_tab(string);
 void change_tab(s32);
 
-void delete_selected();
-void copy_selected();
-void clear_selection();
-
-void paste_from_global_copy();
+void delete_selected(buffer_t *);
+void yield_selected(buffer_t *);
+void paste_from_buffer(buffer_t *);
 
 void go_to_line(int);
 void save();
@@ -135,6 +132,7 @@ void go_paragraph_backwards();
 void no_action(buffer_t*);
 void select_action(buffer_t*);
 void delete_action(buffer_t*);
+void yield_action(buffer_t*);
 void select_to_left(buffer_t*);
 void select_to_right(buffer_t*);
 

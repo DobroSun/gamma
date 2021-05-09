@@ -8,8 +8,6 @@ static console_t console;
 static bool is_input = false;
 
 
-void console_init() { console.buffer.chars.resize(console.buffer.gap_len); }
-
 void console_on_resize(int n_height) {
   console.bottom_y = (n_height > font_height) ? (n_height-font_height) : 1;
 }

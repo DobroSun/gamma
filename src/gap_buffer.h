@@ -24,28 +24,6 @@ struct gap_buffer {
     chars[post_start-1] = chars[--pre_len];
   }
 
-  void move_to(size_t new_pre_len) {
-    if(new_pre_len == pre_len) {
-      // Nothing.
-
-    } else if(new_pre_len > pre_len) {
-      int diff = new_pre_len - pre_len;
-      while(diff) {
-        move_right();
-        diff--;
-      }
-
-    } else {
-      assert(new_pre_len < pre_len);
-      int diff  = pre_len - new_pre_len;
-      while(diff) {
-        move_left();
-        diff--;
-      }
-    }
-    assert(new_pre_len == pre_len);
-  }
-
   void add(char val) {
     if(gap_len == 0)  {
       /*
@@ -134,6 +112,12 @@ struct gap_buffer {
     return chars.size - gap_len;
   }
 };
+
+inline gap_buffer init_gap_buffer() {
+  gap_buffer r;
+  r.chars.resize(r.gap_len);
+  return r;
+}
 
 inline void copy_gap_buffer(gap_buffer *a, const gap_buffer *b) {
   new (a) gap_buffer(); // this handles the case, when a & b point to the same gap_buffer.

@@ -55,8 +55,6 @@ int main(int argc, char **argv) {
             for(char i = 0; i < dt_scroll; i++) {
               buffer->scroll_down();
             }
-          } else {
-            assert(0);
           }
           break;
         }
@@ -82,8 +80,7 @@ int main(int argc, char **argv) {
 
 
       auto buffer = get_current_buffer();
-      // @UpdateMultipleInstances: If given file is opened multiple times, we need to update them all.
-      buffer->draw(); 
+      buffer->draw();  // @UpdateMultipleInstances: If given file is opened multiple times, we need to update them all.
 
       // Update cursor.
       char s = buffer->getchar();
@@ -95,6 +92,7 @@ int main(int argc, char **argv) {
 
     draw_rect(0, get_console()->bottom_y, Width, font_height, console_color);
     console_draw();
+
     SDL_RenderPresent(get_renderer());
   }
 

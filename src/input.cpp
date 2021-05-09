@@ -29,6 +29,7 @@ void to_normal_mode() {
 }
 
 void to_insert_mode() { // @Incomplete: When we are in visual mode we shouldn't be able to change it to insert mode directly.
+  if(is_visual_mode()) return;
   no_input = true;
   handle_keydown = handle_insert_mode_keydown;
   console_put_text("-- INSERT --");
@@ -82,6 +83,8 @@ void handle_insert_mode_keydown(SDL_Keysym e) {
 
 static bool is_modifing_key(int key) {
   switch(key) {
+  case 'd':
+  case 'p':
   case 'x':
   case 'i':
   case 'a':
@@ -104,11 +107,11 @@ void handle_normal_mode_keydown(SDL_Keysym e) {
   } else if(mod & KMOD_SHIFT) {
     switch(key) {
     case 'a':                                  // 'A'
-      get_current_buffer()->go_to_index(get_current_buffer()->to_end_of_line(get_current_buffer()->cursor()));
+      get_current_buffer()->move_to(get_current_buffer()->to_end_of_line(get_current_buffer()->cursor()));
       to_insert_mode();
       break;
     case ';': open_console();      break;      // ':'
-    case '4': get_current_buffer()->go_to_index(get_current_buffer()->to_end_of_line(get_current_buffer()->cursor())); break; // '$'
+    case '4': get_current_buffer()->move_to(get_current_buffer()->to_end_of_line(get_current_buffer()->cursor())); break; // '$'
     case '[': go_paragraph_backwards(); break; // '{'
     case ']': go_paragraph_forward();   break; // '}'
     default: break;
@@ -116,11 +119,31 @@ void handle_normal_mode_keydown(SDL_Keysym e) {
 
   } else { // no mods.
     switch(key) {
-    case '0': get_current_buffer()->go_to_index(get_current_buffer()->to_beginning_of_line(get_current_buffer()->cursor())); break;
+    case '0': get_current_buffer()->move_to(get_current_buffer()->to_beginning_of_line(get_current_buffer()->cursor())); break;
     case 'w': go_word_forward();         break;
     case 'b': go_word_backwards();       break;
 
-    case 'd': current_action = delete_action; break;
+    case 'y': 
+      if(is_visual_mode()) {
+        yield_selected(get_current_buffer());
+        to_normal_mode();
+      } else {
+        current_action = yield_action;
+      }
+      break;
+
+    case 'p':
+      paste_from_buffer(get_current_buffer());
+      break;
+
+    case 'd':
+      if(is_visual_mode()) {
+        delete_selected(get_current_buffer());
+        to_normal_mode();
+      } else {
+        current_action = delete_action;
+      }
+      break;
 
 #if 0
     case 'e': {
@@ -173,9 +196,6 @@ void handle_normal_mode_keydown(SDL_Keysym e) {
 
     case SDLK_ESCAPE:
       if(is_visual_mode()) {
-        auto &selection = get_selection();
-        selection.first = 0;
-        selection.last  = 0;
         current_action = no_action;
         to_normal_mode();
       } else {
