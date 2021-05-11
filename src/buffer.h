@@ -3,15 +3,13 @@
 
 
 struct Select_Buffer {
-  size_t first = 0, last = 0;
+  size_t first, last;
 };
 
 struct Loc { size_t index, l, c, size; };
 
-
 struct buffer_t {
   gap_buffer buffer;
-
   array<buffer_t> undo;
   array<buffer_t> redo;
 
@@ -19,20 +17,23 @@ struct buffer_t {
 
   // search.
   array<Loc> found;
-  bool found_in_a_file = false;
-  size_t search_index = 0;
+  bool found_in_a_file;
+  size_t search_index;
   // 
 
-  // for rendering & user commands.
   int start_x, start_y, width, height;
-  size_t n_character = 0, n_line = 0, total_lines = 0;
-  size_t offset_on_line = 0, offset_from_beginning = 0, start_pos = 0;
-  size_t indentation_level = 0;
-  // 
+
+  
+  size_t n_character, n_line, offset_from_beginning, start_pos;
+
+  size_t offset_on_line, total_lines;
+
+  size_t indentation_level;
+
 
   void draw() const;
 
-  // Cursor moving functions. 
+  // 
   size_t to_left(size_t);
   size_t to_right(size_t);
   size_t to_down(size_t);
@@ -49,7 +50,6 @@ struct buffer_t {
   void shift_beginning_up();
   void scroll_down();
   void scroll_up();
-  // 
 
   void put_backspace();
   void put_return();
@@ -66,6 +66,7 @@ struct buffer_t {
   bool start() const;
   bool eol() const;
   bool eof() const;
+  // 
 
 
   // Helpers.
@@ -82,7 +83,7 @@ struct buffer_t {
 
 struct tab_t {
   array<buffer_t> buffers;
-  buffer_t *current_buffer = NULL;
+  buffer_t *current_buffer;
 };
 
 

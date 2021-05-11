@@ -4,7 +4,7 @@
 #include "interp.h"
 
 
-static console_t console;
+static console_t console = {};
 static bool is_input = false;
 
 

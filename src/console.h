@@ -2,9 +2,9 @@
 #define GAMMA_CONSOLE_H
 
 struct console_t {
-  gap_buffer buffer = init_gap_buffer();
-  unsigned cursor = 0;
-  int bottom_y = 0;
+  gap_buffer buffer;
+  unsigned cursor;
+  int bottom_y;
 };
 
 void console_draw();

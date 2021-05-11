@@ -3,9 +3,8 @@
 
 struct gap_buffer {
   string chars;
-  size_t pre_len = 0;
-  size_t gap_len = 12; // @Speed: Check on the best default value for gap_len.
-
+  size_t pre_len;
+  size_t gap_len;
 
 
   void move_right() {
@@ -46,7 +45,7 @@ struct gap_buffer {
       //         moving gap(3 times left).
       */
 
-      size_t size     = chars.size;
+      size_t size     = (chars.size) ? chars.size : 12; // @Speed: Check on the best initial value for gap_len.
       size_t post_len = size - pre_len;
       pre_len = size;
       gap_len = size;
@@ -113,12 +112,6 @@ struct gap_buffer {
   }
 };
 
-inline gap_buffer init_gap_buffer() {
-  gap_buffer r;
-  r.chars.resize(r.gap_len);
-  return r;
-}
-
 inline void copy_gap_buffer(gap_buffer *a, const gap_buffer *b) {
   new (a) gap_buffer(); // this handles the case, when a & b point to the same gap_buffer.
   copy_string(&a->chars, &b->chars);
@@ -131,7 +124,7 @@ inline char *string_from_gap_buffer(const gap_buffer *g) {
   const size_t pre_len = g->pre_len;
   const size_t gap_len = g->gap_len;
 
-  char *r = (char*)allocate_and_zero(size+1);
+  char *r = (char*)allocate(size+1);
 
   memcpy(r,           g->chars.data,                     pre_len);
   memcpy(r + pre_len, g->chars.data + pre_len + gap_len, size-pre_len);

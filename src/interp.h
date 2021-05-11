@@ -2,8 +2,8 @@
 #define GAMMA_INTERPRETER_H
 
 enum TokenType : u16 {
+  TOKEN_END_OF_INPUT = 0,
   TOKEN_IDENT        = 256,
-  TOKEN_END_OF_INPUT = 257,
 
   TOKEN_SIGNED_NUMBER         = 258,
   TOKEN_FLOATING_POINT_NUMBER = 259,
@@ -22,7 +22,7 @@ enum TokenType : u16 {
 
 
 struct Var {
-  TokenType type = TOKEN_END_OF_INPUT;
+  TokenType type;
   union {
     bool bool_;
     s64  s64_;
@@ -33,7 +33,7 @@ struct Var {
 };
 
 struct Token {
-  TokenType type = TOKEN_END_OF_INPUT;
+  TokenType type;
 
   Var var;
   literal string_literal;
@@ -60,13 +60,13 @@ struct Language_Syntax_Struct {
   array<string>    names;
   array<SDL_Color> colors;
 
-  bool defined_color_for_literals = false;
+  bool defined_color_for_literals;
   SDL_Color color_for_literals;
 
-  bool defined_color_for_strings = false;
+  bool defined_color_for_strings;
   SDL_Color color_for_strings;
 
-  bool      tokenize_comments = false;
+  bool      tokenize_comments;
   string    single_line_comment;
   SDL_Color color_for_comments;
 
@@ -75,26 +75,25 @@ struct Language_Syntax_Struct {
 };
 
 struct Syntax_Settings {
-  array<Language_Syntax_Struct> base;
+  array<Language_Syntax_Struct> base = {};
 
-  array<string>                  extensions;
-  array<Language_Syntax_Struct*> syntax;
+  array<string>                  extensions = {};
+  array<Language_Syntax_Struct*> syntax = {};
 };
 
 
 struct Lexer {
   array<Token> tokens;
-  size_t current_token_index = 0;
+  size_t current_token_index;
 
   array<Keyword_Def> keywords_table;
 
-  bool    tokenize_comments = false;
+  bool    tokenize_comments;
   literal single_line_comment;
   literal start_multi_line;
   literal end_multi_line;
 
   
-
   Token *peek_token(s32);
   void   eat_token(s32);
   Token *peek_than_eat_token(s32);

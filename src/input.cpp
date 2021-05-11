@@ -19,7 +19,8 @@ bool is_insert_mode()  { return handle_keydown == handle_insert_mode_keydown && 
 bool is_console_mode() { return handle_keydown == handle_console_keydown; }
 
 // @Note: Since visual mode needs to be able to move cursor(i.e. reuse normal mode moving functions) we don't create new mode for that.
-bool is_visual_mode() { return current_action == select_action || current_action == select_to_left || current_action == select_to_right; }
+bool is_visual_mode()      { return current_action == select_action || current_action == select_to_left || current_action == select_to_right; }
+//bool is_visual_line_mode() { return current_action == select_line_action; }
 
 
 void to_normal_mode() {
@@ -169,6 +170,7 @@ void handle_normal_mode_keydown(SDL_Keysym e) {
       break;
     }
 #endif
+
     default: break;
     }
 

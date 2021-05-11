@@ -1,12 +1,11 @@
 #ifndef GAMMA_ARRAY_H
 #define GAMMA_ARRAY_H
 
-// 
 template<class T>
 struct array {
-  T     *data     = NULL;
-  size_t size     = 0;
-  size_t capacity = 0;
+  T     *data;
+  size_t size;
+  size_t capacity;
 
 
   T* add() {
@@ -136,7 +135,7 @@ struct array {
       assert(!capacity && !size && !data);
 
       new_cap = (new_cap)? new_cap: 8;
-      data = (T*)malloc(sizeof(T)*new_cap);
+      data = (T*)allocate(sizeof(T)*new_cap);
       capacity = new_cap;
 
     } else {
@@ -144,13 +143,13 @@ struct array {
       new_cap = (new_cap)? new_cap: 2*capacity;
 
       if(new_cap > capacity) {
-        auto new_data = (T*)malloc(sizeof(T)*new_cap);
+        auto new_data = (T*)allocate(sizeof(T)*new_cap);
         assert(new_data);
 
         memcpy(new_data, data, sizeof(T)*size);
         capacity = new_cap;
 
-        free(data);
+        deallocate(data);
         data = new_data;
 
       } else {
@@ -159,12 +158,12 @@ struct array {
           size     = new_cap;
           capacity = new_cap;
 
-          auto new_data = (T*)malloc(sizeof(T)*new_cap);
+          auto new_data = (T*)allocate(sizeof(T)*new_cap);
           assert(new_data);
 
           memcpy(new_data, data, sizeof(T)*size);
 
-          free(data);
+          deallocate(data);
           data = new_data;
 
         } else {
@@ -179,13 +178,7 @@ struct array {
     size = capacity;
   }
 
-  void clear() {
-    size = 0;
-  }
-
-  bool empty() const {
-    return size == 0;
-  }
+  void clear() { size = 0; }
 
   T& operator[](size_t index) {
     assert(index < size);
@@ -215,8 +208,8 @@ struct array {
 template<class T>
 void copy_array(array<T> *a, const array<T> *b) {
   if(a->capacity <= b->size) {
-    free(a->data);
-    a->data     = (T*)malloc(sizeof(T)*b->capacity);
+    deallocate(a->data);
+    a->data     = (T*)allocate(sizeof(T)*b->capacity);
     a->capacity = b->capacity;
   }
   memcpy(a->data, b->data, sizeof(T)*b->size);
@@ -224,29 +217,12 @@ void copy_array(array<T> *a, const array<T> *b) {
 }
 
 template<class T>
-void free_array(array<T> *a) { free(a->data); }
+void free_array(array<T> *a) { deallocate(a->data); }
 // 
 
 
-
-
-// dynamic string.
+// string.
 struct string : array<char> {
-  string() = default;
-  string(const char *x, size_t N) {
-    data     = (char*)calloc(N+1, 1);
-    memcpy(data, x, N);
-    capacity = N+1;
-    size     = N;
-  }
-
-  string(const char *x) {
-    const size_t N = strlen(x);
-    data     = (char*)calloc(N+1, 1);
-    memcpy(data, x, N);
-    capacity = N+1;
-    size     = N;
-  }
 
   // @Copy&Paste: of array::reserve.
   void reserve(size_t new_cap=0) {
@@ -255,7 +231,7 @@ struct string : array<char> {
 
       new_cap  = (new_cap)? new_cap: 8;
       ++new_cap;                              // null terminator.
-      data     = (char*)calloc(new_cap, 1);
+      data     = (char*)allocate(new_cap);
       capacity = new_cap;
 
     } else {
@@ -264,12 +240,12 @@ struct string : array<char> {
       ++new_cap;                              // null terminator.
 
       if(new_cap > capacity) {
-        auto new_data = (char*)calloc(new_cap, 1);
+        auto new_data = (char*)allocate(new_cap);
 
         if(size) { memcpy(new_data, data, size); }
         capacity = new_cap;
 
-        free(data);
+        deallocate(data);
         data = new_data;
       } else {
         // There is no point in shrinking down the allocation. (I think).
@@ -284,9 +260,35 @@ struct string : array<char> {
   }
 };
 
+inline string to_string(const char *x, size_t N) {
+  string s = {};
+  s.data   = (char*)allocate(N+1);
+  memcpy(s.data, x, N);
+  s.capacity = N+1;
+  s.size     = N;
+  return s;
+}
+
+inline string to_string(const char *x) {
+  return to_string(x, strlen(x));
+}
+
+inline string to_string(literal x) {
+  return to_string(x.data, x.size);
+}
+
+inline literal to_literal(string s) {
+  literal l = {s.data, s.size};
+  return l;
+}
+
+inline bool operator==(string s, literal l)      { return l.size == s.size && !strncmp(s.data, l.data, l.size); }
+inline bool operator==(literal l, string s)      { return l.size == s.size && !strncmp(s.data, l.data, l.size); }
+inline bool operator!=(string s, literal l)      { return !(s == l); }
+inline bool operator!=(literal l, string s)      { return !(s == l); }
+
 inline std::ostream &operator<<(std::ostream &os, string s) {
   for(const auto &c : s) { os << c; } return os;
-  
 }
 
 inline bool operator==(string b, const char *a) { return !strncmp(a, b.data, b.size); }

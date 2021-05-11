@@ -36,36 +36,34 @@ ScopeGuard<F> operator+(Junk, F &&fun) {
 
 
 struct literal {
-  const char *data = NULL;
-  size_t      size = 0;
-
-  literal() = default;
-  template<size_t N>
-  literal(const char (&x)[N]) {
-    data = x;
-    size = N-1;
-  }
-  literal(const char *x, size_t N) {
-    data = x;
-    size = N;
-  }
+  const char *data;
+  size_t      size;
 
   char operator[](size_t i) const {
     assert(i < size);
     return data[i];
   }
 };
+
+template<size_t N>
+inline literal to_literal(const char (&x)[N]) {
+  literal l = {x, N-1};
+  return l;
+}
+
+inline literal to_literal(const char *x, size_t N) {
+  literal l = {x, N};
+  return l;
+}
+
+
 inline bool operator==(char s, literal l) { return l.size == 1 && l.data[0] == s; }
 inline bool operator==(literal l, char s) { return l.size == 1 && l.data[0] == s; }
 
 inline bool operator==(const char *s, literal l) { return l.size && !strncmp(s, l.data, l.size); }
 inline bool operator==(literal l, const char *s) { return l.size && !strncmp(s, l.data, l.size); }
-inline bool operator==(string s, literal l)      { return l.size == s.size && !strncmp(s.data, l.data, l.size); }
-inline bool operator==(literal l, string s)      { return l.size == s.size && !strncmp(s.data, l.data, l.size); }
 inline bool operator!=(const char *s, literal l) { return !(s == l); }
 inline bool operator!=(literal l, const char *s) { return !(s == l); }
-inline bool operator!=(string s, literal l)      { return !(s == l); }
-inline bool operator!=(literal l, string s)      { return !(s == l); }
 
 inline bool operator==(literal l1, literal l2) {
   if(l1.size == l2.size) {
@@ -76,10 +74,6 @@ inline bool operator==(literal l1, literal l2) {
 }
 
 inline bool operator!=(literal l1, literal l2) { return !(l1 == l2); }
-
-
-#define to_literal(a) literal(a.data, a.size)
-#define to_string(a)  string(a.data, a.size)
 
 inline std::ostream& operator<<(std::ostream &os, literal l) {
   for(size_t i = 0; i < l.size; i++) {
@@ -105,11 +99,11 @@ inline char *dynamic_string_from_literal(literal l) {
 
 
 struct Print {
-  literal sep = ", ", end = "\n";
+  literal sep = to_literal(", "), end = to_literal("\n");
 
   void operator()() {
     std::cout << end;
-    sep = ", ", end = "\n";
+    sep = to_literal(", "), end = to_literal("\n");
   }
   template<class T>
   void operator()(T &&last) {
@@ -133,7 +127,7 @@ struct Timer {
     end = std::chrono::steady_clock::now(); 
   
     f64 delta = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
-    print.sep = "";
+    print.sep = to_literal("");
     if(delta < 1000) {
       print("ns: ", delta);
     } else if(delta >= 1000 && delta < 1000000) {

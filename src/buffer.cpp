@@ -26,7 +26,7 @@ static void split(array<literal> *lines, literal l, literal split_by) {
   size_t size  = 0;
   while(count < l.size) {
     if(data + size == split_by) {
-      lines->add(literal(data, size));
+      lines->add(to_literal(data, size));
       size_t s = size + split_by.size;
       data   += s;
       count  += s;
@@ -36,14 +36,14 @@ static void split(array<literal> *lines, literal l, literal split_by) {
       count++;
     }
   }
-  lines->add(literal(data, size));
+  lines->add(to_literal(data, size));
 }
 
-static array<tab_t>  tabs;
+static array<tab_t>  tabs = {};
 static tab_t        *active_tab = NULL;
 
-static Select_Buffer selection;
-static gap_buffer yielded = init_gap_buffer();
+static Select_Buffer selection = {};
+static gap_buffer yielded = {};
 
 array<tab_t>       &get_tabs()           { return tabs; }
 tab_t             *&get_current_tab()    { return assert(active_tab), active_tab; }
@@ -153,10 +153,9 @@ void buffer_t::draw() const {
   char *string = string_from_gap_buffer(&buffer);
   defer { deallocate(string); };
 
-
   auto syntax = get_language_syntax(get_file_extension(filename));
   if(syntax) {
-    Lexer lexer;
+    Lexer lexer = {};
     copy_array(&lexer.keywords_table, &syntax->keywords);
     lexer.tokenize_comments   = syntax->tokenize_comments;
     lexer.single_line_comment = to_literal(syntax->single_line_comment);
@@ -186,10 +185,10 @@ void buffer_t::draw() const {
         continue;
 
       } else if(syntax->defined_color_for_strings && tok.type == TOKEN_STRING_LITERAL) {
-        array<literal> lines;
+        array<literal> lines = {};
         defer { free_array(&lines); };
 
-        split(&lines, l, "\n");
+        split(&lines, l, to_literal("\n"));
 
         if(lines.size == 1) {
           const int px = get_relative_pos_x(-offset_on_line + tok.c); // @Hack:
@@ -214,8 +213,8 @@ void buffer_t::draw() const {
           last[lines.last().size] = '\"';
           memcpy(last, lines.last().data, lines.last().size);
 
-          lines.first() = literal(first,lines.first().size+1);
-          lines.last()  = literal(last, lines.last().size+1);
+          lines.first() = to_literal(first,lines.first().size+1);
+          lines.last()  = to_literal(last, lines.last().size+1);
 
           for(size_t i = 0; i < lines.size; i++) { // @Copy&Paste: from TOKEN_SINGLE_LINE_COMMENT.
             if(lines[i].size == 0) { continue; }
@@ -233,9 +232,9 @@ void buffer_t::draw() const {
         continue;
 
       } else if(syntax->tokenize_comments && tok.type == TOKEN_SINGLE_LINE_COMMENT) {
-        array<literal> lines;
+        array<literal> lines = {};
         defer { free_array(&lines); };
-        split(&lines, l, "\\\n");
+        split(&lines, l, to_literal("\\\n"));
 
         for(size_t i = 0; i < lines.size; i++) {
           if(lines[i].size == 0) { continue; }
@@ -262,9 +261,9 @@ void buffer_t::draw() const {
         continue;
 
       } else if(syntax->tokenize_comments && tok.type == TOKEN_MULTI_LINE_COMMENT) {
-        array<literal> lines;
+        array<literal> lines = {};
         defer { free_array(&lines); };
-        split(&lines, l, "\n");
+        split(&lines, l, to_literal("\n"));
 
         for(size_t i = 0; i < lines.size; i++) { // @Copy&Paste: from TOKEN_SINGLE_LINE_COMMENT.
           if(lines[i].size == 0) { continue; }
@@ -436,6 +435,40 @@ size_t buffer_t::to_up(size_t cursor) {
 }
 
 void buffer_t::move_to(size_t i) {
+#if 0
+  size_t first = min(cursor(), i);
+  size_t last  = max(cursor(), i);
+
+  while(i < cursor()) { buffer.move_left(); }
+  assert(i >= cursor());
+
+  if(current_action == select_action) {
+    selection.first = min(selection.first, first);
+  }
+
+  print(selection.first);
+
+  assert(last >= first);
+  size_t diff = last - first;
+  while(diff--) {
+    //if(current_action == 
+    current_action(this);
+    buffer.move_right();
+
+    print("Selection: ", selection.last);
+    
+
+    //if(current_action == delete_action) {
+      //current++;
+    //} else {
+    //}
+  }
+
+  while(i < cursor()) { buffer.move_left(); }
+  current_action = (current_action == delete_action) ? no_action : current_action;
+#endif
+
+//#if 0
   size_t cursor = this->cursor();
   void (*select)(buffer_t*);
   void (*delete_)(buffer_t*);
@@ -479,6 +512,7 @@ void buffer_t::move_to(size_t i) {
   if(current_action == delete_to_right || current_action == delete_to_left) {
     current_action = no_action;
   }
+//#endif
 }
 
 size_t buffer_t::to_beginning_of_line(size_t cursor)  {
@@ -568,31 +602,8 @@ void buffer_t::go_to(size_t i) {
   }
 }
 
-int number_lines_fits_in_window(const buffer_t *b) {
-  return (b->height < font_height) ? 1 : b->height/font_height;
-}
-
-int number_chars_on_line_fits_in_window(const buffer_t *b) {
-  assert(b->width > font_width);
-  return b->width / font_width - 1;
-}
-
-/*
-int get_current_line_indent(buffer_t *buffer) {
-  int n_character = buffer->n_character;
-  go_to_beginning_of_line();
-  assert(buffer->n_character == 0);
-
-  int indent = 0;
-  while(buffer->buffer[buffer->cursor+indent+1] == ' ') { indent++; } // +1 for '\n'
-
-  while(buffer->n_character != n_character) { buffer->to_right(); }
-
-  if(n_character < indent) { return n_character; }
-  return indent;
-}
-*/
-
+int number_lines_fits_in_window(const buffer_t *b)         { return (b->height < font_height) ? 1 : b->height/font_height; }
+int number_chars_on_line_fits_in_window(const buffer_t *b) { assert(b->width > font_width); return b->width / font_width - 1; }
 
 void delete_selected(buffer_t *buffer) {
   yield_selected(buffer);
@@ -619,14 +630,15 @@ void paste_from_buffer(buffer_t *buffer) {
 
 
 void no_action(buffer_t*) {}
-void select_action(buffer_t *) {}
-void delete_action(buffer_t *buffer) {}
+void select_action(buffer_t *buffer) { /*select_to_right(buffer);*/ }
+void delete_action(buffer_t *buffer) { /*delete_to_left(buffer);*/ }
+
 
 void yield_action(buffer_t *buffer) {
   yielded.add(buffer->getchar());
 }
 
-void select_to_right(buffer_t *buffer) { selection.last  = buffer->cursor(); }
+void select_to_right(buffer_t *buffer) { selection.last = buffer->cursor(); }
 void select_to_left(buffer_t *buffer)  { selection.first = buffer->cursor(); }
 void delete_to_right(buffer_t *buffer) { buffer->put_backspace(); }
 void delete_to_left(buffer_t *buffer)  { buffer->put_delete(); }
@@ -645,7 +657,7 @@ void update_indentation_level(buffer_t *buffer) {
 void init(int argc, char **argv) {
   init_variable_table();
 
-  string filename;
+  string filename = {};
   if(argc > 1) {
     for(int i = 1; i < argc; i++) { // parsing command line arguments.
       const char *arg = argv[i];
@@ -665,12 +677,12 @@ void init(int argc, char **argv) {
           option.data = tmp;
           option.size = cursor - 2; // `--`.
         } else {
-          report_error("Error: use `--` for command line options please.\n");
+          report_error("Error: use `--` for command line options.\n");
           continue;
         }
       } else {
         // It's a positional argument.
-        if(!filename.size) filename = string(arg, len);
+        if(!filename.size) filename = to_string(arg, len);
       }
 
       if(option == "settings") {
