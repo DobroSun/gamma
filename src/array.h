@@ -4,8 +4,8 @@
 template<class T>
 struct array {
   T     *data;
-  size_t size;
   size_t capacity;
+  size_t size;
 
 
   T* add() {
@@ -261,11 +261,8 @@ struct string : array<char> {
 };
 
 inline string to_string(const char *x, size_t N) {
-  string s = {};
-  s.data   = (char*)allocate(N+1);
+  string s = { (char*)allocate(N+1), N+1, N };
   memcpy(s.data, x, N);
-  s.capacity = N+1;
-  s.size     = N;
   return s;
 }
 

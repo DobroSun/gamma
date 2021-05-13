@@ -6,10 +6,42 @@ struct Select_Buffer {
   size_t first, last;
 };
 
+struct Buffer_Component {
+  gap_buffer buffer;
+  size_t n_character, n_line;
+  size_t offset_from_beginning, start_pos;
+  size_t indentation_level;
+  size_t index;
+
+
+  // 
+  size_t cursor() const;
+  char getchar(size_t) const;
+  bool start(size_t) const;
+  bool eol(size_t) const;
+  bool eof(size_t) const;
+  char getchar() const;
+  bool start() const;
+  bool eol() const;
+  bool eof() const;
+  // 
+};
+
+struct Undo_Component {
+
+};
+
+struct Search_Component {
+
+};
+
+struct Selection_Component {
+
+};
+
 struct Loc { size_t index, l, c, size; };
 
 struct buffer_t {
-  gap_buffer buffer;
   array<buffer_t> undo;
   array<buffer_t> redo;
 
@@ -23,15 +55,20 @@ struct buffer_t {
 
   int start_x, start_y, width, height;
 
-  
-  size_t n_character, n_line, offset_from_beginning, start_pos;
+  Buffer_Component buffer_component;
+
+  // @RemoveMe: 
+  gap_buffer buffer2;
+  size_t n_character, n_line;
+  size_t offset_from_beginning, start_pos;
+  size_t indentation_level;
+  // @End: 
 
   size_t offset_on_line, total_lines;
 
-  size_t indentation_level;
-
 
   void draw() const;
+
 
   // 
   size_t to_left(size_t);

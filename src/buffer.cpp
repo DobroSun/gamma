@@ -11,7 +11,6 @@ extern void (*current_action)(buffer_t*);
 
 static literal get_file_extension(string filename) {
   literal r;
-
   size_t index;
   if(filename.find('.', &index)) {
     r.data = filename.data + index;
@@ -83,7 +82,7 @@ buffer_t *open_new_buffer(string s) {
     defer { fclose(f); };
 
     // Read into gap_buffer.
-    auto gap_buffer = &buffer->buffer;
+    auto gap_buffer = &buffer->buffer_component.buffer;
     size_t n = read_file_into_memory(f, &gap_buffer->chars.data, gap_buffer->gap_len);
     gap_buffer->chars.size     = n;
     gap_buffer->chars.capacity = n;
@@ -99,7 +98,12 @@ void open_existing_buffer(buffer_t *prev) {
   auto buffer = get_free_buffer();
   active_tab->current_buffer = buffer;
 
-  buffer->buffer   = prev->buffer;
+/*
+  Cursor cursor = {};
+  cursor.buffer = prev->cursor.buffer;
+  buffer->cursor   = cursor;
+*/
+  buffer->buffer_component.buffer   = prev->buffer_component.buffer;
   buffer->undo     = prev->undo;
   buffer->redo     = prev->redo;
   buffer->filename = prev->filename;
@@ -126,20 +130,20 @@ void change_tab(s32 index) {
 }
 
 void buffer_t::draw() const {
-  const size_t buffer_size = buffer.size();
+  const size_t buffer_size = buffer_component.buffer.size();
 
   size_t i = offset_from_beginning;
 
   int x = get_relative_pos_x(-offset_on_line); // @CleanUp: 
   int y = get_relative_pos_y(0);
 
-  while(i < buffer.size()) {
+  while(i < buffer_component.buffer.size()) {
     int current_line_length = get_line_length(i);
 
     char string[current_line_length+1] = {0};
 
     for(size_t j = 0; j < current_line_length; j++) {
-      string[j] = (buffer[j+i] == '\n') ? ' ' : buffer[j+i];
+      string[j] = (buffer_component.buffer[j+i] == '\n') ? ' ' : buffer_component.buffer[j+i];
     }
 
     if(y >= get_console()->bottom_y - font_height) { break; }
@@ -150,7 +154,7 @@ void buffer_t::draw() const {
     i += current_line_length;
   }
 
-  char *string = string_from_gap_buffer(&buffer);
+  char *string = string_from_gap_buffer(&buffer_component.buffer);
   defer { deallocate(string); };
 
   auto syntax = get_language_syntax(get_file_extension(filename));
@@ -314,11 +318,11 @@ void buffer_t::draw() const {
 int buffer_t::get_relative_pos_x(int n_place) const { return start_x + font_width * n_place; }
 int buffer_t::get_relative_pos_y(int n_place) const { return start_y + font_height * n_place; }
 
-size_t buffer_t::cursor()        const { return buffer.pre_len; }
-char buffer_t::getchar(size_t i) const { return buffer[i]; }
+size_t buffer_t::cursor()        const { return buffer_component.buffer.pre_len; }
+char buffer_t::getchar(size_t i) const { return buffer_component.buffer[i]; }
 bool buffer_t::start(size_t i)   const { return i == 0; }
 bool buffer_t::eol(size_t i)     const { return getchar(i) == '\n'; }
-bool buffer_t::eof(size_t i)     const { return i == buffer.size()-1; }
+bool buffer_t::eof(size_t i)     const { return i == buffer_component.buffer.size()-1; }
 
 char buffer_t::getchar() const { return getchar(cursor()); }
 bool buffer_t::start()   const { return cursor() == 0; }
@@ -358,7 +362,7 @@ void buffer_t::shift_beginning_down() {
   if(offset_from_beginning < count) {
     assert(offset_from_beginning == 1);
   } else {
-    while(buffer[offset_from_beginning-count] != '\n') {
+    while(buffer_component.buffer[offset_from_beginning-count] != '\n') {
       if(count == offset_from_beginning) { count++; break; }
       count++;
     }
@@ -481,11 +485,11 @@ void buffer_t::move_to(size_t i) {
     // I haven't found a way around, so for now, it's going to be like this.
     // 
     if(i < cursor) {
-      buffer.move_left();
+      buffer_component.buffer.move_left();
       select  = select_to_left;
       delete_ = delete_to_left;
     } else {
-      buffer.move_right();
+      buffer_component.buffer.move_right();
       select  = select_to_right;
       delete_ = delete_to_right;
     }
@@ -538,18 +542,18 @@ void buffer_t::put_backspace() {
 
   to_left(cursor());
 
-  buffer.move_left();
+  buffer_component.buffer.move_left();
   put_delete();
 }
 
 void buffer_t::put_delete() {
   if(eof()) return;
   if(eol()) total_lines--;
-  buffer.del();
+  buffer_component.buffer.del();
 }
 
 void buffer_t::put_return() {
-  buffer.add('\n');
+  buffer_component.buffer.add('\n');
   total_lines++;
 
   for(size_t i = 0; i < indentation_level; i++) { put(' '); }
@@ -560,7 +564,7 @@ void buffer_t::put_return() {
 
 void buffer_t::put(char c) {
   if(c != '\n') {
-    buffer.add(c);
+    buffer_component.buffer.add(c);
     n_character++;
   } else {
     put_return();
@@ -602,6 +606,18 @@ void buffer_t::go_to(size_t i) {
   }
 }
 
+/*
+size_t Buffer_Component::cursor()        const { return buffer.pre_len; }
+char Buffer_Component::getchar(size_t i) const { return buffer[i]; }
+bool Buffer_Component::start(size_t i)   const { return i == 0; }
+bool Buffer_Component::eol(size_t i)     const { return getchar(i) == '\n'; }
+bool Buffer_Component::eof(size_t i)     const { return i == buffer.size()-1; }
+char Buffer_Component::getchar() const { return getchar(cursor()); }
+bool Buffer_Component::start()   const { return cursor() == 0; }
+bool Buffer_Component::eol()     const { return eol(cursor()); }
+bool Buffer_Component::eof()     const { return eof(cursor()); }
+*/
+
 int number_lines_fits_in_window(const buffer_t *b)         { return (b->height < font_height) ? 1 : b->height/font_height; }
 int number_chars_on_line_fits_in_window(const buffer_t *b) { assert(b->width > font_width); return b->width / font_width - 1; }
 
@@ -617,7 +633,7 @@ void delete_selected(buffer_t *buffer) {
 void yield_selected(buffer_t *buffer) {
   yielded.clear();
   for(size_t i = selection.first; i <= selection.last; i++) {
-    yielded.add(buffer->buffer[i]);
+    yielded.add(buffer->buffer_component.buffer[i]);
   }
 }
 
@@ -647,7 +663,7 @@ void delete_to_left(buffer_t *buffer)  { buffer->put_delete(); }
 void update_indentation_level(buffer_t *buffer) {
   size_t indentation_level = 0;
   size_t start_position = buffer->cursor() - buffer->n_character;
-  while(buffer->buffer[start_position++] == ' ') {
+  while(buffer->buffer_component.buffer[start_position++] == ' ') {
     indentation_level++;
   }
   buffer->indentation_level = indentation_level;
@@ -737,10 +753,10 @@ void save() {
 	defer { if(f) fclose(f); };
 
 	size_t i = 0;
-	for( ; i < buffer->buffer.size(); i++) {
-		fprintf(f, "%c", buffer->buffer[i]);
+	for( ; i < buffer->buffer_component.buffer.size(); i++) {
+		fprintf(f, "%c", buffer->buffer_component.buffer[i]);
 	}
-	if(!buffer->buffer.size() || buffer->buffer[i-1] != '\n') {
+	if(!buffer->buffer_component.buffer.size() || buffer->buffer_component.buffer[i-1] != '\n') {
 		fprintf(f, "\n");
 	}
 
@@ -904,8 +920,8 @@ void find_in_buffer(const string s) {
   size_t nline = 0;
   size_t nchar = 0;
 
-  while(cursor != buffer->buffer.size()) {
-    if(string_match(buffer->buffer, cursor, s)) {
+  while(cursor != buffer->buffer_component.buffer.size()) {
+    if(string_match(buffer->buffer_component.buffer, cursor, s)) {
       found_in_a_file = true;
 
       Loc *loc = buffer->found.add();
@@ -916,7 +932,7 @@ void find_in_buffer(const string s) {
 
     }
 
-    if(buffer->buffer[cursor] == '\n') {
+    if(buffer->buffer_component.buffer[cursor] == '\n') {
       nline++;
       nchar = 0;
     } else {
@@ -941,22 +957,22 @@ static void to_previous_buffer_state(buffer_t *b, array<buffer_t> *active_states
 
   { // save current state for backup. @Copy&Paste: of save_current_state_for_undo.
     auto a = backup_states->add(*b);
-    copy_gap_buffer(&a->buffer, &b->buffer);
+    copy_gap_buffer(&a->buffer_component.buffer, &b->buffer_component.buffer);
   }
 
-  // We wan't to copy everything, execept for undo, redo arrays.
+  // We want to copy everything, execept for undo, redo arrays.
   const array<buffer_t> undo = b->undo;
   const array<buffer_t> redo = b->redo;
 
   *b = *state;
-  copy_gap_buffer(&b->buffer, &state->buffer);
+  copy_gap_buffer(&b->buffer_component.buffer, &state->buffer_component.buffer);
   b->undo = undo;
   b->redo = redo;
 }
 
 void save_current_state_for_undo(buffer_t *b) {
   auto a = b->undo.add(*b);
-  copy_gap_buffer(&a->buffer, &b->buffer);
+  copy_gap_buffer(&a->buffer_component.buffer, &b->buffer_component.buffer);
 }
 
 void undo(buffer_t *b) { to_previous_buffer_state(b, &b->undo, &b->redo); }
