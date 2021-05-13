@@ -63,32 +63,25 @@ struct Buffer_Component {
 };
 
 struct Undo_Component {
-
-};
-
-struct Search_Component {
-
-};
-
-struct Selection_Component {
-
+  array<Buffer_Component> undo;
+  array<Buffer_Component> redo;
 };
 
 struct Loc { size_t index, l, c, size; };
 
-struct buffer_t {
-  array<buffer_t> undo;
-  array<buffer_t> redo;
-
-  string filename;
-
-  // search.
+struct Search_Component {
   array<Loc> found;
   bool found_in_a_file;
   size_t search_index;
-  // 
+};
+
+struct buffer_t {
+  string filename;
 
   Buffer_Component buffer_component;
+  Search_Component search_component;
+  Undo_Component   undo_component;
+
 
   size_t offset_on_line; // @ActuallyNotUsed: @RemoveMe: 
 
@@ -131,9 +124,9 @@ void resize_tab(tab_t *);
 void change_buffer(s32);
 void close_buffer(tab_t*);
 
-void to_next_in_search();
-void to_prev_in_search();
-void find_in_buffer(const string);
+void to_next_in_search(Search_Component *, Buffer_Component *);
+void to_prev_in_search(Search_Component *, Buffer_Component *);
+void find_in_buffer(Search_Component *, Buffer_Component *, const string);
 
 size_t read_file_into_memory(FILE*, char**, size_t gap_len = 0);
 
@@ -149,9 +142,9 @@ void yield_action(Buffer_Component *buffer);
 void select_to_left(Buffer_Component *buffer);
 void select_to_right(Buffer_Component *buffer);
 
-void save_current_state_for_undo(buffer_t *);
-void undo(buffer_t *);
-void redo(buffer_t *);
+void save_current_state_for_undo(Undo_Component *, Buffer_Component *);
+void undo(Undo_Component *, Buffer_Component *);
+void redo(Undo_Component *, Buffer_Component *);
 
 void update_indentation_level(buffer_t*);
 

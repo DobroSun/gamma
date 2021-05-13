@@ -785,7 +785,8 @@ static void parse_find_command(Lexer &lexer) {
   string search;
   search.data = (char*)tok->string_literal.data;
   search.size =        tok->string_literal.size;
-	find_in_buffer(search);
+  auto buffer = get_current_buffer();
+	find_in_buffer(&buffer->search_component, &buffer->buffer_component, search);
 }
 
 

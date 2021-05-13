@@ -98,15 +98,7 @@ void open_existing_buffer(buffer_t *prev) {
   auto buffer = get_free_buffer();
   active_tab->current_buffer = buffer;
 
-/*
-  Cursor cursor = {};
-  cursor.buffer = prev->cursor.buffer;
-  buffer->cursor   = cursor;
-*/
-  buffer->buffer_component.buffer   = prev->buffer_component.buffer;
-  buffer->undo     = prev->undo;
-  buffer->redo     = prev->redo;
-  buffer->filename = prev->filename;
+  *buffer = *prev; // @Temoprary: Should we copy `filename` in here, or not?
   buffer->buffer_component.move_to(0);
 }
 
@@ -298,8 +290,8 @@ void buffer_t::draw() const {
   }
 
   // search highlighting.
-  for(size_t i = 0; i < found.size; i++) {
-    Loc loc = found[i];
+  for(size_t i = 0; i < search_component.found.size; i++) {
+    Loc loc = search_component.found[i];
 
     if(loc.l < buffer_component.start_pos) continue;
 
@@ -882,47 +874,43 @@ static bool string_match(const gap_buffer &buffer, size_t starting_index, const 
 }
 
 
-void to_prev_in_search() {
-  auto buffer = get_current_buffer();
-  if(buffer->found_in_a_file) {
-    buffer->search_index = (buffer->search_index) ? buffer->search_index : buffer->found.size;
-    Loc loc = buffer->found[--buffer->search_index];
+void to_prev_in_search(Search_Component *search, Buffer_Component *buffer) {
+  if(search->found_in_a_file) {
+    search->search_index = (search->search_index) ? search->search_index : search->found.size;
+    Loc loc = search->found[--search->search_index];
   }
 }
 
-void to_next_in_search() {
-  auto buffer = get_current_buffer();
-  if(buffer->found_in_a_file) {
-    Loc loc = buffer->found[++buffer->search_index];
-    while(buffer->buffer_component.cursor() != loc.index) {
-      buffer->buffer_component.go_right(); // @FixMe: 
+void to_next_in_search(Search_Component *search, Buffer_Component *buffer) {
+  if(search->found_in_a_file) {
+    Loc loc = search->found[++search->search_index];
+    while(buffer->cursor() != loc.index) {
+      buffer->go_right(); // @FixMe: 
     }
   }
 }
 
-void find_in_buffer(const string s) {
-  auto buffer = get_current_buffer();
-  if(buffer->found.size) { buffer->found.clear(); }
+void find_in_buffer(Search_Component *search, Buffer_Component *buffer, const string s) {
+  if(search->found.size) { search->found.clear(); }
 
-  bool found_in_a_file = false;
+  search->found_in_a_file = false;
 
   size_t cursor = 0;
   size_t nline = 0;
   size_t nchar = 0;
 
-  while(cursor != buffer->buffer_component.buffer.size()) {
-    if(string_match(buffer->buffer_component.buffer, cursor, s)) {
-      found_in_a_file = true;
+  while(!buffer->eof(cursor)) {
+    if(string_match(buffer->buffer, cursor, s)) {
+      search->found_in_a_file = true;
 
-      Loc *loc = buffer->found.add();
+      Loc *loc = search->found.add();
       loc->index = cursor;
       loc->l     = nline;
       loc->c     = nchar;
       loc->size  = s.size;
-
     }
 
-    if(buffer->buffer_component.buffer[cursor] == '\n') {
+    if(buffer->eol(cursor)) {
       nline++;
       nchar = 0;
     } else {
@@ -931,41 +919,34 @@ void find_in_buffer(const string s) {
     cursor++;
   }
 
-  buffer->found_in_a_file = found_in_a_file;
-  buffer->search_index    = 0;
+  search->search_index    = 0;
   
   // @Hack: Well, i don't want to Copy&Paste here, so ...
-  to_next_in_search();
-  to_prev_in_search();
+  to_next_in_search(search, buffer);
+  to_prev_in_search(search, buffer);
 }
 // 
 
 // Undo/Redo.
-static void to_previous_buffer_state(buffer_t *b, array<buffer_t> *active_states, array<buffer_t> *backup_states) {
+static void to_previous_buffer_state(Buffer_Component *current, array<Buffer_Component> *active_states, array<Buffer_Component> *backup_states) {
   if(!active_states->size) { return; }
-  auto state = active_states->pop();
 
-  { // save current state for backup. @Copy&Paste: of save_current_state_for_undo.
-    auto a = backup_states->add(*b);
-    copy_gap_buffer(&a->buffer_component.buffer, &b->buffer_component.buffer);
+  {
+    auto new_state = backup_states->add(*current);
+    copy_gap_buffer(&new_state->buffer, &current->buffer);
   }
 
-  // We want to copy everything, execept for undo, redo arrays.
-  const array<buffer_t> undo = b->undo;
-  const array<buffer_t> redo = b->redo;
-
-  *b = *state;
-  copy_gap_buffer(&b->buffer_component.buffer, &state->buffer_component.buffer);
-  b->undo = undo;
-  b->redo = redo;
+  auto previous_state = active_states->pop();
+  *current = *previous_state;
+  copy_gap_buffer(&current->buffer, &previous_state->buffer);
 }
 
-void save_current_state_for_undo(buffer_t *b) {
-  auto a = b->undo.add(*b);
-  copy_gap_buffer(&a->buffer_component.buffer, &b->buffer_component.buffer);
+void save_current_state_for_undo(Undo_Component *undo_component, Buffer_Component *buffer) {
+  auto a = undo_component->undo.add(*buffer);
+  copy_gap_buffer(&a->buffer, &buffer->buffer);
 }
 
-void undo(buffer_t *b) { to_previous_buffer_state(b, &b->undo, &b->redo); }
-void redo(buffer_t *b) { to_previous_buffer_state(b, &b->redo, &b->undo); }
+void undo(Undo_Component *undo, Buffer_Component *buffer) { to_previous_buffer_state(buffer, &undo->undo, &undo->redo); }
+void redo(Undo_Component *undo, Buffer_Component *buffer) { to_previous_buffer_state(buffer, &undo->redo, &undo->undo); }
 // 
 

@@ -101,7 +101,7 @@ void handle_normal_mode_keydown(SDL_Keysym e) {
   int mod = e.mod;
 
   if(is_modifying_key(key)) {
-    save_current_state_for_undo(get_current_buffer());
+    save_current_state_for_undo(&get_current_buffer()->undo_component, &get_current_buffer()->buffer_component);
   }
 
   if(mod & KMOD_SHIFT && mod & KMOD_CTRL) {
@@ -156,8 +156,8 @@ void handle_normal_mode_keydown(SDL_Keysym e) {
       get_current_buffer()->buffer_component.go_up();    break; 
 
     case '/': open_console();           break;
-    case 'n': to_next_in_search();      break;
-    case 'm': to_prev_in_search();      break;
+    case 'n': to_next_in_search(&get_current_buffer()->search_component, &get_current_buffer()->buffer_component); break;
+    case 'm': to_prev_in_search(&get_current_buffer()->search_component, &get_current_buffer()->buffer_component); break;
 
 #if 0
     case 'e': {
@@ -246,8 +246,8 @@ void handle_normal_mode_keydown(SDL_Keysym e) {
       case 'p': paste_from_buffer(get_current_buffer()); break;
       case 'x': get_current_buffer()->buffer_component.put_delete();      break;
       case 'i': to_insert_mode();           break;
-      case 'u': undo(get_current_buffer()); break; 
-      case 'r': redo(get_current_buffer()); break;
+      case 'u': undo(&get_current_buffer()->undo_component, &get_current_buffer()->buffer_component); break;
+      case 'r': redo(&get_current_buffer()->undo_component, &get_current_buffer()->buffer_component); break;
       case 'v': to_visual_mode();           break;
       case SDLK_ESCAPE: should_quit = true; break; // @Temporary: 
 
