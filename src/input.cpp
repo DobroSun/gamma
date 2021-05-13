@@ -8,7 +8,7 @@ bool no_input = false; // When we switch from normal mode to insert mode, it imm
 void set_input() { no_input = false; }
 
 
-void (*current_action)(buffer_t*)  = no_action;
+void (*current_action)(Buffer_Component*)  = no_action;
 void (*handle_keydown)(SDL_Keysym) = handle_normal_mode_keydown;
 
 void handle_input_keydown(SDL_Keysym k) { handle_keydown(k); }
@@ -38,7 +38,7 @@ void to_insert_mode() { // @Incomplete: When we are in visual mode we shouldn't 
 
 void to_visual_mode() {
   assert(handle_keydown == handle_normal_mode_keydown);
-  get_selection().first = get_current_buffer()->cursor();
+  get_selection().first = get_current_buffer()->buffer_component.cursor();
   get_selection().last  = get_selection().first;
   current_action = select_action;
   console_put_text("-- VISUAL --");
@@ -69,14 +69,14 @@ void handle_console_keydown(SDL_Keysym e) {
 
 void handle_insert_mode_keydown(SDL_Keysym e) {
   switch(e.sym) {
-  case SDLK_LEFT:      get_current_buffer()->go_left();  break;
-  case SDLK_RIGHT:     get_current_buffer()->go_right(); break;
-  case SDLK_UP:        get_current_buffer()->go_up();    break;
-  case SDLK_DOWN:      get_current_buffer()->go_down();  break;
-  case SDLK_RETURN:    get_current_buffer()->put_return(); break;
-  case SDLK_DELETE:    get_current_buffer()->put_delete(); break;
-  case SDLK_BACKSPACE: get_current_buffer()->put_backspace(); break;
-  case SDLK_TAB:       get_current_buffer()->put_tab(); break;
+  case SDLK_LEFT:      get_current_buffer()->buffer_component.go_left();  break;
+  case SDLK_RIGHT:     get_current_buffer()->buffer_component.go_right(); break;
+  case SDLK_UP:        get_current_buffer()->buffer_component.go_up();    break;
+  case SDLK_DOWN:      get_current_buffer()->buffer_component.go_down();  break;
+  case SDLK_RETURN:    get_current_buffer()->buffer_component.put_return(); break;
+  case SDLK_DELETE:    get_current_buffer()->buffer_component.put_delete(); break;
+  case SDLK_BACKSPACE: get_current_buffer()->buffer_component.put_backspace(); break;
+  case SDLK_TAB:       get_current_buffer()->buffer_component.put_tab(); break;
   case SDLK_ESCAPE:    to_normal_mode(); break;
   default: break;
   }
@@ -110,7 +110,7 @@ void handle_normal_mode_keydown(SDL_Keysym e) {
 
     switch(key) { 
     case ';': open_console();      break;      // ':'
-    case '4': get_current_buffer()->move_to(get_current_buffer()->to_end_of_line(get_current_buffer()->cursor())); break; // '$'
+    case '4': get_current_buffer()->buffer_component.move_to(get_current_buffer()->buffer_component.to_end_of_line(get_current_buffer()->buffer_component.cursor())); break; // '$'
     case '[': go_paragraph_backwards(); break; // '{'
     case ']': go_paragraph_forward();   break; // '}'
     default: break;
@@ -122,11 +122,11 @@ void handle_normal_mode_keydown(SDL_Keysym e) {
       case 'd': {   // 'D'
         auto buffer = get_current_buffer();
         current_action = delete_action;
-        buffer->move_to(buffer->to_end_of_line(buffer->cursor()));
+        buffer->buffer_component.move_to(buffer->buffer_component.to_end_of_line(buffer->buffer_component.cursor()));
         break;
       }
       case 'a':     // 'A'
-        get_current_buffer()->move_to(get_current_buffer()->to_end_of_line(get_current_buffer()->cursor()));
+        get_current_buffer()->buffer_component.move_to(get_current_buffer()->buffer_component.to_end_of_line(get_current_buffer()->buffer_component.cursor()));
         to_insert_mode();
         break;
       default: break;
@@ -135,25 +135,25 @@ void handle_normal_mode_keydown(SDL_Keysym e) {
 
   } else { // no mods.
     switch(key) {
-    case '0': get_current_buffer()->move_to(get_current_buffer()->to_beginning_of_line(get_current_buffer()->cursor())); break;
+    case '0': get_current_buffer()->buffer_component.move_to(get_current_buffer()->buffer_component.to_beginning_of_line(get_current_buffer()->buffer_component.cursor())); break;
     case 'w': go_word_forward();        break;
     case 'b': go_word_backwards();      break;
 
     case SDLK_BACKSPACE:
     case SDLK_LEFT: 
     case 'h':
-      get_current_buffer()->go_left();  break; 
+      get_current_buffer()->buffer_component.go_left();  break; 
     case ' ':
     case SDLK_RIGHT: 
     case 'l':
-      get_current_buffer()->go_right(); break;
+      get_current_buffer()->buffer_component.go_right(); break;
     case SDLK_RETURN: 
     case SDLK_DOWN: 
     case 'j':
-      get_current_buffer()->go_down();  break;
+      get_current_buffer()->buffer_component.go_down();  break;
     case SDLK_UP: 
     case 'k':
-      get_current_buffer()->go_up();    break; 
+      get_current_buffer()->buffer_component.go_up();    break; 
 
     case '/': open_console();           break;
     case 'n': to_next_in_search();      break;
@@ -198,7 +198,7 @@ void handle_normal_mode_keydown(SDL_Keysym e) {
     } else {
       switch(key) {
       case 'a':
-        get_current_buffer()->go_right();
+        get_current_buffer()->buffer_component.go_right();
         to_insert_mode();
         break;
 
@@ -207,16 +207,16 @@ void handle_normal_mode_keydown(SDL_Keysym e) {
 #if 0
           auto buffer = get_current_buffer();
           auto select = get_selection();
-          size_t cursor = buffer->cursor();
+          size_t cursor = buffer->buffer_component.cursor();
 
-          select.first = buffer->to_beginning_of_line(buffer->cursor());
-          select.last  = buffer->to_end_of_line(buffer->cursor());
+          select.first = buffer->buffer_component.to_beginning_of_line(buffer->cursor());
+          select.last  = buffer->buffer_component.to_end_of_line(buffer->cursor());
 
-          yield_selected(buffer);
+          yield_selected(buffer->buffer_component);
           to_normal_mode();
 
-          for(size_t i = buffer->cursor(); i != cursor; i--) {
-             buffer->to_left(buffer->cursor());
+          for(size_t i = buffer->buffer_component.cursor(); i != cursor; i--) {
+             buffer->buffer_component.to_left(buffer->buffer_component.cursor());
           }
 #endif
         } else {
@@ -227,10 +227,10 @@ void handle_normal_mode_keydown(SDL_Keysym e) {
       case 'd':
         if(current_action == delete_action) { // 'dd'.
           auto buffer = get_current_buffer();
-          buffer->move_to(buffer->to_end_of_line(buffer->cursor()));
+          buffer->buffer_component.move_to(buffer->buffer_component.to_end_of_line(buffer->buffer_component.cursor()));
           current_action = delete_action;
-          buffer->move_to(buffer->to_beginning_of_line(buffer->cursor()));
-          buffer->put_delete();
+          buffer->buffer_component.move_to(buffer->buffer_component.to_beginning_of_line(buffer->buffer_component.cursor()));
+          buffer->buffer_component.put_delete();
           to_normal_mode();
         } else {
           current_action = delete_action;
@@ -238,13 +238,13 @@ void handle_normal_mode_keydown(SDL_Keysym e) {
         break; 
 
       case 'o': 
-        get_current_buffer()->move_to(get_current_buffer()->to_end_of_line(get_current_buffer()->cursor()));
-        get_current_buffer()->put_return();
+        get_current_buffer()->buffer_component.move_to(get_current_buffer()->buffer_component.to_end_of_line(get_current_buffer()->buffer_component.cursor()));
+        get_current_buffer()->buffer_component.put_return();
         to_insert_mode();
         break;
 
       case 'p': paste_from_buffer(get_current_buffer()); break;
-      case 'x': get_current_buffer()->put_delete();      break;
+      case 'x': get_current_buffer()->buffer_component.put_delete();      break;
       case 'i': to_insert_mode();           break;
       case 'u': undo(get_current_buffer()); break; 
       case 'r': redo(get_current_buffer()); break;

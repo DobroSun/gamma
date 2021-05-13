@@ -30,7 +30,7 @@ int main(int argc, char **argv) {
 
         case SDL_TEXTINPUT:
           if(is_insert_mode()) {
-            get_current_buffer()->put(e.text.text[0]);
+            get_current_buffer()->buffer_component.put(e.text.text[0]);
           } else if(is_console_mode()) {
             console_put(e.text.text[0]);
           }
@@ -49,11 +49,11 @@ int main(int argc, char **argv) {
 
           if(e.wheel.y > 0) {
             for(char i = 0; i < dt_scroll; i++) {
-              buffer->scroll_up();
+              buffer->buffer_component.scroll_up();
             }
           } else if(e.wheel.y < 0) {
             for(char i = 0; i < dt_scroll; i++) {
-              buffer->scroll_down();
+              buffer->buffer_component.scroll_down();
             }
           }
           break;
@@ -82,10 +82,10 @@ int main(int argc, char **argv) {
       buffer->draw();  // @UpdateMultipleInstances: If given file is opened multiple times, we need to update them all.
 
       // Update cursor.
-      char s = buffer->getchar();
+      char s = buffer->buffer_component.getchar();
       s = (s == '\n')? ' ': s;
-      const int px = buffer->get_relative_pos_x(buffer->n_character - buffer->offset_on_line);
-      const int py = buffer->get_relative_pos_y(buffer->n_line - buffer->start_pos);
+      const int px = buffer->buffer_component.get_relative_pos_x(buffer->buffer_component.n_character - buffer->offset_on_line);
+      const int py = buffer->buffer_component.get_relative_pos_y(buffer->buffer_component.n_line - buffer->buffer_component.start_pos);
       draw_text_shaded(get_font(), s, cursor_text_color, cursor_color, px, py);
     }
 

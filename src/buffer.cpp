@@ -6,7 +6,7 @@
 #include "interp.h"
 #include "input.h"
 
-extern void (*current_action)(buffer_t*);
+extern void (*current_action)(Buffer_Component*);
 
 
 static literal get_file_extension(string filename) {
@@ -90,7 +90,7 @@ buffer_t *open_new_buffer(string s) {
     buffer->filename = s;
   }
 
-  buffer->total_lines = buffer->count_all_lines();
+  buffer->buffer_component.total_lines = buffer->buffer_component.count_all_lines();
   return buffer;
 }
 
@@ -107,7 +107,7 @@ void open_existing_buffer(buffer_t *prev) {
   buffer->undo     = prev->undo;
   buffer->redo     = prev->redo;
   buffer->filename = prev->filename;
-  buffer->move_to(0);
+  buffer->buffer_component.move_to(0);
 }
 
 void open_existing_or_new_buffer(string s) {
@@ -132,13 +132,13 @@ void change_tab(s32 index) {
 void buffer_t::draw() const {
   const size_t buffer_size = buffer_component.buffer.size();
 
-  size_t i = offset_from_beginning;
+  size_t i = buffer_component.offset_from_beginning;
 
-  int x = get_relative_pos_x(-offset_on_line); // @CleanUp: 
-  int y = get_relative_pos_y(0);
+  int x = buffer_component.get_relative_pos_x(-offset_on_line); // @CleanUp: 
+  int y = buffer_component.get_relative_pos_y(0);
 
   while(i < buffer_component.buffer.size()) {
-    int current_line_length = get_line_length(i);
+    int current_line_length = buffer_component.get_line_length(i);
 
     char string[current_line_length+1] = {0};
 
@@ -174,13 +174,13 @@ void buffer_t::draw() const {
     lexer.process_input(string);
 
     for(auto &tok : lexer.tokens) {
-      if(tok.l < start_pos && tok.type != TOKEN_STRING_LITERAL && tok.type != TOKEN_MULTI_LINE_COMMENT && tok.type != TOKEN_SINGLE_LINE_COMMENT) continue;
+      if(tok.l < buffer_component.start_pos && tok.type != TOKEN_STRING_LITERAL && tok.type != TOKEN_MULTI_LINE_COMMENT && tok.type != TOKEN_SINGLE_LINE_COMMENT) continue;
 
       literal l = tok.string_literal;
 
       if(syntax->defined_color_for_literals && (tok.type == TOKEN_NUMBER || tok.type == TOKEN_BOOLEAN)) {
-        const int px = get_relative_pos_x(-offset_on_line + tok.c); // @Hack:
-        const int py = get_relative_pos_y(tok.l - start_pos);
+        const int px = buffer_component.get_relative_pos_x(-offset_on_line + tok.c); // @Hack:
+        const int py = buffer_component.get_relative_pos_y(tok.l - buffer_component.start_pos);
 
         if(py > get_console()->bottom_y - font_height) break;
 
@@ -195,8 +195,8 @@ void buffer_t::draw() const {
         split(&lines, l, to_literal("\n"));
 
         if(lines.size == 1) {
-          const int px = get_relative_pos_x(-offset_on_line + tok.c); // @Hack:
-          const int py = get_relative_pos_y(tok.l - start_pos);
+          const int px = buffer_component.get_relative_pos_x(-offset_on_line + tok.c); // @Hack:
+          const int py = buffer_component.get_relative_pos_y(tok.l - buffer_component.start_pos);
 
           if(py > get_console()->bottom_y - font_height) break;
 
@@ -224,8 +224,8 @@ void buffer_t::draw() const {
             if(lines[i].size == 0) { continue; }
 
             int x = (i == 0) ? tok.c : 0;
-            const int px = get_relative_pos_x(-offset_on_line + x); // @Hack:
-            const int py = get_relative_pos_y(tok.l - start_pos + i);
+            const int px = buffer_component.get_relative_pos_x(-offset_on_line + x); // @Hack:
+            const int py = buffer_component.get_relative_pos_y(tok.l - buffer_component.start_pos + i);
 
             if(py > get_console()->bottom_y - font_height) break;
         
@@ -244,8 +244,8 @@ void buffer_t::draw() const {
           if(lines[i].size == 0) { continue; }
 
           int x = (i == 0) ? tok.c : 0;
-          const int px = get_relative_pos_x(-offset_on_line + x); // @Hack:
-          const int py = get_relative_pos_y(tok.l - start_pos + i);
+          const int px = buffer_component.get_relative_pos_x(-offset_on_line + x); // @Hack:
+          const int py = buffer_component.get_relative_pos_y(tok.l - buffer_component.start_pos + i);
 
           if(py > get_console()->bottom_y - font_height) break;
 
@@ -273,8 +273,8 @@ void buffer_t::draw() const {
           if(lines[i].size == 0) { continue; }
 
           int x = (i == 0) ? tok.c : 0;
-          const int px = get_relative_pos_x(-offset_on_line + x); // @Hack:
-          const int py = get_relative_pos_y(tok.l - start_pos + i);
+          const int px = buffer_component.get_relative_pos_x(-offset_on_line + x); // @Hack:
+          const int py = buffer_component.get_relative_pos_y(tok.l - buffer_component.start_pos + i);
 
           if(py > get_console()->bottom_y - font_height) break;
       
@@ -287,8 +287,8 @@ void buffer_t::draw() const {
       const struct string *it; size_t index;
       syntax->names.find(l, &it, &index);
       if(it) {
-        const int px = get_relative_pos_x(-offset_on_line + tok.c); // @Hack:
-        const int py = get_relative_pos_y(tok.l - start_pos);
+        const int px = buffer_component.get_relative_pos_x(-offset_on_line + tok.c); // @Hack:
+        const int py = buffer_component.get_relative_pos_y(tok.l - buffer_component.start_pos);
 
         if(py > get_console()->bottom_y - font_height) break;
         
@@ -301,36 +301,24 @@ void buffer_t::draw() const {
   for(size_t i = 0; i < found.size; i++) {
     Loc loc = found[i];
 
-    if(loc.l < start_pos) continue;
+    if(loc.l < buffer_component.start_pos) continue;
 
     char s[loc.size+1];
     memcpy(s, string + loc.index, loc.size);
     s[loc.size] = '\0';
 
-    const int px = get_relative_pos_x(-offset_on_line + loc.c); // @Hack:
-    const int py = get_relative_pos_y(loc.l - start_pos);
+    const int px = buffer_component.get_relative_pos_x(-offset_on_line + loc.c); // @Hack:
+    const int py = buffer_component.get_relative_pos_y(loc.l - buffer_component.start_pos);
 
     draw_text_shaded(get_font(), s, searched_text_color, searched_color, px, py);
   }
   // 
 }
 
-int buffer_t::get_relative_pos_x(int n_place) const { return start_x + font_width * n_place; }
-int buffer_t::get_relative_pos_y(int n_place) const { return start_y + font_height * n_place; }
+int Buffer_Component::get_relative_pos_x(int n_place) const { return start_x + font_width * n_place; }
+int Buffer_Component::get_relative_pos_y(int n_place) const { return start_y + font_height * n_place; }
 
-size_t buffer_t::cursor()        const { return buffer_component.buffer.pre_len; }
-char buffer_t::getchar(size_t i) const { return buffer_component.buffer[i]; }
-bool buffer_t::start(size_t i)   const { return i == 0; }
-bool buffer_t::eol(size_t i)     const { return getchar(i) == '\n'; }
-bool buffer_t::eof(size_t i)     const { return i == buffer_component.buffer.size()-1; }
-
-char buffer_t::getchar() const { return getchar(cursor()); }
-bool buffer_t::start()   const { return cursor() == 0; }
-bool buffer_t::eol()     const { return eol(cursor()); }
-bool buffer_t::eof()     const { return eof(cursor()); }
-
-
-size_t buffer_t::get_line_length(size_t cursor) const {
+size_t Buffer_Component::get_line_length(size_t cursor) const {
   size_t count = cursor;
   while(1) {
     if(getchar(count) == '\n' || eof(count)) { break; }
@@ -339,7 +327,7 @@ size_t buffer_t::get_line_length(size_t cursor) const {
   return count-cursor+1;
 }
 
-size_t buffer_t::count_all_lines() const {
+size_t Buffer_Component::count_all_lines() const {
   size_t count = 0;
   while(1) {
     if(eof(count)) { break; }
@@ -349,20 +337,19 @@ size_t buffer_t::count_all_lines() const {
 }
 
 
-void buffer_t::shift_beginning_up() {
-  int count = get_line_length(offset_from_beginning);
-  offset_from_beginning += count;
+void Buffer_Component::shift_beginning_up() {
+  offset_from_beginning += get_line_length(offset_from_beginning);
   start_pos++;
 }
 
-void buffer_t::shift_beginning_down() {
+void Buffer_Component::shift_beginning_down() {
   assert(offset_from_beginning > 0);
 
   int count = 2;
   if(offset_from_beginning < count) {
     assert(offset_from_beginning == 1);
   } else {
-    while(buffer_component.buffer[offset_from_beginning-count] != '\n') {
+    while(buffer[offset_from_beginning-count] != '\n') {
       if(count == offset_from_beginning) { count++; break; }
       count++;
     }
@@ -373,12 +360,13 @@ void buffer_t::shift_beginning_down() {
   start_pos--;
 }
 
-void select_to_left(buffer_t*);
-void select_to_right(buffer_t*);
-void delete_to_left(buffer_t*);
-void delete_to_right(buffer_t*);
+void select_to_left(Buffer_Component *buffer);
+void select_to_right(Buffer_Component *buffer);
+void delete_to_left(Buffer_Component *buffer);
+void delete_to_right(Buffer_Component *buffer);
 
-size_t buffer_t::to_left(size_t cursor) {
+
+size_t Buffer_Component::to_left(size_t cursor) {
   if(start(cursor)) return cursor;
 
   cursor--;
@@ -395,7 +383,7 @@ size_t buffer_t::to_left(size_t cursor) {
   return cursor;
 }
 
-size_t buffer_t::to_right(size_t cursor) {
+size_t Buffer_Component::to_right(size_t cursor) {
   if(eof(cursor)) return cursor;
   if(eol(cursor)) {
     if(number_lines_fits_in_window(this)+start_pos-1 == n_line) { shift_beginning_up(); }
@@ -408,7 +396,7 @@ size_t buffer_t::to_right(size_t cursor) {
   return cursor;
 }
 
-size_t buffer_t::to_down(size_t cursor) {
+size_t Buffer_Component::to_down(size_t cursor) {
   if(n_line == total_lines-1) return cursor;
 
   size_t n_prev = n_character;
@@ -422,7 +410,7 @@ size_t buffer_t::to_down(size_t cursor) {
   return cursor;
 }
 
-size_t buffer_t::to_up(size_t cursor) {
+size_t Buffer_Component::to_up(size_t cursor) {
   if(n_line == 0) return cursor;
 
   size_t n_prev = n_character;
@@ -438,7 +426,7 @@ size_t buffer_t::to_up(size_t cursor) {
   return cursor;
 }
 
-void buffer_t::move_to(size_t i) {
+void Buffer_Component::move_to(size_t i) {
 #if 0
   size_t first = min(cursor(), i);
   size_t last  = max(cursor(), i);
@@ -474,8 +462,8 @@ void buffer_t::move_to(size_t i) {
 
 //#if 0
   size_t cursor = this->cursor();
-  void (*select)(buffer_t*);
-  void (*delete_)(buffer_t*);
+  void (*select)(Buffer_Component*);
+  void (*delete_)(Buffer_Component*);
 
   while(i != cursor) {
 
@@ -485,11 +473,11 @@ void buffer_t::move_to(size_t i) {
     // I haven't found a way around, so for now, it's going to be like this.
     // 
     if(i < cursor) {
-      buffer_component.buffer.move_left();
+      buffer.move_left();
       select  = select_to_left;
       delete_ = delete_to_left;
     } else {
-      buffer_component.buffer.move_right();
+      buffer.move_right();
       select  = select_to_right;
       delete_ = delete_to_right;
     }
@@ -519,7 +507,7 @@ void buffer_t::move_to(size_t i) {
 //#endif
 }
 
-size_t buffer_t::to_beginning_of_line(size_t cursor)  {
+size_t Buffer_Component::to_beginning_of_line(size_t cursor)  {
   if(cursor > 0 && getchar() == '\n' && getchar(cursor-1) == '\n') { return cursor; } // empty line.
   if(cursor == 0) return cursor;
 
@@ -532,28 +520,28 @@ size_t buffer_t::to_beginning_of_line(size_t cursor)  {
   return 0;
 }
 
-size_t buffer_t::to_end_of_line(size_t cursor) {
+size_t Buffer_Component::to_end_of_line(size_t cursor) {
   while(!eol(cursor) && !eof(cursor)) { cursor = to_right(cursor); }
   return cursor;
 }
 
-void buffer_t::put_backspace() {
+void Buffer_Component::put_backspace() {
   if(start()) return;
 
   to_left(cursor());
 
-  buffer_component.buffer.move_left();
+  buffer.move_left();
   put_delete();
 }
 
-void buffer_t::put_delete() {
+void Buffer_Component::put_delete() {
   if(eof()) return;
   if(eol()) total_lines--;
-  buffer_component.buffer.del();
+  buffer.del();
 }
 
-void buffer_t::put_return() {
-  buffer_component.buffer.add('\n');
+void Buffer_Component::put_return() {
+  buffer.add('\n');
   total_lines++;
 
   for(size_t i = 0; i < indentation_level; i++) { put(' '); }
@@ -562,27 +550,27 @@ void buffer_t::put_return() {
   n_line++;
 }
 
-void buffer_t::put(char c) {
+void Buffer_Component::put(char c) {
   if(c != '\n') {
-    buffer_component.buffer.add(c);
+    buffer.add(c);
     n_character++;
   } else {
     put_return();
   }
 }
 
-void buffer_t::put_tab() {
+void Buffer_Component::put_tab() {
   indentation_level += tabstop;
   for(int i = 0; i < tabstop; i++) { put(' '); }
 }
 
-void buffer_t::scroll_down() {
+void Buffer_Component::scroll_down() {
   if(start_pos == total_lines-1) return;
-  if(start_pos == n_line) { go_down(); } // @FixMe: 
+  if(start_pos == n_line) { /*go_down();*/ } // @FixMe:  @RemoveMe: remove comment.
   shift_beginning_up();
 }
 
-void buffer_t::scroll_up() {
+void Buffer_Component::scroll_up() {
   if(offset_from_beginning == 0) return;
 
   if(number_lines_fits_in_window(this)+start_pos-1 == n_line) {
@@ -591,12 +579,16 @@ void buffer_t::scroll_up() {
   shift_beginning_down();
 }
 
-void buffer_t::go_left()  { move_to(to_left(cursor())); }
-void buffer_t::go_right() { move_to(to_right(cursor())); }
-void buffer_t::go_down()  { move_to(to_down(cursor())); }
-void buffer_t::go_up()    { move_to(to_up(cursor())); }
+// @RemoveMe: 
+void Buffer_Component::go_left()  { move_to(to_left(cursor())); }
+void Buffer_Component::go_right() { move_to(to_right(cursor())); }
+void Buffer_Component::go_down()  { move_to(to_down(cursor())); }
+void Buffer_Component::go_up()    { move_to(to_up(cursor())); }
+// 
 
-void buffer_t::go_to(size_t i) {
+
+
+void Buffer_Component::go_to(size_t i) {
   while(i != cursor()) {
     if(i < cursor()) {
       go_left();
@@ -606,7 +598,6 @@ void buffer_t::go_to(size_t i) {
   }
 }
 
-/*
 size_t Buffer_Component::cursor()        const { return buffer.pre_len; }
 char Buffer_Component::getchar(size_t i) const { return buffer[i]; }
 bool Buffer_Component::start(size_t i)   const { return i == 0; }
@@ -616,18 +607,18 @@ char Buffer_Component::getchar() const { return getchar(cursor()); }
 bool Buffer_Component::start()   const { return cursor() == 0; }
 bool Buffer_Component::eol()     const { return eol(cursor()); }
 bool Buffer_Component::eof()     const { return eof(cursor()); }
-*/
 
-int number_lines_fits_in_window(const buffer_t *b)         { return (b->height < font_height) ? 1 : b->height/font_height; }
-int number_chars_on_line_fits_in_window(const buffer_t *b) { assert(b->width > font_width); return b->width / font_width - 1; }
+
+int number_lines_fits_in_window(const Buffer_Component *c) { return (c->height < font_height) ? 1 : c->height/font_height; }
+int number_chars_on_line_fits_in_window(const Buffer_Component *c) { assert(c->width > font_width); return c->width / font_width - 1; }
 
 void delete_selected(buffer_t *buffer) {
   yield_selected(buffer);
 
   current_action = no_action;
-  buffer->go_to(selection.first);
+  buffer->buffer_component.go_to(selection.first);
 
-  for(size_t i = buffer->cursor(); i <= selection.last; i++) { buffer->put_delete(); }
+  for(size_t i = buffer->buffer_component.cursor(); i <= selection.last; i++) { buffer->buffer_component.put_delete(); }
 }
 
 void yield_selected(buffer_t *buffer) {
@@ -639,34 +630,34 @@ void yield_selected(buffer_t *buffer) {
 
 void paste_from_buffer(buffer_t *buffer) {
   for(size_t i = 0; i < yielded.size(); i++) {
-    buffer->put(yielded[i]);
+    buffer->buffer_component.put(yielded[i]);
   }
 }
 
 
 
-void no_action(buffer_t*) {}
-void select_action(buffer_t *buffer) { /*select_to_right(buffer);*/ }
-void delete_action(buffer_t *buffer) { /*delete_to_left(buffer);*/ }
+void no_action(Buffer_Component *) {}
+void select_action(Buffer_Component *) { /*select_to_right(buffer);*/ }
+void delete_action(Buffer_Component *) { /*delete_to_left(buffer);*/ }
 
 
-void yield_action(buffer_t *buffer) {
+void yield_action(Buffer_Component *buffer) {
   yielded.add(buffer->getchar());
 }
 
-void select_to_right(buffer_t *buffer) { selection.last = buffer->cursor(); }
-void select_to_left(buffer_t *buffer)  { selection.first = buffer->cursor(); }
-void delete_to_right(buffer_t *buffer) { buffer->put_backspace(); }
-void delete_to_left(buffer_t *buffer)  { buffer->put_delete(); }
+void select_to_right(Buffer_Component *buffer) { selection.last = buffer->cursor(); }
+void select_to_left(Buffer_Component *buffer)  { selection.first = buffer->cursor(); }
+void delete_to_right(Buffer_Component *buffer) { buffer->put_backspace(); }
+void delete_to_left(Buffer_Component *buffer)  { buffer->put_delete(); }
 
 
 void update_indentation_level(buffer_t *buffer) {
   size_t indentation_level = 0;
-  size_t start_position = buffer->cursor() - buffer->n_character;
+  size_t start_position = buffer->buffer_component.cursor() - buffer->buffer_component.n_character;
   while(buffer->buffer_component.buffer[start_position++] == ' ') {
     indentation_level++;
   }
-  buffer->indentation_level = indentation_level;
+  buffer->buffer_component.indentation_level = indentation_level;
 }
 
 
@@ -769,52 +760,52 @@ void save() {
 // @StartEndNotHandled: corner cases just don't handled.
 void go_word_forward() { // @StartEndNotHandled: 
   auto   buffer = get_current_buffer();
-  size_t cursor = buffer->cursor();
+  size_t cursor = buffer->buffer_component.cursor();
 
-  while(buffer->getchar(cursor) == ' ') { cursor = buffer->to_right(cursor); }
-  while(buffer->getchar(cursor) != ' ') { cursor = buffer->to_right(cursor); }
-  buffer->move_to(cursor);
+  while(buffer->buffer_component.getchar(cursor) == ' ') { cursor = buffer->buffer_component.to_right(cursor); }
+  while(buffer->buffer_component.getchar(cursor) != ' ') { cursor = buffer->buffer_component.to_right(cursor); }
+  buffer->buffer_component.move_to(cursor);
 }
 
 void go_word_backwards() { // @StartEndNotHandled: 
   auto   buffer = get_current_buffer();
-  size_t cursor = buffer->cursor();
+  size_t cursor = buffer->buffer_component.cursor();
 
-  while(buffer->getchar(cursor) == ' ') { cursor = buffer->to_left(cursor); }
-  while(buffer->getchar(cursor) != ' ') { cursor = buffer->to_left(cursor); }
-  buffer->move_to(cursor);
+  while(buffer->buffer_component.getchar(cursor) == ' ') { cursor = buffer->buffer_component.to_left(cursor); }
+  while(buffer->buffer_component.getchar(cursor) != ' ') { cursor = buffer->buffer_component.to_left(cursor); }
+  buffer->buffer_component.move_to(cursor);
 }
 
 void go_paragraph_forward() { // @StartEndNotHandled: 
   auto   buffer = get_current_buffer();
-  size_t cursor = buffer->cursor();
+  size_t cursor = buffer->buffer_component.cursor();
 
-  while(buffer->n_character != 0) { cursor = buffer->to_right(cursor); }
-  while(buffer->get_line_length(cursor) == 1) {
-    assert(buffer->n_character == 0);
-    cursor = buffer->to_down(cursor);
+  while(buffer->buffer_component.n_character != 0) { cursor = buffer->buffer_component.to_right(cursor); }
+  while(buffer->buffer_component.get_line_length(cursor) == 1) {
+    assert(buffer->buffer_component.n_character == 0);
+    cursor = buffer->buffer_component.to_down(cursor);
   }
-  while(buffer->get_line_length(cursor) != 1) {
-    assert(buffer->n_character == 0);
-    cursor = buffer->to_down(cursor);
+  while(buffer->buffer_component.get_line_length(cursor) != 1) {
+    assert(buffer->buffer_component.n_character == 0);
+    cursor = buffer->buffer_component.to_down(cursor);
   }
-  buffer->move_to(cursor);
+  buffer->buffer_component.move_to(cursor);
 }
 
 void go_paragraph_backwards() { // @StartEndNotHandled: 
   auto   buffer = get_current_buffer();
-  size_t cursor = buffer->cursor();
+  size_t cursor = buffer->buffer_component.cursor();
 
-  while(buffer->n_character != 0) { cursor = buffer->to_left(cursor); }
-  while(buffer->get_line_length(cursor) == 1) {
-    assert(buffer->n_character == 0);
-    cursor = buffer->to_up(cursor);
+  while(buffer->buffer_component.n_character != 0) { cursor = buffer->buffer_component.to_left(cursor); }
+  while(buffer->buffer_component.get_line_length(cursor) == 1) {
+    assert(buffer->buffer_component.n_character == 0);
+    cursor = buffer->buffer_component.to_up(cursor);
   }
-  while(buffer->get_line_length(cursor) != 1) {
-    assert(buffer->n_character == 0);
-    cursor = buffer->to_up(cursor);
+  while(buffer->buffer_component.get_line_length(cursor) != 1) {
+    assert(buffer->buffer_component.n_character == 0);
+    cursor = buffer->buffer_component.to_up(cursor);
   }
-  buffer->move_to(cursor);
+  buffer->buffer_component.move_to(cursor);
 }
 // 
 
@@ -822,8 +813,8 @@ void go_paragraph_backwards() { // @StartEndNotHandled:
 // Splits.
 static void assert_buffers_sorted_by_x(array<buffer_t> buffers) {
   for(size_t i = 0; i < buffers.size-1; i++) {
-    assert(buffers[i].start_x <  buffers[i+1].start_x);
-    assert(buffers[i].start_y == buffers[i+1].start_y);
+    assert(buffers[i].buffer_component.start_x <  buffers[i+1].buffer_component.start_x);
+    assert(buffers[i].buffer_component.start_y == buffers[i+1].buffer_component.start_y);
   }
 }
 
@@ -854,10 +845,10 @@ void resize_tab(tab_t *tab) {
   for(size_t i = 0; i < size; i++) {
     auto buffer = &tab->buffers[i];
 
-    buffer->start_x = i * scale;
-    buffer->start_y = buffer->start_y;
-    buffer->width   = scale;
-    buffer->height  = h;
+    buffer->buffer_component.start_x = i * scale;
+    buffer->buffer_component.start_y = buffer->buffer_component.start_y;
+    buffer->buffer_component.width   = scale;
+    buffer->buffer_component.height  = h;
   }
 }
 
@@ -896,7 +887,6 @@ void to_prev_in_search() {
   if(buffer->found_in_a_file) {
     buffer->search_index = (buffer->search_index) ? buffer->search_index : buffer->found.size;
     Loc loc = buffer->found[--buffer->search_index];
-    //go_to
   }
 }
 
@@ -904,8 +894,8 @@ void to_next_in_search() {
   auto buffer = get_current_buffer();
   if(buffer->found_in_a_file) {
     Loc loc = buffer->found[++buffer->search_index];
-    while(buffer->cursor() != loc.index) {
-      buffer->go_right(); // @FixMe: 
+    while(buffer->buffer_component.cursor() != loc.index) {
+      buffer->buffer_component.go_right(); // @FixMe: 
     }
   }
 }

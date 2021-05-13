@@ -11,63 +11,10 @@ struct Buffer_Component {
   size_t n_character, n_line;
   size_t offset_from_beginning, start_pos;
   size_t indentation_level;
+  size_t total_lines;
   size_t index;
 
-
-  // 
-  size_t cursor() const;
-  char getchar(size_t) const;
-  bool start(size_t) const;
-  bool eol(size_t) const;
-  bool eof(size_t) const;
-  char getchar() const;
-  bool start() const;
-  bool eol() const;
-  bool eof() const;
-  // 
-};
-
-struct Undo_Component {
-
-};
-
-struct Search_Component {
-
-};
-
-struct Selection_Component {
-
-};
-
-struct Loc { size_t index, l, c, size; };
-
-struct buffer_t {
-  array<buffer_t> undo;
-  array<buffer_t> redo;
-
-  string filename;
-
-  // search.
-  array<Loc> found;
-  bool found_in_a_file;
-  size_t search_index;
-  // 
-
-  int start_x, start_y, width, height;
-
-  Buffer_Component buffer_component;
-
-  // @RemoveMe: 
-  gap_buffer buffer2;
-  size_t n_character, n_line;
-  size_t offset_from_beginning, start_pos;
-  size_t indentation_level;
-  // @End: 
-
-  size_t offset_on_line, total_lines;
-
-
-  void draw() const;
+  int start_x, start_y, width, height; // @Ugh: 
 
 
   // 
@@ -105,16 +52,47 @@ struct buffer_t {
   bool eof() const;
   // 
 
+  int get_relative_pos_x(int) const;
+  int get_relative_pos_y(int) const;
 
   // Helpers.
   void go_right();
   void go_left();
   void go_down();
   void go_up();
+};
+
+struct Undo_Component {
+
+};
+
+struct Search_Component {
+
+};
+
+struct Selection_Component {
+
+};
+
+struct Loc { size_t index, l, c, size; };
+
+struct buffer_t {
+  array<buffer_t> undo;
+  array<buffer_t> redo;
+
+  string filename;
+
+  // search.
+  array<Loc> found;
+  bool found_in_a_file;
+  size_t search_index;
   // 
 
-  int get_relative_pos_x(int) const;
-  int get_relative_pos_y(int) const;
+  Buffer_Component buffer_component;
+
+  size_t offset_on_line; // @ActuallyNotUsed: @RemoveMe: 
+
+  void draw() const;
 };
 
 
@@ -124,8 +102,8 @@ struct tab_t {
 };
 
 
-int number_lines_fits_in_window(const buffer_t *);
-int number_chars_on_line_fits_in_window(const buffer_t *);
+int number_lines_fits_in_window(const Buffer_Component *);
+int number_chars_on_line_fits_in_window(const Buffer_Component *);
 int get_current_line_indent(buffer_t *);
 
 array<tab_t> &get_tabs();
@@ -164,12 +142,12 @@ void go_word_backwards();
 void go_paragraph_forward();
 void go_paragraph_backwards();
 
-void no_action(buffer_t*);
-void select_action(buffer_t*);
-void delete_action(buffer_t*);
-void yield_action(buffer_t*);
-void select_to_left(buffer_t*);
-void select_to_right(buffer_t*);
+void no_action(Buffer_Component *buffer);
+void select_action(Buffer_Component *buffer);
+void delete_action(Buffer_Component *buffer);
+void yield_action(Buffer_Component *buffer);
+void select_to_left(Buffer_Component *buffer);
+void select_to_right(Buffer_Component *buffer);
 
 void save_current_state_for_undo(buffer_t *);
 void undo(buffer_t *);
