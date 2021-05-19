@@ -256,9 +256,10 @@ Token *Lexer::peek_than_eat_token(s32 i = 0) {
   return tok;
 }
 
+
 const Keyword_Def *Lexer::maybe_get_keyword(const char *c) {
   for(auto &keyword : keywords_table) {
-    if(c == keyword.name) {
+    if(ensure_space(c, keyword.name.size) && c == keyword.name) {
       c += keyword.name.size;
 
       if(!isalpha(*c) && *c != '_' && !isdigit(*c)) {
@@ -309,6 +310,8 @@ bool Lexer::is_comment(const char *c, Comment_Helper *comment) {
 
 
 void Lexer::process_input(const char *cursor) {
+  assert(cursor);
+
   s32 nline = 0, nchar = 0;
   Comment_Helper comment_type = COMMENT_UNINITIALIZED;
 
@@ -637,14 +640,15 @@ static void parse_syntax_command(Lexer &lexer, Language_Syntax_Struct *syntax) {
       }
 
     } else if(tok->type == TOKEN_IDENT) {
-      Keyword_Def *k     = syntax->keywords.add();
       string      *name  = syntax->names.add();
+      Keyword_Def *k     = syntax->keywords.add();
       SDL_Color   *color = syntax->colors.add();
 
-      k->name = tok->string_literal;
+      *name = to_string(tok->string_literal);
+
+      k->name = to_literal(*name);
       k->type = (TokenType)keyword_count++;
 
-      *name = to_string(tok->string_literal);
       parse_color(lexer, color);
 
     } else {
@@ -710,6 +714,8 @@ static bool parse_top_level(Lexer &lexer) {
 }
 
 void interp(const char *cursor) {
+  if(!cursor) return;
+
   // @MemoryLeak: Every array, string, everything!!!
   for(auto &syntax : settings.base) {
     syntax.keywords.clear();
@@ -791,7 +797,9 @@ static void parse_find_command(Lexer &lexer) {
 
 
 void interp_single_command(const char *cursor) {
-  Lexer lexer;
+  if(!cursor) return;
+
+  Lexer lexer = {};
   lexer.process_input(cursor);
 
   Token *tok = lexer.peek_than_eat_token();

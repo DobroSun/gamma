@@ -42,7 +42,7 @@ static array<tab_t>  tabs = {};
 static tab_t        *active_tab = NULL;
 
 static Select_Buffer selection = {};
-static gap_buffer yielded = {};
+static gap_buffer    yielded = {};
 
 array<tab_t>       &get_tabs()           { return tabs; }
 tab_t             *&get_current_tab()    { return assert(active_tab), active_tab; }
@@ -57,7 +57,7 @@ size_t read_file_into_memory(FILE *f, char **mem, size_t gap_len) {
   size = ftell(f);
   rewind(f);
 
-  *mem   = (char*)malloc(size + gap_len);
+  *mem   = (char*)allocate(size+gap_len+1);
   result = fread(*mem + gap_len, sizeof(char), size, f);
 
   if(result != size) { fprintf(stderr, "@Incomplete:"); }
@@ -104,7 +104,7 @@ void open_existing_buffer(buffer_t *prev) {
 
 void open_existing_or_new_buffer(string s) {
   buffer_t *p = find_if(active_tab->buffers,
-                        [s](buffer_t b) { return b.filename == s; });
+                        [=](buffer_t b) { return b.filename == s; });
 
   if(p) {
     open_existing_buffer(p);
@@ -663,7 +663,7 @@ void init(int argc, char **argv) {
       int len    = strlen(arg);
       int cursor = 0;
 
-      literal option;
+      literal option = {};
       if(arg[cursor] == '-') {
         cursor++;
         if(arg[cursor] == '-') {
@@ -704,11 +704,11 @@ void init(int argc, char **argv) {
   }
 
   {
-    char *string;
-    defer { free(string); };
+    char *string = NULL;
+    defer { if(string) deallocate(string); };
     {
       FILE *f = fopen(settings_filename, "r");
-      defer { fclose(f); };
+      defer { if(f) fclose(f); };
       read_file_into_memory(f, &string);
     }
     interp(string);

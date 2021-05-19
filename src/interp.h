@@ -55,10 +55,9 @@ struct Keyword_Def {
 };
 
 struct Language_Syntax_Struct {
+  array<string>      names;
   array<Keyword_Def> keywords;
-
-  array<string>    names;
-  array<SDL_Color> colors;
+  array<SDL_Color>   colors;
 
   bool defined_color_for_literals;
   SDL_Color color_for_literals;

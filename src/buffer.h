@@ -88,7 +88,6 @@ struct buffer_t {
   void draw() const;
 };
 
-
 struct tab_t {
   array<buffer_t> buffers;
   buffer_t *current_buffer;
