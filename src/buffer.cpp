@@ -622,6 +622,7 @@ void yield_selected(buffer_t *buffer) {
 
 void paste_from_buffer(buffer_t *buffer) {
   for(size_t i = 0; i < yielded.size(); i++) {
+    assert(yielded[i] != '\0');
     buffer->buffer_component.put(yielded[i]);
   }
 }
@@ -919,7 +920,7 @@ void find_in_buffer(Search_Component *search, Buffer_Component *buffer, const st
     cursor++;
   }
 
-  search->search_index    = 0;
+  search->search_index = 0;
   
   // @Hack: Well, i don't want to Copy&Paste here, so ...
   to_next_in_search(search, buffer);

@@ -1,6 +1,9 @@
 #ifndef GAMMA_GAP_BUFFER_H
 #define GAMMA_GAP_BUFFER_H
 
+#define INITIAL_GAP_LENGTH 1024
+
+
 struct gap_buffer {
   string chars;
   size_t pre_len;
@@ -45,15 +48,24 @@ struct gap_buffer {
       //         moving gap(3 times left).
       */
 
-      size_t size     = (chars.size) ? chars.size : 12; // @Speed: Check on the best initial value for gap_len.
-      size_t post_len = size - pre_len;
-      pre_len = size;
-      gap_len = size;
+      if(chars.size) {
+        size_t size, post_len;
+        size     = chars.size;
+        post_len = size - pre_len;
+        pre_len  = size;
+        gap_len  = size;
 
-      chars.resize(size*2);
-      for(size_t i = 0; i < post_len; i++) {
-        move_left();
+        chars.resize(size*2);
+        for(size_t i = 0; i < post_len; i++) { move_left(); }
+
+      } else {
+        size_t size;
+        size    = INITIAL_GAP_LENGTH;
+        pre_len = 0;
+        gap_len = size;
+        chars.resize(size);
       }
+
     }
 
     chars[pre_len++] = val;
@@ -84,9 +96,9 @@ struct gap_buffer {
       post_len--;
     }
     while(pre_len) {
-      backspace(); // decreases pre_len by itself.
+      backspace();
     }
-    assert(!pre_len && size() == 0);
+    assert(pre_len == 0 && size() == 0);
   }
 
   char &operator[](size_t i) {
@@ -131,5 +143,7 @@ inline char *string_from_gap_buffer(const gap_buffer *g) {
 
   return r;
 }
+
+#undef INITIAL_GAP_LENGTH 
 
 #endif

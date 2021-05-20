@@ -218,8 +218,8 @@ struct string : array<char> {
 
   void resize(size_t new_cap = 0) {
     reserve(new_cap);
-    size = capacity-2;
-    assert(data[size] == '\0');
+    size = capacity-1;
+    assert(data[size-1] == '\0');
   }
 };
 
