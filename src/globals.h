@@ -33,6 +33,7 @@ const SDL_Color BlackColor = {0, 0, 0, 255};
 
 inline void* allocate(size_t bytes) {
   void *r = malloc(bytes);
+  assert(r);
   memset(r, 0, bytes);
   return r;
 }
