@@ -8,24 +8,14 @@ struct Select_Buffer {
 
 struct Buffer_Component {
   gap_buffer buffer;
+  size_t cursor1; // @Rename: 
   size_t n_character, n_line;
   size_t offset_from_beginning, start_pos;
   size_t indentation_level;
   size_t total_lines;
-  size_t index;
 
   int start_x, start_y, width, height; // @Ugh: 
 
-
-  // 
-  size_t to_left(size_t);
-  size_t to_right(size_t);
-  size_t to_down(size_t);
-  size_t to_up(size_t);
-  size_t to_end_of_line(size_t);
-  size_t to_beginning_of_line(size_t);
-  void   move_to(size_t);
-  void   go_to(size_t);
 
   size_t get_line_length(size_t) const;
   size_t count_all_lines() const;
@@ -56,6 +46,7 @@ struct Buffer_Component {
   int get_relative_pos_y(int) const;
 
   // Helpers.
+  void go_to(size_t);
   void go_right();
   void go_left();
   void go_down();
@@ -67,12 +58,14 @@ struct Undo_Component {
   array<Buffer_Component> redo;
 };
 
-struct Loc { size_t index, l, c, size; };
+struct Loc {
+  size_t index, l, c, size;
+};
 
 struct Search_Component {
   array<Loc> found;
-  bool found_in_a_file;
   size_t search_index;
+  bool found_in_a_file;
 };
 
 struct buffer_t {
@@ -144,6 +137,10 @@ void select_to_right(Buffer_Component *buffer);
 void save_current_state_for_undo(Undo_Component *, Buffer_Component *);
 void undo(Undo_Component *, Buffer_Component *);
 void redo(Undo_Component *, Buffer_Component *);
+
+Buffer_Component to_beginning_of_line(Buffer_Component);
+Buffer_Component to_end_of_line(Buffer_Component);
+Buffer_Component move_to(Buffer_Component);
 
 void update_indentation_level(buffer_t*);
 

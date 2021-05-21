@@ -99,7 +99,9 @@ void open_existing_buffer(buffer_t *prev) {
   active_tab->current_buffer = buffer;
 
   *buffer = *prev; // @Temoprary: Should we copy `filename` in here, or not?
-  buffer->buffer_component.move_to(0);
+
+  buffer->buffer_component.cursor1 = 0; // @Rename: wanted position.
+  buffer->buffer_component = move_to(buffer->buffer_component);
 }
 
 void open_existing_or_new_buffer(string s) {
@@ -358,67 +360,97 @@ void delete_to_left(Buffer_Component *buffer);
 void delete_to_right(Buffer_Component *buffer);
 
 
-size_t Buffer_Component::to_left(size_t cursor) {
-  if(start(cursor)) return cursor;
+Buffer_Component to_left(Buffer_Component buffer) {
+  auto &cursor = buffer.cursor1;
+
+  if(buffer.start(cursor)) return buffer;
 
   cursor--;
-  if(eol(cursor)) {
-    if(start_pos == n_line && n_line != 0) { shift_beginning_down(); }
+  if(buffer.eol(cursor)) {
+    if(buffer.start_pos == buffer.n_line && buffer.n_line != 0) { buffer.shift_beginning_down(); }
 
     size_t tmp = cursor;
-    while(!start(tmp) && !eol(tmp-1)) { tmp--; }
-    n_character = get_line_length(tmp)-1;
-    n_line--;
+    while(!buffer.start(tmp) && !buffer.eol(tmp-1)) { tmp--; }
+    buffer.n_character = buffer.get_line_length(tmp)-1;
+    buffer.n_line--;
   } else {
-    n_character--;
+    buffer.n_character--;
   }
-  return cursor;
+  return buffer;
 }
 
-size_t Buffer_Component::to_right(size_t cursor) {
-  if(eof(cursor)) return cursor;
-  if(eol(cursor)) {
-    if(number_lines_fits_in_window(this)+start_pos-1 == n_line) { shift_beginning_up(); }
-    n_character = 0;
-    n_line++;
+Buffer_Component to_right(Buffer_Component buffer) {
+  auto &cursor = buffer.cursor1;
+
+  if(buffer.eof(cursor)) return buffer;
+  if(buffer.eol(cursor)) {
+    if(number_lines_fits_in_window(&buffer)+buffer.start_pos-1 == buffer.n_line) { buffer.shift_beginning_up(); }
+    buffer.n_character = 0;
+    buffer.n_line++;
   } else {
-    n_character++;
+    buffer.n_character++;
   }
   cursor++;
-  return cursor;
+  return buffer;
 }
 
-size_t Buffer_Component::to_down(size_t cursor) {
-  if(n_line == total_lines-1) return cursor;
+Buffer_Component to_down(Buffer_Component buffer) {
+  size_t &cursor = buffer.cursor1;
 
-  size_t n_prev = n_character;
-  cursor = to_end_of_line(cursor);
-  cursor = to_right(cursor);
+  if(buffer.n_line == buffer.total_lines-1) return buffer;
 
-  size_t index = min(get_line_length(cursor)-1, n_prev);
+  size_t n_prev = buffer.n_character;
+  buffer = to_end_of_line(buffer);
+  buffer = to_right(buffer);
+
+  size_t index = min(buffer.get_line_length(cursor)-1, n_prev);
   for(size_t i = 0; i < index; i++) {
-    cursor = to_right(cursor);
+    buffer = to_right(buffer);
   }
-  return cursor;
+  return buffer;
 }
 
-size_t Buffer_Component::to_up(size_t cursor) {
-  if(n_line == 0) return cursor;
+Buffer_Component to_up(Buffer_Component buffer) {
+  auto &cursor = buffer.cursor1;
 
-  size_t n_prev = n_character;
-  size_t size;
+  if(buffer.n_line == 0) return buffer;
 
-  cursor = to_beginning_of_line(cursor);
-  cursor = to_left(cursor);
+  size_t n_prev = buffer.n_character;
 
-  if(n_character > n_prev) {
-    size_t size = n_character;
-    for(size_t i = 0; i < size-n_prev; i++) { cursor = to_left(cursor); }
+  buffer = to_beginning_of_line(buffer);
+  buffer = to_left(buffer);
+
+  if(buffer.n_character > n_prev) {
+    size_t size = buffer.n_character;
+    for(size_t i = 0; i < size-n_prev; i++) { buffer = to_left(buffer); }
   }
-  return cursor;
+  return buffer;
 }
 
-void Buffer_Component::move_to(size_t i) {
+Buffer_Component to_beginning_of_line(Buffer_Component buffer) {
+  auto &cursor = buffer.cursor1;
+
+  if(cursor > 0 && buffer.getchar(cursor) == '\n' && buffer.getchar(cursor-1) == '\n') { return buffer; } // empty line.
+  if(cursor == 0) return buffer;
+
+  while(1) {
+    buffer = to_left(buffer);
+    if(buffer.eol(cursor))   { return to_right(buffer); }
+    if(buffer.start(cursor)) { return buffer; }
+  }
+
+  assert(0);
+  return buffer;
+}
+
+Buffer_Component to_end_of_line(Buffer_Component buffer) {
+  auto &cursor = buffer.cursor1;
+  while(!buffer.eol(cursor) && !buffer.eof(cursor)) { buffer = to_right(buffer); }
+  return buffer;
+}
+
+
+Buffer_Component move_to(Buffer_Component buffer) {
 #if 0
   size_t first = min(cursor(), i);
   size_t last  = max(cursor(), i);
@@ -452,24 +484,24 @@ void Buffer_Component::move_to(size_t i) {
   current_action = (current_action == delete_action) ? no_action : current_action;
 #endif
 
-//#if 0
-  size_t cursor = this->cursor();
+  size_t wanted = buffer.cursor1;
+  size_t now    = buffer.cursor();
   void (*select)(Buffer_Component*);
   void (*delete_)(Buffer_Component*);
 
-  while(i != cursor) {
+  while(wanted != now) {
 
     // 
     // @Note: This turns out to be we need two overloads (left/right) for every action presented, 
     // because right/left directions are not symmetric, so we get weird behaviour, without this trick.
     // I haven't found a way around, so for now, it's going to be like this.
     // 
-    if(i < cursor) {
-      buffer.move_left();
+    if(wanted < now) {
+      buffer.buffer.move_left();
       select  = select_to_left;
       delete_ = delete_to_left;
     } else {
-      buffer.move_right();
+      buffer.buffer.move_right();
       select  = select_to_right;
       delete_ = delete_to_right;
     }
@@ -481,46 +513,29 @@ void Buffer_Component::move_to(size_t i) {
     if(current_action == delete_action) {
       current_action = delete_;
     }
-    current_action(this);
+    current_action(&buffer);
     if(current_action == select && selection.first == selection.last) {
       current_action = select_action;
     }
 
     if(current_action == delete_to_right) {
-      cursor++;
+      now++;
     } else {
-      cursor = this->cursor();
+      now = buffer.cursor();
     }
   }
 
   if(current_action == delete_to_right || current_action == delete_to_left) {
     current_action = no_action;
   }
-//#endif
-}
-
-size_t Buffer_Component::to_beginning_of_line(size_t cursor)  {
-  if(cursor > 0 && getchar() == '\n' && getchar(cursor-1) == '\n') { return cursor; } // empty line.
-  if(cursor == 0) return cursor;
-
-  while(1) {
-    cursor = to_left(cursor);
-    if(eol(cursor))   { return to_right(cursor); }
-    if(start(cursor)) { return cursor; }
-  }
-  assert(0);
-  return 0;
-}
-
-size_t Buffer_Component::to_end_of_line(size_t cursor) {
-  while(!eol(cursor) && !eof(cursor)) { cursor = to_right(cursor); }
-  return cursor;
+  return buffer;
 }
 
 void Buffer_Component::put_backspace() {
   if(start()) return;
 
-  to_left(cursor());
+  this->cursor1 = cursor();
+  *this = to_left(*this);
 
   buffer.move_left();
   put_delete();
@@ -571,24 +586,19 @@ void Buffer_Component::scroll_up() {
   shift_beginning_down();
 }
 
-// @RemoveMe: 
-void Buffer_Component::go_left()  { move_to(to_left(cursor())); }
-void Buffer_Component::go_right() { move_to(to_right(cursor())); }
-void Buffer_Component::go_down()  { move_to(to_down(cursor())); }
-void Buffer_Component::go_up()    { move_to(to_up(cursor())); }
-// 
 
-
+void Buffer_Component::go_left()  { *this = move_to(to_left(*this)); }
+void Buffer_Component::go_right() { *this = move_to(to_right(*this)); }
+void Buffer_Component::go_down()  { *this = move_to(to_down(*this)); }
+void Buffer_Component::go_up()    { *this = move_to(to_up(*this)); }
 
 void Buffer_Component::go_to(size_t i) {
   while(i != cursor()) {
-    if(i < cursor()) {
-      go_left();
-    } else {
-      go_right();
-    }
+    if(i < cursor()) { go_left(); }
+    else             { go_right(); }
   }
 }
+
 
 size_t Buffer_Component::cursor()        const { return buffer.pre_len; }
 char Buffer_Component::getchar(size_t i) const { return buffer[i]; }
@@ -752,53 +762,60 @@ void save() {
 
 // @StartEndNotHandled: corner cases just don't handled.
 void go_word_forward() { // @StartEndNotHandled: 
-  auto   buffer = get_current_buffer();
-  size_t cursor = buffer->buffer_component.cursor();
+  auto buffer = get_current_buffer();
+  auto self   = &buffer->buffer_component;
 
-  while(buffer->buffer_component.getchar(cursor) == ' ') { cursor = buffer->buffer_component.to_right(cursor); }
-  while(buffer->buffer_component.getchar(cursor) != ' ') { cursor = buffer->buffer_component.to_right(cursor); }
-  buffer->buffer_component.move_to(cursor);
+  self->cursor1 = self->cursor();
+
+
+  while(buffer->buffer_component.getchar(self->cursor1) == ' ') { *self = to_right(*self); }
+  while(buffer->buffer_component.getchar(self->cursor1) != ' ') { *self = to_right(*self); }
+  *self = move_to(*self);
 }
 
 void go_word_backwards() { // @StartEndNotHandled: 
-  auto   buffer = get_current_buffer();
-  size_t cursor = buffer->buffer_component.cursor();
+  auto buffer = get_current_buffer();
+  auto self = &buffer->buffer_component;
 
-  while(buffer->buffer_component.getchar(cursor) == ' ') { cursor = buffer->buffer_component.to_left(cursor); }
-  while(buffer->buffer_component.getchar(cursor) != ' ') { cursor = buffer->buffer_component.to_left(cursor); }
-  buffer->buffer_component.move_to(cursor);
+  self->cursor1 = self->cursor();
+
+  while(buffer->buffer_component.getchar(self->cursor1) == ' ') { *self = to_left(*self); }
+  while(buffer->buffer_component.getchar(self->cursor1) != ' ') { *self = to_left(*self); }
+  *self = move_to(*self);
 }
 
 void go_paragraph_forward() { // @StartEndNotHandled: 
-  auto   buffer = get_current_buffer();
-  size_t cursor = buffer->buffer_component.cursor();
+  auto buffer = get_current_buffer();
+  auto self = &buffer->buffer_component;
 
-  while(buffer->buffer_component.n_character != 0) { cursor = buffer->buffer_component.to_right(cursor); }
-  while(buffer->buffer_component.get_line_length(cursor) == 1) {
+  while(buffer->buffer_component.n_character != 0) { *self = to_right(*self); }
+  while(buffer->buffer_component.get_line_length(self->cursor1) == 1) {
     assert(buffer->buffer_component.n_character == 0);
-    cursor = buffer->buffer_component.to_down(cursor);
+    *self = to_down(*self);
   }
-  while(buffer->buffer_component.get_line_length(cursor) != 1) {
+  while(buffer->buffer_component.get_line_length(self->cursor1) != 1) {
     assert(buffer->buffer_component.n_character == 0);
-    cursor = buffer->buffer_component.to_down(cursor);
+    *self = to_down(*self);
   }
-  buffer->buffer_component.move_to(cursor);
+  *self = move_to(*self);
 }
 
 void go_paragraph_backwards() { // @StartEndNotHandled: 
-  auto   buffer = get_current_buffer();
-  size_t cursor = buffer->buffer_component.cursor();
+  auto buffer = get_current_buffer();
+  auto self = &buffer->buffer_component;
 
-  while(buffer->buffer_component.n_character != 0) { cursor = buffer->buffer_component.to_left(cursor); }
-  while(buffer->buffer_component.get_line_length(cursor) == 1) {
+  self ->cursor1 = self->cursor();
+
+  while(buffer->buffer_component.n_character != 0) { *self = to_left(*self ); }
+  while(buffer->buffer_component.get_line_length(self ->cursor1) == 1) {
     assert(buffer->buffer_component.n_character == 0);
-    cursor = buffer->buffer_component.to_up(cursor);
+    *self = to_up(*self);
   }
-  while(buffer->buffer_component.get_line_length(cursor) != 1) {
+  while(buffer->buffer_component.get_line_length(self ->cursor1) != 1) {
     assert(buffer->buffer_component.n_character == 0);
-    cursor = buffer->buffer_component.to_up(cursor);
+    *self = to_up(*self);
   }
-  buffer->buffer_component.move_to(cursor);
+  *self = move_to(*self);
 }
 // 
 
@@ -886,7 +903,7 @@ void to_next_in_search(Search_Component *search, Buffer_Component *buffer) {
   if(search->found_in_a_file) {
     Loc loc = search->found[++search->search_index];
     while(buffer->cursor() != loc.index) {
-      buffer->go_right(); // @FixMe: 
+      buffer->go_right(); // @FixMe: ???
     }
   }
 }
@@ -911,6 +928,8 @@ void find_in_buffer(Search_Component *search, Buffer_Component *buffer, const st
       loc->size  = s.size;
     }
 
+    // 
+    // @Refactor: this is simply Buffer_Component::to_right.
     if(buffer->eol(cursor)) {
       nline++;
       nchar = 0;
@@ -918,6 +937,8 @@ void find_in_buffer(Search_Component *search, Buffer_Component *buffer, const st
       nchar++;
     }
     cursor++;
+    // 
+    // 
   }
 
   search->search_index = 0;
