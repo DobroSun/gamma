@@ -106,8 +106,8 @@ tab_t *open_new_tab(string);
 void change_tab(s32);
 
 void delete_selected(buffer_t *);
-void yield_selected(buffer_t *);
-void paste_from_buffer(buffer_t *);
+void yield_selected(gap_buffer, Select_Buffer);
+void paste_from_buffer(Buffer_Component*);
 
 void go_to_line(int);
 void save();
@@ -127,12 +127,20 @@ void go_word_backwards();
 void go_paragraph_forward();
 void go_paragraph_backwards();
 
+// 
 void no_action(Buffer_Component *buffer);
 void select_action(Buffer_Component *buffer);
+void select_line_action(Buffer_Component *buffer);
 void delete_action(Buffer_Component *buffer);
 void yield_action(Buffer_Component *buffer);
+
 void select_to_left(Buffer_Component *buffer);
 void select_to_right(Buffer_Component *buffer);
+void select_line_to_left(Buffer_Component *buffer);
+void select_line_to_right(Buffer_Component *buffer);
+// 
+
+
 
 void save_current_state_for_undo(Undo_Component *, Buffer_Component *);
 void undo(Undo_Component *, Buffer_Component *);

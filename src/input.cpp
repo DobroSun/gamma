@@ -20,7 +20,7 @@ bool is_console_mode() { return handle_keydown == handle_console_keydown; }
 
 // @Note: Since visual mode needs to be able to move cursor(i.e. reuse normal mode moving functions) we don't create new mode for that.
 bool is_visual_mode()      { return current_action == select_action || current_action == select_to_left || current_action == select_to_right; }
-//bool is_visual_line_mode() { return current_action == select_line_action; }
+bool is_visual_line_mode() { return current_action == select_line_action || current_action == select_line_to_left || current_action == select_line_to_right; }
 
 
 void to_normal_mode() {
@@ -42,6 +42,17 @@ void to_visual_mode() {
   get_selection().last  = get_selection().first;
   current_action = select_action;
   console_put_text("-- VISUAL --");
+}
+
+void to_visual_line_mode() {
+  assert(handle_keydown == handle_normal_mode_keydown);
+
+  Buffer_Component t = get_current_buffer()->buffer_component;
+  t.cursor1 = t.cursor();
+  get_selection().first = to_beginning_of_line(t).cursor1;
+  get_selection().last  = to_end_of_line(t).cursor1;
+  current_action = select_line_action;
+  console_put_text("-- VISUAL LINE --");
 }
 
 void open_console() { 
@@ -105,9 +116,11 @@ void handle_normal_mode_keydown(SDL_Keysym e) {
   }
 
   if(mod & KMOD_SHIFT && mod & KMOD_CTRL) {
+    // CTRL + SHIFT 
   } else if(mod & KMOD_CTRL) {
+    // CTRL
   } else if(mod & KMOD_SHIFT) {
-
+    // SHIFT + SHARED TO ALL MODS
     switch(key) { 
     case ';': open_console();      break;      // ':'
     case '4': get_current_buffer()->buffer_component = move_to(to_end_of_line(get_current_buffer()->buffer_component)); break; // '$'
@@ -117,8 +130,19 @@ void handle_normal_mode_keydown(SDL_Keysym e) {
     }
 
     if(is_visual_mode()) {
-    } else {
+      // SHIFT + VISUAL
+
+    } else if(is_visual_line_mode()) {
+      // SHIFT + VISUAL LINE
       switch(key) {
+      case 'v': to_normal_mode(); break; // 'V'.
+      default: break;
+      }
+
+    } else {
+      // SHIFT + NORMAL
+      switch(key) {
+      case 'v': to_visual_line_mode(); break; // 'V'.
       case 'd': {   // 'D'
         auto buffer = get_current_buffer();
         current_action = delete_action;
@@ -133,7 +157,8 @@ void handle_normal_mode_keydown(SDL_Keysym e) {
       }
     }
 
-  } else { // no mods.
+  } else {
+    // SHARED TO ALL MODS
     switch(key) {
     case '0': get_current_buffer()->buffer_component = move_to(to_beginning_of_line(get_current_buffer()->buffer_component)); break;
     case 'w': go_word_forward();        break;
@@ -159,25 +184,25 @@ void handle_normal_mode_keydown(SDL_Keysym e) {
     case 'n': to_next_in_search(&get_current_buffer()->search_component, &get_current_buffer()->buffer_component); break;
     case 'm': to_prev_in_search(&get_current_buffer()->search_component, &get_current_buffer()->buffer_component); break;
 
-#if 0
+//#if 0
     case 'e': {
       auto select = get_selection();
       auto buffer = get_current_buffer();
       
       printf("\n");
-      for(size_t i = select.first; i <= select.last; i++) { printf("%c", buffer->buffer[i]); }
+      for(size_t i = select.first; i <= select.last; i++) { printf("%c", buffer->buffer_component.buffer[i]); }
       printf("\n");
       break;
     }
-#endif
-
+//#endif
     default: break;
     }
 
     if(is_visual_mode()) {
+      // VISUAL
       switch(key) {
       case 'y':
-        yield_selected(get_current_buffer());
+        yield_selected(get_current_buffer()->buffer_component.buffer, get_selection());
         to_normal_mode();
         break; 
       case 'd':
@@ -194,8 +219,22 @@ void handle_normal_mode_keydown(SDL_Keysym e) {
 
       default: break;
       }
-
+    } else if(is_visual_line_mode()) {
+      // VISUAL LINE
+      switch(key) {
+      case 'y':
+        yield_selected(get_current_buffer()->buffer_component.buffer, get_selection());
+        to_normal_mode();
+        break; 
+      case 'd':
+        delete_selected(get_current_buffer());
+        to_normal_mode();
+        break; 
+      case SDLK_ESCAPE: to_normal_mode(); break;
+      default: break;
+      }
     } else {
+      // NORMAL
       switch(key) {
       case 'a':
         get_current_buffer()->buffer_component.go_right();
@@ -204,21 +243,14 @@ void handle_normal_mode_keydown(SDL_Keysym e) {
 
       case 'y':
         if(current_action == yield_action) { // 'yy'.
-#if 0
           auto buffer = get_current_buffer();
           auto select = get_selection();
-          size_t cursor = buffer->buffer_component.cursor();
 
-          select.first = buffer->buffer_component.to_beginning_of_line(buffer->cursor());
-          select.last  = buffer->buffer_component.to_end_of_line(buffer->cursor());
+          select.first = to_beginning_of_line(buffer->buffer_component).cursor1;
+          select.last  = to_end_of_line(buffer->buffer_component).cursor1;
 
-          yield_selected(buffer->buffer_component);
+          yield_selected(buffer->buffer_component.buffer, select);
           to_normal_mode();
-
-          for(size_t i = buffer->buffer_component.cursor(); i != cursor; i--) {
-             buffer->buffer_component.to_left(buffer->buffer_component.cursor());
-          }
-#endif
         } else {
           current_action = yield_action;
         }
@@ -243,7 +275,7 @@ void handle_normal_mode_keydown(SDL_Keysym e) {
         to_insert_mode();
         break;
 
-      case 'p': paste_from_buffer(get_current_buffer()); break;
+      case 'p': paste_from_buffer(&get_current_buffer()->buffer_component); break;
       case 'x': get_current_buffer()->buffer_component.put_delete();      break;
       case 'i': to_insert_mode();           break;
       case 'u': undo(&get_current_buffer()->undo_component, &get_current_buffer()->buffer_component); break;

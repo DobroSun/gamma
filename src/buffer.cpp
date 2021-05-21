@@ -486,6 +486,7 @@ Buffer_Component move_to(Buffer_Component buffer) {
 
   size_t wanted = buffer.cursor1;
   size_t now    = buffer.cursor();
+  void (*select_line)(Buffer_Component*);
   void (*select)(Buffer_Component*);
   void (*delete_)(Buffer_Component*);
 
@@ -498,24 +499,38 @@ Buffer_Component move_to(Buffer_Component buffer) {
     // 
     if(wanted < now) {
       buffer.buffer.move_left();
+      select_line = select_line_to_left;
       select  = select_to_left;
       delete_ = delete_to_left;
     } else {
       buffer.buffer.move_right();
+      select_line = select_line_to_right;
       select  = select_to_right;
       delete_ = delete_to_right;
     }
 
 
-    if(current_action == select_action) {
+    // Initialize.
+    if(current_action == select_line_action) {
+      current_action = select_line;
+    } else if(current_action == select_action) {
       current_action = select;
-    }
-    if(current_action == delete_action) {
+    } else if(current_action == delete_action) {
       current_action = delete_;
     }
+
     current_action(&buffer);
-    if(current_action == select && selection.first == selection.last) {
+
+
+    // @Hack: to switch actions for visual mode.
+    bool is_visual_action = current_action == select_to_right || current_action == select_to_left;
+    if(is_visual_action && selection.first == selection.last) {
       current_action = select_action;
+    }
+
+    bool is_visual_line_action = current_action == select_line_to_left || current_action == select_line_to_right;
+    if(is_visual_line_action && selection.first+buffer.get_line_length(selection.first)-1 == selection.last) {
+      current_action = select_line_action;
     }
 
     if(current_action == delete_to_right) {
@@ -587,10 +602,10 @@ void Buffer_Component::scroll_up() {
 }
 
 
-void Buffer_Component::go_left()  { *this = move_to(to_left(*this)); }
-void Buffer_Component::go_right() { *this = move_to(to_right(*this)); }
-void Buffer_Component::go_down()  { *this = move_to(to_down(*this)); }
-void Buffer_Component::go_up()    { *this = move_to(to_up(*this)); }
+void Buffer_Component::go_left()  { this->cursor1 = cursor(); *this = move_to(to_left(*this)); }
+void Buffer_Component::go_right() { this->cursor1 = cursor(); *this = move_to(to_right(*this)); }
+void Buffer_Component::go_down()  { this->cursor1 = cursor(); *this = move_to(to_down(*this)); }
+void Buffer_Component::go_up()    { this->cursor1 = cursor(); *this = move_to(to_up(*this)); }
 
 void Buffer_Component::go_to(size_t i) {
   while(i != cursor()) {
@@ -615,7 +630,7 @@ int number_lines_fits_in_window(const Buffer_Component *c) { return (c->height <
 int number_chars_on_line_fits_in_window(const Buffer_Component *c) { assert(c->width > font_width); return c->width / font_width - 1; }
 
 void delete_selected(buffer_t *buffer) {
-  yield_selected(buffer);
+  yield_selected(buffer->buffer_component.buffer, get_selection());
 
   current_action = no_action;
   buffer->buffer_component.go_to(selection.first);
@@ -623,17 +638,17 @@ void delete_selected(buffer_t *buffer) {
   for(size_t i = buffer->buffer_component.cursor(); i <= selection.last; i++) { buffer->buffer_component.put_delete(); }
 }
 
-void yield_selected(buffer_t *buffer) {
+void yield_selected(gap_buffer buffer, Select_Buffer selection) {
   yielded.clear();
   for(size_t i = selection.first; i <= selection.last; i++) {
-    yielded.add(buffer->buffer_component.buffer[i]);
+    yielded.add(buffer[i]);
   }
 }
 
-void paste_from_buffer(buffer_t *buffer) {
+void paste_from_buffer(Buffer_Component *buffer) {
   for(size_t i = 0; i < yielded.size(); i++) {
     assert(yielded[i] != '\0');
-    buffer->buffer_component.put(yielded[i]);
+    buffer->put(yielded[i]);
   }
 }
 
@@ -642,14 +657,25 @@ void paste_from_buffer(buffer_t *buffer) {
 void no_action(Buffer_Component *) {}
 void select_action(Buffer_Component *) { /*select_to_right(buffer);*/ }
 void delete_action(Buffer_Component *) { /*delete_to_left(buffer);*/ }
+void select_line_action(Buffer_Component *) {}
 
 
-void yield_action(Buffer_Component *buffer) {
-  yielded.add(buffer->getchar());
+void yield_action(Buffer_Component *buffer) { yielded.add(buffer->getchar()); } // @Incomplete: 
+
+void select_to_left(Buffer_Component *buffer)  { selection.first = buffer->cursor(); }
+void select_to_right(Buffer_Component *buffer) { selection.last  = buffer->cursor(); }
+
+void select_line_to_left(Buffer_Component *buffer)  {
+  buffer->cursor1 = buffer->cursor();
+  selection.first = to_beginning_of_line(*buffer).cursor1;
+  //selection.first = buffer->cursor();
+}
+void select_line_to_right(Buffer_Component *buffer) {
+  buffer->cursor1 = buffer->cursor();
+  selection.last = to_end_of_line(*buffer).cursor1;
+  //selection.last = buffer->cursor();
 }
 
-void select_to_right(Buffer_Component *buffer) { selection.last = buffer->cursor(); }
-void select_to_left(Buffer_Component *buffer)  { selection.first = buffer->cursor(); }
 void delete_to_right(Buffer_Component *buffer) { buffer->put_backspace(); }
 void delete_to_left(Buffer_Component *buffer)  { buffer->put_delete(); }
 
