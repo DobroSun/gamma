@@ -17,6 +17,7 @@ void to_visual_mode();
 bool is_normal_mode();
 bool is_insert_mode();
 bool is_visual_mode();
+bool is_visual_line_mode();
 bool is_console_mode();
 
 void handle_input_keydown(SDL_Keysym);

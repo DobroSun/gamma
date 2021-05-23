@@ -134,7 +134,7 @@ void buffer_t::draw() const {
   while(i < buffer_component.buffer.size()) {
     int current_line_length = buffer_component.get_line_length(i);
 
-    char string[current_line_length+1] = {0};
+    char string[current_line_length+1] = {};
 
     for(size_t j = 0; j < current_line_length; j++) {
       string[j] = (buffer_component.buffer[j+i] == '\n') ? ' ' : buffer_component.buffer[j+i];
