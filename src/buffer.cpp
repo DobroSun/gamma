@@ -20,7 +20,7 @@ static literal get_file_extension(string filename) {
 }
 
 static void split(array<literal> *lines, literal l, literal split_by) {
-  const char *data  = l.data;
+  const char *data = l.data;
   size_t count = 0;
   size_t size  = 0;
   while(count < l.size) {
@@ -118,8 +118,6 @@ void open_existing_or_new_buffer(string s) {
 void change_tab(s32 index) {
   if(index >= 0 && index < tabs.size) {
     active_tab = &tabs[index];
-  } else {
-    // Nothing.
   }
 }
 
@@ -786,61 +784,63 @@ void save() {
 
 // Commands.
 
-// @StartEndNotHandled: corner cases just don't handled.
-void go_word_forward() { // @StartEndNotHandled: 
+
+// @CleanUp: 
+static bool is_space(buffer_t *b, Buffer_Component *self) { return b->buffer_component.getchar(self->cursor1) == ' '; }
+static bool eof(buffer_t *b, Buffer_Component *self)      { return b->buffer_component.eof(self->cursor1); }
+static bool start(buffer_t *b, Buffer_Component *self)    { return b->buffer_component.start(self->cursor1); }
+static bool not_at_first_char(buffer_t *b) { return b->buffer_component.n_character != 0; }
+static bool is_empty_line(buffer_t *b, Buffer_Component *self) {
+  return b->buffer_component.get_line_length(self->cursor1) == 1;
+}
+
+void go_word_forward() {
   auto buffer = get_current_buffer();
   auto self   = &buffer->buffer_component;
 
   self->cursor1 = self->cursor();
 
-
-  while(buffer->buffer_component.getchar(self->cursor1) == ' ') { *self = to_right(*self); }
-  while(buffer->buffer_component.getchar(self->cursor1) != ' ') { *self = to_right(*self); }
+  while( is_space(buffer, self) && !eof(buffer, self)) { *self = to_right(*self); }
+  while(!is_space(buffer, self) && !eof(buffer, self)) { *self = to_right(*self); }
   *self = move_to(*self);
 }
 
-void go_word_backwards() { // @StartEndNotHandled: 
+void go_word_backwards() {
   auto buffer = get_current_buffer();
   auto self = &buffer->buffer_component;
 
   self->cursor1 = self->cursor();
 
-  while(buffer->buffer_component.getchar(self->cursor1) == ' ') { *self = to_left(*self); }
-  while(buffer->buffer_component.getchar(self->cursor1) != ' ') { *self = to_left(*self); }
+  while( is_space(buffer, self) && !start(buffer, self)) { *self = to_left(*self); }
+  while(!is_space(buffer, self) && !start(buffer, self)) { *self = to_left(*self); }
   *self = move_to(*self);
 }
 
-void go_paragraph_forward() { // @StartEndNotHandled: 
+void go_paragraph_forward() {
   auto buffer = get_current_buffer();
-  auto self = &buffer->buffer_component;
+  auto self   = &buffer->buffer_component;
 
-  while(buffer->buffer_component.n_character != 0) { *self = to_right(*self); }
-  while(buffer->buffer_component.get_line_length(self->cursor1) == 1) {
-    assert(buffer->buffer_component.n_character == 0);
-    *self = to_down(*self);
-  }
-  while(buffer->buffer_component.get_line_length(self->cursor1) != 1) {
-    assert(buffer->buffer_component.n_character == 0);
-    *self = to_down(*self);
-  }
+  self->cursor1 = self->cursor();
+
+  assert(buffer->buffer_component.n_character == self->n_character);
+
+  while(not_at_first_char(buffer) && !eof(buffer, self)) { *self = to_right(*self); }
+  while( is_empty_line(buffer, self) && !eof(buffer, self)) { *self = to_down(*self); }
+  while(!is_empty_line(buffer, self) && !eof(buffer, self)) { *self = to_down(*self); }
   *self = move_to(*self);
 }
 
-void go_paragraph_backwards() { // @StartEndNotHandled: 
+void go_paragraph_backwards() {
   auto buffer = get_current_buffer();
-  auto self = &buffer->buffer_component;
+  auto self   = &buffer->buffer_component;
 
-  self ->cursor1 = self->cursor();
+  self->cursor1 = self->cursor();
 
-  while(buffer->buffer_component.n_character != 0) { *self = to_left(*self ); }
-  while(buffer->buffer_component.get_line_length(self ->cursor1) == 1) {
-    assert(buffer->buffer_component.n_character == 0);
-    *self = to_up(*self);
-  }
-  while(buffer->buffer_component.get_line_length(self ->cursor1) != 1) {
-    assert(buffer->buffer_component.n_character == 0);
-    *self = to_up(*self);
-  }
+  assert(buffer->buffer_component.n_character == self->n_character);
+
+  while(not_at_first_char(buffer) && !start(buffer, self)) { *self = to_left(*self ); }
+  while( is_empty_line(buffer, self) && !start(buffer, self)) { *self = to_up(*self); }
+  while(!is_empty_line(buffer, self) && !start(buffer, self)) { *self = to_up(*self); }
   *self = move_to(*self);
 }
 // 

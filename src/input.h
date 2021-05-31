@@ -9,6 +9,7 @@ void handle_console_keydown(SDL_Keysym);
 void handle_insert_mode_keydown(SDL_Keysym);
 void handle_visual_mode_keydown(SDL_Keysym);
 void handle_normal_mode_keydown(SDL_Keysym);
+void handle_tab_mode_keydown(SDL_Keysym);
 
 void to_normal_mode();
 void to_insert_mode();

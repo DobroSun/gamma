@@ -18,7 +18,7 @@ int main(int argc, char **argv) {
     // measure_scope();
 
     SDL_Event e;
-    if(SDL_PollEvent(&e)) {
+    if(SDL_WaitEvent(&e)) {
       switch(e.type) {
         case SDL_QUIT:
           should_quit = true;
@@ -154,10 +154,12 @@ int main(int argc, char **argv) {
     SDL_RenderPresent(get_renderer());
   }
 
+  /*
   SDL_DestroyRenderer(get_renderer());
   SDL_DestroyWindow(get_win());
   TTF_CloseFont(get_font());
   TTF_Quit();
   SDL_Quit();
+  */
   return 0;
 }

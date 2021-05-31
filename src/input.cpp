@@ -17,6 +17,7 @@ void handle_input_keydown(SDL_Keysym k) { handle_keydown(k); }
 bool is_normal_mode()  { return handle_keydown == handle_normal_mode_keydown; }
 bool is_insert_mode()  { return handle_keydown == handle_insert_mode_keydown && !no_input; }
 bool is_console_mode() { return handle_keydown == handle_console_keydown; }
+bool is_tab_mode()     { return handle_keydown == handle_tab_mode_keydown; }
 
 // @Note: Since visual mode needs to be able to move cursor(i.e. reuse normal mode moving functions) we don't create new mode for that.
 bool is_visual_mode()      { return current_action == select_action || current_action == select_to_left || current_action == select_to_right; }
@@ -55,6 +56,11 @@ void to_visual_line_mode() {
   console_put_text("-- VISUAL LINE --");
 }
 
+void to_tab_mode() {
+  handle_keydown = handle_tab_mode_keydown;
+  console_clear();
+}
+
 void open_console() { 
   handle_keydown = handle_console_keydown;
   console_clear(); 
@@ -91,6 +97,13 @@ void handle_insert_mode_keydown(SDL_Keysym e) {
   case SDLK_ESCAPE:    to_normal_mode(); break;
   default: break;
   }
+}
+
+void handle_tab_mode_keydown(SDL_Keysym e) {
+  if(isdigit(e.sym)) {
+    change_tab(e.sym - '0');
+  }
+  to_normal_mode();
 }
 
 static bool is_modifying_key(int key) {
@@ -184,7 +197,7 @@ void handle_normal_mode_keydown(SDL_Keysym e) {
     case 'n': to_next_in_search(&get_current_buffer()->search_component, &get_current_buffer()->buffer_component); break;
     case 'm': to_prev_in_search(&get_current_buffer()->search_component, &get_current_buffer()->buffer_component); break;
 
-//#if 0
+#if 0
     case 'e': {
       auto select = get_selection();
       auto buffer = get_current_buffer();
@@ -194,7 +207,7 @@ void handle_normal_mode_keydown(SDL_Keysym e) {
       printf("\n");
       break;
     }
-//#endif
+#endif
     default: break;
     }
 
@@ -236,6 +249,10 @@ void handle_normal_mode_keydown(SDL_Keysym e) {
     } else {
       // NORMAL
       switch(key) {
+      case '`':
+        to_tab_mode();
+        break;
+
       case 'a':
         get_current_buffer()->buffer_component.go_right();
         to_insert_mode();
