@@ -176,6 +176,7 @@ struct array {
     bool operator==(iterator o) const { return index == o.index; }
     bool operator!=(iterator o) const { return index != o.index; }
     T& operator*()              const { return p[index]; }
+    T* operator->()             const { return &p[index]; }
   };
   iterator begin() const { return iterator(0, data); }
   iterator end()   const { return iterator(size);    }

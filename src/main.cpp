@@ -7,6 +7,26 @@
 #include "hotloader.h"
 #include "input.h"
 
+static bool render_button_with_text(const char *text, size_t size, int x, int y) {
+  int width  = size * font_width;
+  int height = font_height;
+
+  draw_text_shaded(get_font(), text, BlackColor, WhiteColor, x, y);
+
+  int mx, my;
+  auto mask = SDL_GetMouseState(&mx, &my);
+
+  if(mask & SDL_BUTTON(SDL_BUTTON_LEFT)) {
+    if(x <= mx && mx <= x+width && y <= my && my <= y+height) {
+      return true;
+    }
+  }
+  return false;
+}
+
+static void render_tab_panel(int y) {
+}
+
 
 int main(int argc, char **argv) {
   if(Init_SDL()) return 1;
@@ -148,9 +168,38 @@ int main(int argc, char **argv) {
       }
     }
 
-    draw_rect(0, get_console()->bottom_y, Width, font_height, console_color);
-    console_draw();
+    // draw console.
+    int y = get_console()->bottom_y;
+    {
+      draw_rect(0, y, Width, font_height, console_color);
+      console_draw();
+    }
 
+    {
+      // draw tab panel.
+      y -= font_height;
+      auto tabs = get_tabs();
+      int  x = 0;
+
+      draw_rect(x, y, Width, font_height, WhiteColor);
+
+      For(tabs) {
+        string filename = it->buffers[0].filename;
+        if(!filename.size) break;
+        
+        char str[filename.size+2+1] = {};
+        str[0] = it_index + '0';
+        str[1] = ':';
+        memcpy(str + 2, filename.data, filename.size);
+
+        bool pressed = render_button_with_text(str, array_size(str), x, y);
+        if(pressed) { change_tab(it_index); }
+
+        x += array_size(str) * font_width;
+      }
+    }
+
+    // render.
     SDL_RenderPresent(get_renderer());
   }
 

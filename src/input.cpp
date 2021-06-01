@@ -72,15 +72,28 @@ void close_console() {
 }
 
 void handle_console_keydown(SDL_Keysym e) {
-  switch(e.sym) {
-  case SDLK_ESCAPE:    close_console(); break;
-  case SDLK_BACKSPACE: console_backspace(); break;
-  case SDLK_DELETE:    console_del(); break;
-  case SDLK_RETURN: 
-    console_run_command(); 
-    close_console(); 
-    break;
-  default: break;
+  int key = e.sym;
+  int mod = e.mod;
+
+  if(mod & KMOD_CTRL) {
+    switch(key) {
+    case 'c': console_clear(); break;
+    default: break;
+    }
+  } else {
+    switch(key) {
+    case SDLK_ESCAPE:
+      console_clear(); 
+      close_console();
+      break;
+    case SDLK_BACKSPACE: console_backspace(); break;
+    case SDLK_DELETE:    console_del(); break;
+    case SDLK_RETURN: 
+      console_run_command(); 
+      close_console(); 
+      break;
+    default: break;
+    }
   }
 }
 
@@ -103,6 +116,13 @@ void handle_tab_mode_keydown(SDL_Keysym e) {
   if(isdigit(e.sym)) {
     change_tab(e.sym - '0');
   }
+
+  switch(e.sym) {
+  case 'c':
+    open_new_tab(to_string("console.cpp")); // @Temoprary:
+    break;
+  }
+
   to_normal_mode();
 }
 
@@ -196,18 +216,6 @@ void handle_normal_mode_keydown(SDL_Keysym e) {
     case '/': open_console();           break;
     case 'n': to_next_in_search(&get_current_buffer()->search_component, &get_current_buffer()->buffer_component); break;
     case 'm': to_prev_in_search(&get_current_buffer()->search_component, &get_current_buffer()->buffer_component); break;
-
-#if 0
-    case 'e': {
-      auto select = get_selection();
-      auto buffer = get_current_buffer();
-      
-      printf("\n");
-      for(size_t i = select.first; i <= select.last; i++) { printf("%c", buffer->buffer_component.buffer[i]); }
-      printf("\n");
-      break;
-    }
-#endif
     default: break;
     }
 

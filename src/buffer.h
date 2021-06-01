@@ -14,7 +14,7 @@ struct Buffer_Component {
   size_t indentation_level;
   size_t total_lines;
 
-  int start_x, start_y, width, height; // @Ugh: 
+  int start_x, start_y, width, height;
 
 
   size_t get_line_length(size_t) const;
@@ -98,6 +98,7 @@ Select_Buffer &get_selection();
 
 void init(int, char**);
 
+buffer_t *open_buffer(buffer_t *, string);
 buffer_t *open_new_buffer(string);
 void open_existing_or_new_buffer(string);
 void open_existing_buffer(buffer_t *);
@@ -115,6 +116,7 @@ void save();
 void resize_tab(tab_t *);
 void change_buffer(s32);
 void close_buffer(tab_t*);
+void close_tab(tab_t*);
 
 void to_next_in_search(Search_Component *, Buffer_Component *);
 void to_prev_in_search(Search_Component *, Buffer_Component *);

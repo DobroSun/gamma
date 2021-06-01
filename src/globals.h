@@ -10,7 +10,6 @@ inline int font_height;
 inline char tabstop = 2;
 inline char dt_scroll = 3;
 
-inline bool show_fps    = false;
 inline bool should_quit = false;
 
 inline const char *assets_fonts = "/gamma/assets/fonts/";

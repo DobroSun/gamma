@@ -72,26 +72,30 @@ tab_t *open_new_tab(string s) {
   return tab;
 }
 
+buffer_t *open_buffer(buffer_t *buffer, string s) {
+  buffer->filename = s;
+
+  if(s.size) {
+    if(FILE *f = fopen(s.data, "r")) {
+      defer { fclose(f); };
+
+      auto gap_buffer = &buffer->buffer_component.buffer;
+      size_t n = read_file_into_memory(f, &gap_buffer->chars.data, gap_buffer->gap_len);
+      gap_buffer->chars.size     = n;
+      gap_buffer->chars.capacity = n;
+    }
+    buffer->buffer_component.total_lines = buffer->buffer_component.count_all_lines();
+  } else {
+    buffer->buffer_component.total_lines = 0;
+  }
+  return buffer;
+
+}
+
 buffer_t *open_new_buffer(string s) {
   auto buffer = get_free_buffer();
   active_tab->current_buffer = buffer;
-
-  assert(s.size != 0);
-
-  if(FILE *f = fopen(s.data, "r")) {
-    defer { fclose(f); };
-
-    // Read into gap_buffer.
-    auto gap_buffer = &buffer->buffer_component.buffer;
-    size_t n = read_file_into_memory(f, &gap_buffer->chars.data, gap_buffer->gap_len);
-    gap_buffer->chars.size     = n;
-    gap_buffer->chars.capacity = n;
-
-    buffer->filename = s;
-  }
-
-  buffer->buffer_component.total_lines = buffer->buffer_component.count_all_lines();
-  return buffer;
+  return open_buffer(buffer, s);
 }
 
 void open_existing_buffer(buffer_t *prev) {
@@ -225,6 +229,27 @@ void buffer_t::draw() const {
             draw_text_shaded(get_font(), comment, syntax->color_for_strings, background_color, px, py);
           }
         }
+        continue;
+
+      } else if(syntax->defined_color_for_strings && tok.type == TOKEN_SINGLE_CHARACTER) {
+        literal s = tok.string_literal;
+
+        char str[s.size + 4] = {};
+        str[0] = '\'';
+        memcpy(str + 1, s.data, s.size);
+        str[s.size+1] = '\'';
+
+        const int px = buffer_component.get_relative_pos_x(-offset_on_line + tok.c); // @Hack:
+        const int py = buffer_component.get_relative_pos_y(tok.l - buffer_component.start_pos);
+
+        if(py > get_console()->bottom_y - font_height) break;
+
+        draw_text_shaded(get_font(), 
+                         str, 
+                         syntax->color_for_strings, 
+                         background_color, 
+                         px,
+                         py);
         continue;
 
       } else if(syntax->tokenize_comments && tok.type == TOKEN_SINGLE_LINE_COMMENT) {
@@ -586,7 +611,7 @@ void Buffer_Component::put_tab() {
 
 void Buffer_Component::scroll_down() {
   if(start_pos == total_lines-1) return;
-  if(start_pos == n_line) { /*go_down();*/ } // @FixMe:  @RemoveMe: remove comment.
+  if(start_pos == n_line) { go_down(); } // @FixMe: 
   shift_beginning_up();
 }
 
@@ -899,7 +924,19 @@ void close_buffer(tab_t *tab) {
     index = (index == buffers.size) ? index-1 : index;
     tab->current_buffer = &buffers[index];
     resize_tab(tab);
+  } else {
+    close_tab(tab);
+  }
+}
 
+void close_tab(tab_t *tab) { // @Copy&Paste: from close_buffer.
+  size_t index;
+  tabs.find_pointer(tab, &index);
+  tabs.remove(index);
+
+  if(tabs.size) {
+    index = (index == tabs.size) ? index-1 : index;
+    active_tab = &tabs[index];
   } else {
     should_quit = true;
   }

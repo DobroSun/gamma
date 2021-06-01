@@ -106,6 +106,7 @@ static const char* name_from_tok(T t) { // supposed to be called with char or To
     case '/' : return "/";
     case TOKEN_NUMBER :         return "number";
     case TOKEN_STRING_LITERAL : return "string literal";
+    case TOKEN_SINGLE_CHARACTER: return "char";
     case TOKEN_IDENT  :         return "identifier";
     default : return "(unrecognized)"; // @Incomplete: Handle all types.
   }
@@ -116,6 +117,7 @@ static const char* type_from_tok(TokenType t) {
     case TOKEN_NUMBER  : return "int";
     case TOKEN_BOOLEAN : return "bool";
     case TOKEN_STRING_LITERAL : return "string literal";
+    case TOKEN_SINGLE_CHARACTER: return "char";
     case TOKEN_COLOR :   return "color"; // @ReName:
     default : return "(unrecognized)"; // @Incomplete: Handle all types.
   }
@@ -211,7 +213,6 @@ static void attach_value(SDL_Color *val, literal name) {
 
 
 void init_variable_table() {
-  push_bool(show_fps);
   push_string(font_name);
   push_int(font_size);
   push_color(text_color);
@@ -226,7 +227,6 @@ void init_variable_table() {
 
 #define attach_from_table(name) attach_value(&name, to_literal(#name))
 void update_variables() {
-  attach_from_table(show_fps);
   attach_from_table(font_name);
   attach_value((int*)&font_size, to_literal("font_size"));
   attach_from_table(text_color);
@@ -328,25 +328,42 @@ void Lexer::process_input(const char *cursor) {
       tokens.add(tok);
       //
 
-    } else if(*cursor == '\"' || *cursor == '\'') {
-      char stop = *cursor;
+    } else if(*cursor == '\'') {
+      INC(cursor, nline, nchar);
+      const char *tmp = cursor;
+      if(*cursor == '\'') {
+        continue;
+      } else if(*cursor == '\\') {
+        INC(cursor, nline, nchar);
+      }
       INC(cursor, nline, nchar);
 
+      if(*cursor == '\'') {
+        tok.type = TOKEN_SINGLE_CHARACTER;
+        tok.string_literal = to_literal(tmp, cursor-tmp);
+        tokens.add(tok);
+        INC(cursor, nline, nchar);
+      }
+
+    } else if(*cursor == '\"') {
+      INC(cursor, nline, nchar);
       const char *tmp = cursor;
+
       while(*cursor != '\0') {
-        if(*cursor == stop) {
+        if(*cursor == '\"') {
           break;
         } else if(*cursor == '\\') {
           INC(cursor, nline, nchar);
-          if(one_of(*cursor, "\"\'\\")) {
-            INC(cursor, nline, nchar);
-          }
-        } else {
-          INC(cursor, nline, nchar);
         }
+        INC(cursor, nline, nchar);
       }
-      if(*cursor != stop) { report_lexer_error(&tok, "Error: expected string literal to end up with %c, but got null terminator.\n", stop); tokens.add(tok); continue; } // @NoErrorOnSourceCode: when parsing source code this shouldn't report any error.
-      tok.type           = TOKEN_STRING_LITERAL;
+
+      if(*cursor != '\"') {  // @NoErrorOnSourceCode: when parsing source code this shouldn't report any error.
+        report_lexer_error(&tok, "Error: expected string literal to end up with `\"`, but got null terminator.\n");
+        tokens.add(tok);
+        continue;
+      }
+      tok.type = TOKEN_STRING_LITERAL;
       tok.string_literal = to_literal(tmp, cursor-tmp);
       tokens.add(tok);
       INC(cursor, nline, nchar);
@@ -679,7 +696,7 @@ static bool parse_top_level(Lexer &lexer) {
     Var var;
 
     tok = lexer.peek_token();
-    if(tok->type == TOKEN_STRING_LITERAL) {
+    if(tok->type == TOKEN_STRING_LITERAL || tok->type == TOKEN_SINGLE_CHARACTER) {
       lexer.eat_token();
       var.type    = tok->type;
       var.string_ = dynamic_string_from_literal(tok->string_literal);
@@ -703,7 +720,7 @@ static bool parse_top_level(Lexer &lexer) {
       return lexer.peek_token()->type == TOKEN_END_OF_INPUT;
     }
     attach_var_if_found(ident, var);
-    // Done.
+    // 
 
 
   } else {
@@ -739,6 +756,14 @@ static void parse_single_command(Lexer &lexer) {
 
   } else if(tok->string_literal == "quit" || tok->string_literal == "q" || tok->string_literal == "close_buffer") {
     close_buffer(get_current_tab());
+
+  } else if(tok->string_literal == "open") {
+    tok = lexer.peek_than_eat_token();
+    REPORT_ERROR_IF_NOT_TOKEN(tok, TOKEN_STRING_LITERAL, "Error: expected `%s` after `open` command.\n", name_from_tok(TOKEN_STRING_LITERAL));
+
+    buffer_t new_buffer = *get_current_buffer(); // @NeedsXYWidthHeight: Here we copy to get 
+    open_buffer(&new_buffer, to_string(tok->string_literal));
+    *get_current_buffer() = new_buffer; // @MemoryLeak: right now we don't free any memory used in current buffer.
 
   } else if(tok->string_literal == "tab") {
     tok = lexer.peek_than_eat_token(); // @Maybe: we don't need a TOKEN_STRING_LITERAL, just a TOKEN_IDENT.

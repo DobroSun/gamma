@@ -143,6 +143,8 @@ struct Timer {
 #define min(a, b) (((a) < (b)) ? (a) : (b))
 #define square(a) ((a)*(a))
 
+#define For(array) size_t it_index = 0; for(auto it = (array).begin(); it != (array).end(); it++, it_index++)
+
 
 template<class T, class U, size_t N>
 bool one_of(const T c, const U (&x)[N]) {
