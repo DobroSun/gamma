@@ -4,8 +4,12 @@
 #include "console.h"
 
 
-bool no_input = false; // When we switch from normal mode to insert mode, it immediately puts `i` on screen, but we want it to wait untill next keydown.
+bool no_input = false; // When we switch from normal mode to insert mode, it immediately puts `i` on screen, but we want it to wait until next keydown.
 void set_input() { no_input = false; }
+
+static const char *insert_mode_text = "-- INSERT --";
+static const char *visual_mode_text = "-- VISUAL --";
+static const char *visual_line_mode_text = "-- VISUAL LINE --";
 
 
 void (*current_action)(Buffer_Component*)  = no_action;
@@ -19,7 +23,7 @@ bool is_insert_mode()  { return handle_keydown == handle_insert_mode_keydown && 
 bool is_console_mode() { return handle_keydown == handle_console_keydown; }
 bool is_tab_mode()     { return handle_keydown == handle_tab_mode_keydown; }
 
-// @Note: Since visual mode needs to be able to move cursor(i.e. reuse normal mode moving functions) we don't create new mode for that.
+// @Note: Since visual modes need to be able reuse normal mode keys, we don't create another handle_* 
 bool is_visual_mode()      { return current_action == select_action || current_action == select_to_left || current_action == select_to_right; }
 bool is_visual_line_mode() { return current_action == select_line_action || current_action == select_line_to_left || current_action == select_line_to_right; }
 
@@ -34,7 +38,7 @@ void to_insert_mode() { // @Incomplete: When we are in visual mode we shouldn't 
   no_input = true;
   handle_keydown = handle_insert_mode_keydown;
   update_indentation_level(get_current_buffer());
-  console_put_text("-- INSERT --");
+  console_put_text(insert_mode_text);
 }
 
 void to_visual_mode() {
@@ -42,7 +46,7 @@ void to_visual_mode() {
   get_selection().first = get_current_buffer()->buffer_component.cursor();
   get_selection().last  = get_selection().first;
   current_action = select_action;
-  console_put_text("-- VISUAL --");
+  console_put_text(visual_mode_text);
 }
 
 void to_visual_line_mode() {
@@ -53,7 +57,7 @@ void to_visual_line_mode() {
   get_selection().first = to_beginning_of_line(t).cursor1;
   get_selection().last  = to_end_of_line(t).cursor1;
   current_action = select_line_action;
-  console_put_text("-- VISUAL LINE --");
+  console_put_text(visual_line_mode_text);
 }
 
 void to_tab_mode() {
@@ -61,14 +65,51 @@ void to_tab_mode() {
   console_clear();
 }
 
-void open_console() { 
+void to_console_mode() { 
   handle_keydown = handle_console_keydown;
   console_clear(); 
 }
 
-void close_console() {
-  handle_keydown = handle_normal_mode_keydown;
-  current_action = no_action;
+
+static void switch_to_visual_mode() {
+  assert(handle_keydown == handle_normal_mode_keydown);
+  assert(is_visual_line_mode());
+
+  if(current_action == select_line_action) {
+    current_action = select_action;
+  } else if(current_action == select_line_to_right) {
+    current_action = select_to_right;
+  } else {
+    assert(current_action == select_line_to_left);
+    current_action = select_to_left;
+  }
+  console_put_text(visual_mode_text);
+}
+
+static void switch_to_visual_line_mode() {
+  assert(handle_keydown == handle_normal_mode_keydown);
+  assert(is_visual_mode());
+
+  {
+    auto t = get_current_buffer()->buffer_component;
+    t.cursor1 = get_selection().first;
+    get_selection().first = to_beginning_of_line(t).cursor1;
+  }
+  {
+    auto t = get_current_buffer()->buffer_component;
+    t.cursor1 = get_selection().last;
+    get_selection().last  = to_end_of_line(t).cursor1;
+  }
+
+  if(current_action == select_action) {
+    current_action = select_line_action;
+  } else if(current_action == select_to_right) {
+    current_action = select_line_to_right;
+  } else {
+    assert(current_action == select_to_left);
+    current_action = select_line_to_left;
+  }
+  console_put_text(visual_line_mode_text);
 }
 
 void handle_console_keydown(SDL_Keysym e) {
@@ -77,20 +118,19 @@ void handle_console_keydown(SDL_Keysym e) {
 
   if(mod & KMOD_CTRL) {
     switch(key) {
-    case 'c': console_clear(); break;
+    case 'c':
+      to_normal_mode();
+      break;
     default: break;
     }
   } else {
     switch(key) {
-    case SDLK_ESCAPE:
-      console_clear(); 
-      close_console();
-      break;
+    case SDLK_ESCAPE:    to_normal_mode(); break;
     case SDLK_BACKSPACE: console_backspace(); break;
     case SDLK_DELETE:    console_del(); break;
     case SDLK_RETURN: 
       console_run_command(); 
-      close_console(); 
+      to_normal_mode();
       break;
     default: break;
     }
@@ -149,31 +189,34 @@ void handle_normal_mode_keydown(SDL_Keysym e) {
   }
 
   if(mod & KMOD_SHIFT && mod & KMOD_CTRL) {
-    // CTRL + SHIFT 
+    // SHIFT + CTRL.
   } else if(mod & KMOD_CTRL) {
-    // CTRL
+    // CTRL.
   } else if(mod & KMOD_SHIFT) {
-    // SHIFT + SHARED TO ALL MODS
+    // SHARED + SHIFT.
     switch(key) { 
-    case ';': open_console();      break;      // ':'
+    case ';': to_console_mode();      break;      // ':'
     case '4': get_current_buffer()->buffer_component = move_to(to_end_of_line(get_current_buffer()->buffer_component)); break; // '$'
     case '[': go_paragraph_backwards(); break; // '{'
     case ']': go_paragraph_forward();   break; // '}'
     default: break;
     }
 
-    if(is_visual_mode()) {
-      // SHIFT + VISUAL
-
-    } else if(is_visual_line_mode()) {
-      // SHIFT + VISUAL LINE
+    if(is_visual_mode() || is_visual_line_mode()) {
+      // VISUAL + VISUAL LINE + SHIFT.
       switch(key) {
-      case 'v': to_normal_mode(); break; // 'V'.
+      case 'v':  // 'V'.
+        if(is_visual_mode()) {
+          switch_to_visual_line_mode();
+        } else {
+          to_normal_mode();
+        }
+        break;
       default: break;
       }
 
     } else {
-      // SHIFT + NORMAL
+      // NORMAL + SHIFT. 
       switch(key) {
       case 'v': to_visual_line_mode(); break; // 'V'.
       case 'd': {   // 'D'
@@ -182,6 +225,20 @@ void handle_normal_mode_keydown(SDL_Keysym e) {
         buffer->buffer_component = move_to(to_end_of_line(buffer->buffer_component));
         break;
       }
+
+      case 'i': {   // 'I'
+        update_indentation_level(get_current_buffer());
+
+        auto &buffer = get_current_buffer()->buffer_component;
+        buffer = move_to(to_beginning_of_line(buffer));
+        for(int i = 0; i < buffer.indentation_level; i++) {
+          buffer = to_right(buffer);
+        }
+        buffer = move_to(buffer);
+        to_insert_mode();
+        break;
+      }
+        
       case 'a':     // 'A'
         get_current_buffer()->buffer_component = move_to(to_end_of_line(get_current_buffer()->buffer_component));
         to_insert_mode();
@@ -191,7 +248,7 @@ void handle_normal_mode_keydown(SDL_Keysym e) {
     }
 
   } else {
-    // SHARED TO ALL MODS
+    // SHARED.
     switch(key) {
     case '0': get_current_buffer()->buffer_component = move_to(to_beginning_of_line(get_current_buffer()->buffer_component)); break;
     case 'w': go_word_forward();        break;
@@ -213,52 +270,55 @@ void handle_normal_mode_keydown(SDL_Keysym e) {
     case 'k':
       get_current_buffer()->buffer_component.go_up();    break; 
 
-    case '/': open_console();           break;
+    case '/': to_console_mode(); break;
     case 'n': to_next_in_search(&get_current_buffer()->search_component, &get_current_buffer()->buffer_component); break;
     case 'm': to_prev_in_search(&get_current_buffer()->search_component, &get_current_buffer()->buffer_component); break;
     default: break;
     }
 
-    if(is_visual_mode()) {
-      // VISUAL
+    if(is_visual_mode() || is_visual_line_mode()) {
+      // VISUAL + VISUAL LINE.
       switch(key) {
       case 'y':
         yield_selected(get_current_buffer()->buffer_component.buffer, get_selection());
         to_normal_mode();
         break; 
+
+      //case '>':
+        //break;
+
+      case 'x':
       case 'd':
         delete_selected(get_current_buffer());
         to_normal_mode();
         break; 
 
-      case 'x': /* ... */         break;
-      case 'v': to_normal_mode(); break;
-      case SDLK_ESCAPE:
-        current_action = no_action;
-        to_normal_mode();
+      case 'v':
+        if(is_visual_mode()) {
+          to_normal_mode();
+        } else {
+          switch_to_visual_mode();
+        }
         break;
 
-      default: break;
-      }
-    } else if(is_visual_line_mode()) {
-      // VISUAL LINE
-      switch(key) {
-      case 'y':
-        yield_selected(get_current_buffer()->buffer_component.buffer, get_selection());
+      case SDLK_ESCAPE:
         to_normal_mode();
-        break; 
-      case 'd':
-        delete_selected(get_current_buffer());
-        to_normal_mode();
-        break; 
-      case SDLK_ESCAPE: to_normal_mode(); break;
+        break;
       default: break;
       }
     } else {
-      // NORMAL
+      // NORMAL.
       switch(key) {
       case '`':
         to_tab_mode();
+        break;
+
+      case '>':
+        if(1);
+        break;
+
+      case '<':
+        if(1);
         break;
 
       case 'a':

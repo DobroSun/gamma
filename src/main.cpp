@@ -24,9 +24,6 @@ static bool render_button_with_text(const char *text, size_t size, int x, int y)
   return false;
 }
 
-static void render_tab_panel(int y) {
-}
-
 
 int main(int argc, char **argv) {
   if(Init_SDL()) return 1;

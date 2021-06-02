@@ -2,11 +2,9 @@
 #define GAMMA_HOTLOADER_H
 
 struct Settings_Hotloader {
-  int fd, wd;
+  int fd;
+  bool tries_to_update_second_time;
 
-  inotify_event *current_event;
-  inotify_event  event_buffer[10];
-  bool is_not_reloaded = false;
 
 
   Settings_Hotloader(const char *);

@@ -148,6 +148,7 @@ void save_current_state_for_undo(Undo_Component *, Buffer_Component *);
 void undo(Undo_Component *, Buffer_Component *);
 void redo(Undo_Component *, Buffer_Component *);
 
+Buffer_Component to_right(Buffer_Component);
 Buffer_Component to_beginning_of_line(Buffer_Component);
 Buffer_Component to_end_of_line(Buffer_Component);
 Buffer_Component move_to(Buffer_Component);

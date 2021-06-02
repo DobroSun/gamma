@@ -12,8 +12,8 @@ inline char dt_scroll = 3;
 
 inline bool should_quit = false;
 
-inline const char *assets_fonts = "/gamma/assets/fonts/";
-inline const char *font_name = "Courier-Regular.ttf";
+inline literal assets_fonts = to_literal("/gamma/assets/fonts/");
+inline literal font_name    = to_literal("Courier-Regular.ttf");
 
 inline       u16   font_size = 25;
 inline SDL_Color   background_color   = {255,255,255,255};
@@ -29,17 +29,6 @@ inline const char *settings_filename = "syntax.m";
 
 const SDL_Color WhiteColor = {255, 255, 255, 255};
 const SDL_Color BlackColor = {0, 0, 0, 255};
-
-inline void* allocate(size_t bytes) {
-  void *r = malloc(bytes);
-  assert(r);
-  memset(r, 0, bytes);
-  return r;
-}
-
-inline void  deallocate(void *ptr) {
-  return free(ptr);
-}
 
 
 #endif

@@ -12,7 +12,7 @@ inline bool ensure_space(const char *c, size_t n) {
   return true;
 }
 
-inline void INC(const char *&c, s32 &nl, s32 &nc) { // these are references for no reason!
+inline void INC(const char *&c, s32 &nl, s32 &nc) {
   if(*c == '\n') {
     ++nl;
     nc = 0;
@@ -33,7 +33,7 @@ inline void ADVANCE(const char *&c, size_t n, s32 &nl, s32 &nc) {
 static const u16 MAX_ERROR_STRING_SIZE = 2048;
 
 void report_error(const char *fmt, va_list args) {
-  char r[MAX_ERROR_STRING_SIZE] = {0};
+  char r[MAX_ERROR_STRING_SIZE] = {};
   vsnprintf(r, MAX_ERROR_STRING_SIZE, fmt, args);
   console_put_text(r);
 }
@@ -41,7 +41,7 @@ void report_error(const char *fmt, va_list args) {
 void report_error(const char *fmt, ...) {
   va_list args;
   va_start(args, fmt);
-  char r[MAX_ERROR_STRING_SIZE] = {0};
+  char r[MAX_ERROR_STRING_SIZE] = {};
   vsnprintf(r, MAX_ERROR_STRING_SIZE, fmt, args);
   console_put_text(r);
   va_end(args);
@@ -125,22 +125,24 @@ static const char* type_from_tok(TokenType t) {
 
 
 
-
-
-#define push_to_table(val, member, type_t) \
+#define push_to_table_name(val, name, member, type_t) \
   { \
     Var r; \
     r.type   = (type_t); \
     r.member = (val); \
-    literal l = to_literal(#val); \
+    literal l = to_literal(#name); \
     attach_table.literals.add(l); \
     attach_table.rvalues .add(r); \
   }
 
-#define push_int(val)    push_to_table(val, s64_, TOKEN_NUMBER)
-#define push_bool(val)   push_to_table(val, bool_, TOKEN_BOOLEAN)
-#define push_string(val) push_to_table(val, string_, TOKEN_STRING_LITERAL)
-#define push_color(val)  push_to_table(val, color_, TOKEN_COLOR) // @ReName: @Vector: 
+
+#define push_to_table(val, member, type_t) \
+  push_to_table_name(val, val, member, type_t)
+
+#define push_int(val)     push_to_table(val, s64_, TOKEN_NUMBER)
+#define push_bool(val)    push_to_table(val, bool_, TOKEN_BOOLEAN)
+#define push_literal(val) push_to_table_name((val).data, val, string_, TOKEN_STRING_LITERAL)
+#define push_color(val)   push_to_table(val, color_, TOKEN_COLOR) // @ReName: @Vector: 
   
 
 struct Hotloaded_Variables { // @Speed: Hashtable.
@@ -179,12 +181,12 @@ static void attach_value(int *val, literal name) {
   }
 }
 
-static void attach_value(const char **val, literal name) {
+static void attach_value(literal *val, literal name) {
   size_t index;
   if(attach_table.literals.find(name, &index)) {
     Var *r = &attach_table.rvalues[index];
     if(r->type == TOKEN_STRING_LITERAL) {
-      *val = r->string_; // @MemoryLeak:
+      *val = to_literal(r->string_, strlen(r->string_));
     } else {
       static_string_from_literal(s, name);
       report_error("Error: `%s` expected to have type string literal, but got %s.\n", s, type_from_tok(r->type));
@@ -213,7 +215,7 @@ static void attach_value(SDL_Color *val, literal name) {
 
 
 void init_variable_table() {
-  push_string(font_name);
+  push_literal(font_name); // null terminated, so it's ok.
   push_int(font_size);
   push_color(text_color);
   push_color(background_color);

@@ -66,9 +66,16 @@ TTF_Font        *&get_font() { return active_font; }
 void clear_font() { TTF_CloseFont(active_font); }
 void make_font() {
   {
-  char *font_path = concat(assets_fonts, font_name);
-  defer { free(font_path); };
-  active_font = TTF_OpenFont(font_path, font_size);
+    // concat ( assets_fonts + font_name ).
+    literal l1 = assets_fonts, l2 = font_name;
+    size_t total_size = l1.size + l2.size + 1;
+    char font_path[total_size] = {};
+
+    memcpy(font_path,           l1.data, l1.size);
+    memcpy(font_path + l1.size, l2.data, l2.size);
+    // 
+
+    active_font = TTF_OpenFont(font_path, font_size);
   }
 
   assert(active_font);

@@ -1,19 +1,19 @@
 #ifndef GAMMA_UTILITY_H
 #define GAMMA_UTILITY_H
 
-inline char *concat(const char *a, const char *b) {
-  const size_t s1 = strlen(a);
-  const size_t s2 = strlen(b);
 
-  char *ret = (char *)malloc(s1+s2+1);
-  assert(ret);
-
-  memcpy(ret, a, s1);
-  memcpy(ret + s1, b, s2);
-  ret[s1+s2] = '\0';
-
-  return ret;
+inline void* allocate(size_t bytes) {
+  void *r = malloc(bytes);
+  assert(r);
+  memset(r, 0, bytes);
+  return r;
 }
+
+inline void  deallocate(void *ptr) {
+  return free(ptr);
+}
+
+
 
 struct Junk {};
 #define defer auto ANONYMOUS_NAME = Junk{} + [&]()
@@ -83,14 +83,12 @@ inline std::ostream& operator<<(std::ostream &os, literal l) {
 }
 
 #define static_string_from_literal(name, l) \
-  char name[l.size+1]; \
-  memcpy(name, l.data, l.size); \
-  name[l.size] = '\0';
+  char name[l.size+1] = {}; \
+  memcpy(name, l.data, l.size);
 
 inline char *dynamic_string_from_literal(literal l) {
-  char *r = (char *)malloc(l.size+1);
+  char *r = (char *)allocate(l.size+1);
   memcpy(r, l.data, l.size);
-  r[l.size] = '\0';
   return r;
 }
 
