@@ -16,19 +16,15 @@ void console_draw() {
   auto &buffer = console.buffer;
   if(!buffer.size()) { return; }
 
-  const size_t cursor = console.cursor;
-  const size_t length = buffer.size();
+  string s = string_from_gap_buffer(&buffer);
+  defer { free_string(&s); };
 
-  {
-    char string[length+1] = {0};
-    for(size_t i = 0; i < length; i++) {
-      char c = buffer[i];
-      string[i] = (c == '\n') ? ' ' : c;
-    }
-    draw_text_shaded(get_font(), string, console_color, console_text_color, 0, console.bottom_y);
-  }
+  draw_text_shaded(get_font(), s.data, console_color, console_text_color, 0, console.bottom_y);
+
 
   if(is_input) {
+    const size_t cursor = console.cursor;
+    const size_t length = buffer.size();
     char c = (cursor >= length) ? ' ' : buffer[cursor];
     draw_text_shaded(get_font(), c, cursor_text_color, cursor_color, cursor*font_width, console.bottom_y);
   }
@@ -66,14 +62,10 @@ void console_del() {
 }
 
 void console_run_command() {
-  size_t size = console.buffer.size();
-  char cmd[size+1] = {0};
+  string s = string_from_gap_buffer(&console.buffer);
+  defer { free_string(&s); };
 
-  for(size_t i = 0; i < size; i++) {
-    cmd[i] = console.buffer[i];
-  }
-
-  interp_single_command(cmd);
+  interp_single_command(s.data);
 }
 
 console_t *get_console() { return &console; }

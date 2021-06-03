@@ -54,6 +54,7 @@ struct Keyword_Def {
   TokenType type;
 };
 
+// @ArrayOfStirngs: array of immutable strings, we can make this with single big allocation.
 struct Language_Syntax_Struct {
   array<string>      names;
   array<Keyword_Def> keywords;
@@ -74,10 +75,10 @@ struct Language_Syntax_Struct {
 };
 
 struct Syntax_Settings {
-  array<Language_Syntax_Struct> base = {};
+  array<Language_Syntax_Struct> base;
 
-  array<string>                  extensions = {};
-  array<Language_Syntax_Struct*> syntax = {};
+  array<string>                  extensions;
+  array<Language_Syntax_Struct*> syntax;
 };
 
 
@@ -107,6 +108,8 @@ void interp(const char *);
 void interp_single_command(const char *);
 
 Language_Syntax_Struct *get_language_syntax(literal);
+
+void finish_settings();
 
 void init_variable_table();
 void update_variables();

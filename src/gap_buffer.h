@@ -124,14 +124,7 @@ struct gap_buffer {
   }
 };
 
-inline void copy_gap_buffer(gap_buffer *a, const gap_buffer *b) {
-  new (a) gap_buffer(); // this handles the case, when a & b point to the same gap_buffer.
-  copy_string(&a->chars, &b->chars);
-  a->pre_len = b->pre_len;
-  a->gap_len = b->gap_len;
-}
-
-inline char *string_from_gap_buffer(const gap_buffer *g) {
+inline string string_from_gap_buffer(const gap_buffer *g) {
   const size_t size    = g->size();
   const size_t pre_len = g->pre_len;
   const size_t gap_len = g->gap_len;
@@ -141,7 +134,28 @@ inline char *string_from_gap_buffer(const gap_buffer *g) {
   memcpy(r,           g->chars.data,                     pre_len);
   memcpy(r + pre_len, g->chars.data + pre_len + gap_len, size-pre_len);
 
-  return r;
+  string s;
+  s.data     = r;
+  s.capacity = size+1;
+  s.size     = size+1;
+  return s;
+}
+
+inline void free_gap_buffer(gap_buffer *g) {
+  free_string(&g->chars);
+}
+
+inline void copy_gap_buffer(gap_buffer *a, const gap_buffer *b) {
+  *a = {};
+  copy_string(&a->chars, &b->chars);
+  a->pre_len = b->pre_len;
+  a->gap_len = b->gap_len;
+}
+
+inline void move_gap_buffer(gap_buffer *a, gap_buffer *b) {
+  copy_gap_buffer(a, b);
+  free_gap_buffer(b);
+  *b = {};
 }
 
 #undef INITIAL_GAP_LENGTH 

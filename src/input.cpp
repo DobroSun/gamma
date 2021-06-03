@@ -284,9 +284,6 @@ void handle_normal_mode_keydown(SDL_Keysym e) {
         to_normal_mode();
         break; 
 
-      //case '>':
-        //break;
-
       case 'x':
       case 'd':
         delete_selected(get_current_buffer());
@@ -311,14 +308,6 @@ void handle_normal_mode_keydown(SDL_Keysym e) {
       switch(key) {
       case '`':
         to_tab_mode();
-        break;
-
-      case '>':
-        if(1);
-        break;
-
-      case '<':
-        if(1);
         break;
 
       case 'a':

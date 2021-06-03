@@ -20,23 +20,6 @@ struct array {
     return &(*add() = v);
   }
 
-#if 0
-  T* insert(size_t index) {
-    if(index >= size)    { return add(); }
-    if(size == capacity) { reserve(); }
-
-    const size_t size_to_copy = size - index;
-    size++;
-
-    T tmp[size_to_copy];
-    memcpy(tmp, data+index, sizeof(tmp));
-    memcpy(data+index+1, tmp, sizeof(tmp));
-
-    new (&data[index]) T();
-    return &data[index];
-  }
-#endif
-
   template<class U, class B> // U for different types, B for constness.
   bool find(U v, B **iter, size_t *index) {
     for(size_t i = 0; i < size; i++) {

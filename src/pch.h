@@ -29,8 +29,8 @@ typedef double   f64;
 
 #include "fwd.h"
 #include "utility.h"
-#include "globals.h"
 #include "array.h"
+#include "globals.h"
 #include "gap_buffer.h"
 
 #endif

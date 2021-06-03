@@ -72,7 +72,29 @@ tab_t *open_new_tab(string s) {
   return tab;
 }
 
+void finish_copy() {
+  free_gap_buffer(&yielded);
+}
+
+void finish_buffer(buffer_t *buffer) {
+  for(auto &undo: buffer->undo_component.undo) {
+    free_gap_buffer(&undo.buffer);
+  }
+
+  for(auto &redo: buffer->undo_component.redo) {
+    free_gap_buffer(&redo.buffer);
+  }
+  free_array(&buffer->undo_component.undo);
+  free_array(&buffer->undo_component.redo);
+
+  free_array(&buffer->search_component.found);
+  free_gap_buffer(&buffer->buffer_component.buffer);
+
+  free_array(&buffer->filename);
+}
+
 buffer_t *open_buffer(buffer_t *buffer, string s) {
+  finish_buffer(buffer);
   buffer->filename = s;
 
   if(s.size) {
@@ -150,8 +172,8 @@ void buffer_t::draw() const {
     i += current_line_length;
   }
 
-  char *string = string_from_gap_buffer(&buffer_component.buffer);
-  defer { deallocate(string); };
+  string content = string_from_gap_buffer(&buffer_component.buffer);
+  defer { free_string(&content); };
 
   auto syntax = get_language_syntax(get_file_extension(filename));
   if(syntax) {
@@ -167,7 +189,7 @@ void buffer_t::draw() const {
       free_array(&lexer.keywords_table);
     };
 
-    lexer.process_input(string);
+    lexer.process_input(content.data);
 
     for(auto &tok : lexer.tokens) {
       if(tok.l < buffer_component.start_pos && tok.type != TOKEN_STRING_LITERAL && tok.type != TOKEN_MULTI_LINE_COMMENT && tok.type != TOKEN_SINGLE_LINE_COMMENT) continue;
@@ -321,7 +343,7 @@ void buffer_t::draw() const {
     if(loc.l < buffer_component.start_pos) continue;
 
     char s[loc.size+1];
-    memcpy(s, string + loc.index, loc.size);
+    memcpy(s, content.data + loc.index, loc.size);
     s[loc.size] = '\0';
 
     const int px = buffer_component.get_relative_pos_x(-offset_on_line + loc.c); // @Hack:
@@ -712,99 +734,35 @@ void update_indentation_level(buffer_t *buffer) {
   buffer->buffer_component.indentation_level = indentation_level;
 }
 
-
-void init(int argc, char **argv) {
-  init_variable_table();
-
-  string filename = {};
-  if(argc > 1) {
-    for(int i = 1; i < argc; i++) { // parsing command line arguments.
-      const char *arg = argv[i];
-      int len    = strlen(arg);
-      int cursor = 0;
-
-      literal option = {};
-      if(arg[cursor] == '-') {
-        cursor++;
-        if(arg[cursor] == '-') {
-          // It's a command line option.
-          cursor++;
-          const char *tmp = arg + cursor;
-          while(arg[cursor] != '\0' && arg[cursor] != '=') {
-            cursor++;
-          }
-          option.data = tmp;
-          option.size = cursor - 2; // `--`.
-        } else {
-          report_error("Error: use `--` for command line options.\n");
-          continue;
-        }
-      } else {
-        // It's a positional argument.
-        if(!filename.size) filename = to_string(arg, len);
-      }
-
-      if(option == "settings") {
-        if(arg[cursor++] != '=') {
-          report_error("Error: `settings` option expects a path to settings file.\n", settings_filename);
-          continue;
-        }
-        if(arg[cursor] == '\0') {
-          report_error("Error: `settings` option requires non null path.\n");
-          continue;
-        }
-        settings_filename = arg + cursor;
-        // done.
-
-      } else { // other options.
-      }
-    }
-  } else {
-    // No command line arguments provided.
+static void add_eol_to_the_end_if_needed(gap_buffer *gb) {
+  if((*gb)[gb->size()-1] != '\n') {
+    gb->add('\n');
   }
-
-  {
-    char *string = NULL;
-    defer { if(string) deallocate(string); };
-    {
-      FILE *f = fopen(settings_filename, "r");
-      defer { if(f) fclose(f); };
-      read_file_into_memory(f, &string);
-    }
-    interp(string);
-  }
-
-  update_variables();
-  make_font();
-
-  open_new_tab(filename);
 }
 
-void save() {
-  auto   buffer   = active_tab->current_buffer;
+void save_buffer(buffer_t *buffer) {
   string filename = buffer->filename;
-  if(!filename.size) {
-    console_put_text("Error: File has no name.\n");
-		return;
-	}
 
-  FILE *f = fopen(filename.data, "w");
-  if(!f) {
-    open(filename.data, O_RDWR | O_CREAT, 0);
-    f = fopen(filename.data, "w");
+  if(filename.size) {
+    FILE *f = fopen(filename.data, "w");
+    defer { if(f) fclose(f); };
+
+    if(f) {
+      auto *gb = &buffer->buffer_component.buffer;
+
+      add_eol_to_the_end_if_needed(gb);
+      string content = string_from_gap_buffer(gb);
+      defer { free_string(&content); };
+
+      fprintf(f, "%s", content.data);
+      fflush(f);
+      console_put_text("File saved.");
+    } else {
+      console_put_text("Error: Couldn't open file.");
+    }
+  } else {
+    console_put_text("Error: This buffer has no name.");
   }
-	defer { if(f) fclose(f); };
-
-	size_t i = 0;
-	for( ; i < buffer->buffer_component.buffer.size(); i++) {
-		fprintf(f, "%c", buffer->buffer_component.buffer[i]);
-	}
-	if(!buffer->buffer_component.buffer.size() || buffer->buffer_component.buffer[i-1] != '\n') {
-		fprintf(f, "\n");
-	}
-
-	fflush(f);
-	console_put_text("File saved.");
 }
 
 // Commands.
@@ -1018,12 +976,12 @@ static void to_previous_buffer_state(Buffer_Component *current, array<Buffer_Com
 
   {
     auto new_state = backup_states->add(*current);
-    copy_gap_buffer(&new_state->buffer, &current->buffer);
+    move_gap_buffer(&new_state->buffer, &current->buffer);
   }
 
   auto previous_state = active_states->pop();
   *current = *previous_state;
-  copy_gap_buffer(&current->buffer, &previous_state->buffer);
+  move_gap_buffer(&current->buffer, &previous_state->buffer);
 }
 
 void save_current_state_for_undo(Undo_Component *undo_component, Buffer_Component *buffer) {

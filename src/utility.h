@@ -1,16 +1,72 @@
 #ifndef GAMMA_UTILITY_H
 #define GAMMA_UTILITY_H
 
+struct Location {
+  const char *file;
+  const char *function;
+  u32 line;
+  void *ptr;
+  size_t allocated;
+};
 
-inline void* allocate(size_t bytes) {
+inline const u32 MAX_REPORTS       = 1024;
+inline Location  error_reports[MAX_REPORTS] = {};
+inline u32       num_reports = 0;
+
+#define allocate(bytes) _allocate(bytes, __FILE__, __func__, __LINE__)
+#define deallocate(ptr) _deallocate(ptr)
+
+inline void* _allocate(size_t bytes, const char *file, const char *function, u32 line) {
   void *r = malloc(bytes);
   assert(r);
   memset(r, 0, bytes);
+
+  assert(num_reports < MAX_REPORTS);
+  Location loc;
+  loc.file     = file;
+  loc.function = function;
+  loc.line     = line;
+  loc.ptr      = r;
+  loc.allocated = bytes;
+  error_reports[num_reports++] = loc;
+
   return r;
 }
 
-inline void  deallocate(void *ptr) {
+inline void  _deallocate(void *ptr) {
+  if(!ptr) return;
+
+  bool found = false;
+  u32 index;
+  for(u32 i = 0; i < num_reports; i++) {
+    Location it = error_reports[i];
+    if(it.ptr == ptr) {
+      found = true;
+      index = i;
+    }
+  }
+  if(!found) return;
+
+  error_reports[index] = error_reports[--num_reports];
   return free(ptr);
+}
+
+inline void report_all_memory_leaks() {
+  for(u32 i = 0; i < num_reports; i++) {
+    Location it = error_reports[i];
+    printf("%s:%u:%s \t::\twas allocated %lu bytes, but never freed!\n", it.file, it.line, it.function, it.allocated);
+  }
+
+
+  size_t total = 0;
+  for(u32 i = 0; i < num_reports; i++) {
+    total += error_reports[i].allocated;
+  }
+  if(total == 0) {
+    printf("No memory leaks!\n");
+  } else {
+    printf("Total memory leaked: %lu\n", total);
+  }
 }
 
 
@@ -92,7 +148,6 @@ inline char *dynamic_string_from_literal(literal l) {
   return r;
 }
 
-
 #define array_size(x) (sizeof((x)) / sizeof(*(x)))
 
 
@@ -161,4 +216,9 @@ T* find_if(array<T> a, F f) {
   }
   return NULL;
 }
+
+
+
+
+
 #endif

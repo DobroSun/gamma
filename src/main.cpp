@@ -4,7 +4,6 @@
 #include "font.h"
 #include "console.h"
 #include "interp.h"
-#include "hotloader.h"
 #include "input.h"
 
 static bool render_button_with_text(const char *text, size_t size, int x, int y) {
@@ -25,11 +24,152 @@ static bool render_button_with_text(const char *text, size_t size, int x, int y)
 }
 
 
+// 
+struct Settings_Hotloader {
+  int fd;
+  bool tries_to_update_second_time;
+  const char *file;
+};
+
+Settings_Hotloader make_hotloader(const char *name) {
+  int fd = inotify_init();
+
+  if(fd == -1) { fprintf(stderr, "Inotify init failed!\n"); }
+
+  int flags = fcntl(fd, F_GETFL, 0);
+  fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+
+	int wd = inotify_add_watch(fd, name, IN_ALL_EVENTS);
+  if(wd == -1) { fprintf(stderr, "Failed to add a watch for `syntax.m`\n"); }
+
+  Settings_Hotloader r = {};
+  r.fd   = fd;
+  r.file = name;
+  return r;
+}
+
+bool settings_need_reload(Settings_Hotloader *h) {
+  inotify_event event;
+  if(read(h->fd, &event, sizeof(event)) != -1) {
+    if(event.mask & IN_MODIFY) {
+      return true;
+    }
+  }
+  return false;
+}
+
+void reload_file(Settings_Hotloader *h) {
+  if(h->tries_to_update_second_time) {
+    h->tries_to_update_second_time = false;
+    return;
+  }
+
+  char *string = NULL;
+  defer { if(string) deallocate(string); };
+
+  if(FILE *f = fopen(h->file, "r")) {
+    defer { fclose(f); };
+    read_file_into_memory(f, &string);
+  } else {
+    return;
+  }
+
+  interp(string);
+  h->tries_to_update_second_time = true;
+}
+// 
+
+void init(int argc, char **argv, Settings_Hotloader *hotloader) {
+  init_variable_table();
+
+  string filename = {};
+  if(argc > 1) {
+    for(int i = 1; i < argc; i++) { // parsing command line arguments.
+      const char *arg = argv[i];
+      int len    = strlen(arg);
+      int cursor = 0;
+
+      literal option = {};
+      if(arg[cursor] == '-') {
+        cursor++;
+        if(arg[cursor] == '-') {
+          // It's a command line option.
+          cursor++;
+          const char *tmp = arg + cursor;
+          while(arg[cursor] != '\0' && arg[cursor] != '=') {
+            cursor++;
+          }
+          option.data = tmp;
+          option.size = cursor - 2; // `--`.
+        } else {
+          report_error("Error: use `--` for command line options.\n");
+          continue;
+        }
+      } else {
+        // It's a positional argument.
+        if(!filename.size) filename = to_string(arg, len);
+      }
+
+      if(option == "settings") {
+        if(arg[cursor++] != '=') {
+          report_error("Error: `settings` option expects a path to settings file.\n", settings_filename);
+          continue;
+        }
+        if(arg[cursor] == '\0') {
+          report_error("Error: `settings` option requires non null path.\n");
+          continue;
+        }
+        settings_filename = arg + cursor;
+        // done.
+
+      } else { // other options.
+      }
+    }
+  } else {
+    // No command line arguments provided.
+  }
+
+  *hotloader = make_hotloader(settings_filename);
+  reload_file(hotloader);
+
+  update_variables();
+  make_font();
+
+  open_new_tab(filename);
+}
+
+
+
+static void deallocate_everything(Settings_Hotloader *h) {
+  auto tabs = get_tabs();
+
+  for(auto &tab : tabs) {
+    for(auto &buffer : tab.buffers) {
+      finish_buffer(&buffer);
+    }
+    free_array(&tab.buffers);
+  }
+  free_array(&tabs);
+
+  finish_copy();
+
+  {
+    auto console = get_console();
+    free_gap_buffer(&console->buffer);
+  }
+  
+  finish_settings();
+
+  close(h->fd);
+}
+
+
 int main(int argc, char **argv) {
   if(Init_SDL()) return 1;
-  init(argc, argv);
 
-  Settings_Hotloader hotloader(settings_filename);
+  Settings_Hotloader hotloader;
+  init(argc, argv, &hotloader);
+
 
   while(!should_quit) {
     // measure_scope();
@@ -82,8 +222,8 @@ int main(int argc, char **argv) {
 
 
     // hotload settings.
-    if(hotloader.settings_need_reload()) {
-      hotloader.reload_file(settings_filename);
+    if(settings_need_reload(&hotloader)) {
+      reload_file(&hotloader);
       update_variables();
       clear_font();
       make_font();
@@ -147,7 +287,7 @@ int main(int argc, char **argv) {
               break;
 
             } else {
-              // Rendering intermediate line.
+              // Rendering intermediate lines.
               char string[current_line_length+1] = {};
               int x = buffer_component.get_relative_pos_x(-buffer->offset_on_line);
 
@@ -199,6 +339,9 @@ int main(int argc, char **argv) {
     // render.
     SDL_RenderPresent(get_renderer());
   }
+
+  deallocate_everything(&hotloader);
+  report_all_memory_leaks();
 
   /*
   SDL_DestroyRenderer(get_renderer());

@@ -1,7 +1,7 @@
 .PHONY: debug release clean
 
 CXX  := g++
-DEPS := main.o buffer.o console.o init.o font.o interp.o hotloader.o input.o
+DEPS := main.o buffer.o console.o init.o font.o interp.o input.o
 EXE_NAME  := main
 CXX_FLAGS := -std=c++17 -fno-exceptions -fno-rtti -Wall -Wextra
 

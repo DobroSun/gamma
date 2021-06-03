@@ -96,7 +96,8 @@ tab_t       *&get_current_tab();
 buffer_t    *&get_current_buffer();
 Select_Buffer &get_selection();
 
-void init(int, char**);
+void finish_buffer(buffer_t*);
+void finish_copy();
 
 buffer_t *open_buffer(buffer_t *, string);
 buffer_t *open_new_buffer(string);
@@ -111,7 +112,8 @@ void yield_selected(gap_buffer, Select_Buffer);
 void paste_from_buffer(Buffer_Component*);
 
 void go_to_line(int);
-void save();
+
+void save_buffer(buffer_t*);
 
 void resize_tab(tab_t *);
 void change_buffer(s32);
@@ -141,7 +143,6 @@ void select_to_right(Buffer_Component *buffer);
 void select_line_to_left(Buffer_Component *buffer);
 void select_line_to_right(Buffer_Component *buffer);
 // 
-
 
 
 void save_current_state_for_undo(Undo_Component *, Buffer_Component *);

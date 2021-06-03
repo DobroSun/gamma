@@ -556,18 +556,45 @@ Language_Syntax_Struct* get_language_syntax(literal file_extension) {
   }
 }
 
-static bool end_of_block(Lexer &lexer) {
-  return lexer.peek_token()->type == ':' && lexer.peek_token(1)->string_literal == "end"; // @Incomplete: ensure_space(1)
+static void finish_syntax_settings() {
+  for(auto &lss : settings.base) {
+    for(auto &s : lss.names) { free_string(&s); }
+    free_array(&lss.names);
+
+    free_array(&lss.keywords);
+    free_array(&lss.colors);
+
+    free_string(&lss.single_line_comment);
+    free_string(&lss.start_multi_line);
+    free_string(&lss.end_multi_line);
+  }
+  free_array(&settings.base);
+
+  for(auto &s : settings.extensions) {
+    free_string(&s);
+  }
+  free_array(&settings.extensions);
+  free_array(&settings.syntax);
 }
 
-static void attach_var_if_found(literal ident, Var var) {
-  size_t index;
-  if(attach_table.literals.find(ident, &index)) {
-    attach_table.rvalues[index] = var;
-  } else {
-    static_string_from_literal(s, ident);
-    report_error("Error: variable `%s` is not defined.\n", s);
+static void finish_var(Var *var) {
+  if(var->type == TOKEN_STRING_LITERAL || var->type == TOKEN_SINGLE_CHARACTER) {
+    deallocate((char*)var->string_);
   }
+}
+
+void finish_settings() {
+  free_array(&attach_table.literals);
+  for(auto &var : attach_table.rvalues) {
+    finish_var(&var);
+  }
+  free_array(&attach_table.rvalues);
+
+  finish_syntax_settings();
+}
+
+static bool end_of_block(Lexer &lexer) {
+  return lexer.peek_token()->type == ':' && lexer.peek_token(1)->string_literal == "end"; // @Incomplete: ensure_space(1)
 }
 
 static void parse_color(Lexer &lexer, SDL_Color *c) {
@@ -695,35 +722,42 @@ static bool parse_top_level(Lexer &lexer) {
 
   } else if(tok->type == TOKEN_IDENT) {
     literal ident = tok->string_literal;
-    Var var;
+    Var *var;
+
+    size_t index;
+    if(attach_table.literals.find(ident, &index)) {
+      var = &attach_table.rvalues[index];
+      finish_var(var);
+    } else {
+      static_string_from_literal(s, ident);
+      report_error("Error: variable `%s` is not defined.\n", s);
+      return false;  // @FixMe: 
+    }
 
     tok = lexer.peek_token();
     if(tok->type == TOKEN_STRING_LITERAL || tok->type == TOKEN_SINGLE_CHARACTER) {
       lexer.eat_token();
-      var.type    = tok->type;
-      var.string_ = dynamic_string_from_literal(tok->string_literal);
+      var->type    = tok->type;
+      var->string_ = to_string(tok->string_literal).data;
 
     } else if(tok->type == TOKEN_NUMBER) {
       lexer.eat_token();
-      var.type = tok->type;
-      var.s64_ = tok->var.s64_;
+      var->type = tok->type;
+      var->s64_ = tok->var.s64_;
 
     } else if(tok->type == TOKEN_BOOLEAN) {
       lexer.eat_token();
-      var.type  = tok->type;
-      var.bool_ = tok->var.bool_;
+      var->type  = tok->type;
+      var->bool_ = tok->var.bool_;
 
     } else if(tok->type == '(') { // color
-      var.type = TOKEN_COLOR; // @ReName: 
-      parse_color(lexer, &var.color_);
+      var->type = TOKEN_COLOR; // @ReName: 
+      parse_color(lexer, &var->color_);
 
     } else {
       report_error("Error: expected expression of type (%s, %s, %s, %s), but got `%s`.\n", type_from_tok(TOKEN_NUMBER), type_from_tok(TOKEN_BOOLEAN), type_from_tok(TOKEN_STRING_LITERAL), type_from_tok(TOKEN_COLOR), type_from_tok(tok->type));
       return lexer.peek_token()->type == TOKEN_END_OF_INPUT;
     }
-    attach_var_if_found(ident, var);
-    // 
-
 
   } else {
     report_parser_error(tok, "Error: expected ':' for command, or variable definition to hotload.\n");
@@ -735,17 +769,13 @@ static bool parse_top_level(Lexer &lexer) {
 void interp(const char *cursor) {
   if(!cursor) return;
 
-  // @MemoryLeak: Every array, string, everything!!!
-  for(auto &syntax : settings.base) {
-    syntax.keywords.clear();
-    syntax.names.clear();
-    syntax.colors.clear();
-  }
-  settings.base.clear();
-  settings.extensions.clear();
-  settings.syntax.clear();
-    
+  finish_syntax_settings();
+  settings = {};
+
   Lexer lexer = {};
+  assert(lexer.keywords_table.data == NULL);
+  defer { free_array(&lexer.tokens); };
+
   lexer.process_input(cursor);
 
   while(!parse_top_level(lexer)) {}
@@ -754,7 +784,7 @@ void interp(const char *cursor) {
 static void parse_single_command(Lexer &lexer) {
   Token *tok = lexer.peek_than_eat_token();
   if(tok->string_literal == "save" || tok->string_literal == "w") { // @Speed: precomputed Hashtable?
-    save();
+    save_buffer(get_current_buffer());
 
   } else if(tok->string_literal == "quit" || tok->string_literal == "q" || tok->string_literal == "close_buffer") {
     close_buffer(get_current_tab());
@@ -763,7 +793,7 @@ static void parse_single_command(Lexer &lexer) {
     tok = lexer.peek_than_eat_token();
     REPORT_ERROR_IF_NOT_TOKEN(tok, TOKEN_STRING_LITERAL, "Error: expected `%s` after `open` command.\n", name_from_tok(TOKEN_STRING_LITERAL));
 
-    buffer_t new_buffer = *get_current_buffer(); // @NeedsXYWidthHeight: Here we copy to get 
+    buffer_t new_buffer = *get_current_buffer(); // @NeedsXYWidthHeight: Here we copy to get client rect.
     open_buffer(&new_buffer, to_string(tok->string_literal));
     *get_current_buffer() = new_buffer; // @MemoryLeak: right now we don't free any memory used in current buffer.
 
@@ -827,6 +857,9 @@ void interp_single_command(const char *cursor) {
   if(!cursor) return;
 
   Lexer lexer = {};
+  assert(lexer.keywords_table.data == NULL);
+  defer { free_array(&lexer.tokens); };
+
   lexer.process_input(cursor);
 
   Token *tok = lexer.peek_than_eat_token();
