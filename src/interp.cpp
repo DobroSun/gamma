@@ -141,7 +141,7 @@ static const char* type_from_tok(TokenType t) {
 
 #define push_int(val)     push_to_table(val, s64_, TOKEN_NUMBER)
 #define push_bool(val)    push_to_table(val, bool_, TOKEN_BOOLEAN)
-#define push_literal(val) push_to_table_name((val).data, val, string_, TOKEN_STRING_LITERAL)
+#define push_literal(val) push_to_table_name(to_string(val).data, val, string_, TOKEN_STRING_LITERAL)
 #define push_color(val)   push_to_table(val, color_, TOKEN_COLOR) // @ReName: @Vector: 
   
 

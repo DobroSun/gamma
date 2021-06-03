@@ -1,6 +1,7 @@
 #ifndef GAMMA_UTILITY_H
 #define GAMMA_UTILITY_H
 
+#ifndef NDEBUG
 struct Location {
   const char *file;
   const char *function;
@@ -45,10 +46,10 @@ inline void  _deallocate(void *ptr) {
       index = i;
     }
   }
-  if(!found) return;
-
-  error_reports[index] = error_reports[--num_reports];
-  return free(ptr);
+  if(found) {
+    error_reports[index] = error_reports[--num_reports];
+  }
+  free(ptr);
 }
 
 inline void report_all_memory_leaks() {
@@ -68,8 +69,19 @@ inline void report_all_memory_leaks() {
     printf("Total memory leaked: %lu\n", total);
   }
 }
+#else 
+inline void* allocate(size_t bytes) {
+  void *r = malloc(bytes);
+  assert(r);
+  memset(r, 0, bytes);
+  return r;
+}
 
-
+inline void deallocate(void *ptr) {
+  if(!ptr) return;
+  return free(ptr);
+}
+#endif // NDEBUG
 
 struct Junk {};
 #define defer auto ANONYMOUS_NAME = Junk{} + [&]()

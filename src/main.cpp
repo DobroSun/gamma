@@ -341,7 +341,10 @@ int main(int argc, char **argv) {
   }
 
   deallocate_everything(&hotloader);
+
+#ifndef NDEBUG
   report_all_memory_leaks();
+#endif
 
   /*
   SDL_DestroyRenderer(get_renderer());
